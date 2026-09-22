@@ -1,0 +1,2 @@
+<script setup lang="ts">import {computed} from 'vue'; const p=defineProps<{score:number;label?:string}>(); const heat=computed(()=>p.score>=75?'Hot':p.score>=50?'Warm':'Cold'); const cls=computed(()=>heat.value==='Hot'?'badge-success':heat.value==='Warm'?'badge-warning':'badge-neutral');</script>
+<template><span :class="['zs-badge gap-1.5',cls]"><span class="num font-semibold">{{score}}</span><span>{{label??heat}}</span></span></template>

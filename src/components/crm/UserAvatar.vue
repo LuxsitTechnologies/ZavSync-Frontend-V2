@@ -1,0 +1,2 @@
+<script setup lang="ts">import {computed} from 'vue'; const p=defineProps<{name:string;size?:'sm'|'md'}>(); const initials=computed(()=>p.name.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase());</script>
+<template><span :title="name" :class="['grid shrink-0 place-items-center rounded-full bg-primary-subtle font-semibold text-primary-subtle-fg',size==='sm'?'size-6 text-2xs':'size-8 text-xs']">{{initials}}</span></template>

@@ -1,0 +1,11 @@
+## Phases A–H + AI Execution Copilot
+- [x] Complete shared frontend primitives and service boundaries
+- [x] Complete Phase A financial reporting gaps
+- [x] Add advanced ERP: purchases, expenses workflow, budgeting, year-end, audit log
+- [x] Add banking, reconciliation, settlements, and cash flow
+- [x] Close remaining CRM and outreach gaps
+- [x] Add AI Ops, meeting assistant, predictive analytics, and approvals
+- [x] Add knowledge documents, security, and threaded browser-persisted chat
+- [x] Add AI Execution Copilot preview, approval, execution, and history
+- [x] Verify source types and production build
+- [x] Package the unified Vue source

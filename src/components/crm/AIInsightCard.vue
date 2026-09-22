@@ -1,0 +1,3 @@
+<script setup lang="ts">import {Sparkles} from 'lucide-vue-next';defineProps<{title:string;content?:string;items?:string[]}>();</script>
+<template><div class="rounded-md border border-primary/20 bg-primary-subtle/40 p-3"><div class="flex items-center gap-2"><Sparkles class="size-3.5 text-primary"/><p class="text-xs font-semibold text-content">{{title}}</p><span class="zs-badge badge-brand ml-auto">AI-generated</span></div><p v-if="content" class="mt-2 text-xs leading-5 text-content-secondary">{{content}}</p><ul v-if="items" class="mt-2 space-y-1 text-xs text-content-secondary"><li v-for="item in items" :key="item">• {{item}}</li></ul></div>
+</template>

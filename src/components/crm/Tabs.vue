@@ -1,0 +1,2 @@
+<script setup lang="ts">defineProps<{items:string[];modelValue:string}>();defineEmits<{ 'update:modelValue':[value:string] }>();</script>
+<template><div class="overflow-x-auto border-b border-line"><div class="flex min-w-max gap-5 px-1"><button v-for="item in items" :key="item" type="button" class="border-b-2 px-1 py-3 text-xs font-medium transition-colors" :class="modelValue===item?'border-primary text-primary':'border-transparent text-content-muted hover:text-content'" @click="$emit('update:modelValue',item)">{{item}}</button></div></div></template>
