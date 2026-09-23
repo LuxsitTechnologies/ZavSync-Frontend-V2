@@ -81,6 +81,7 @@ export type PeriodStatus = "open" | "closed";
 
 export interface AccountingPeriod extends CompanyScoped {
   id: string;
+  fiscal_year_id?: string | null;
   name: string;
   start_date: string;
   end_date: string;

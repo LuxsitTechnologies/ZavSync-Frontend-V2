@@ -18,6 +18,7 @@ import { useCompanyStore } from "@/stores/company";
 import { shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import type { AccountingPeriod } from "@/types/accounting";
+import type { PeriodReadiness } from "@/types/planning";
 
 setPageMeta("Accounting Periods", "Open and close accounting periods to lock postings against them.");
 
@@ -29,6 +30,7 @@ const { data, loading, error, isEmpty, refresh } = useAsyncData(
 );
 
 const periods = computed<AccountingPeriod[]>(() => data.value ?? []);
+const history = useAsyncData(() => periodsRepository.history(company.activeCompanyId), { watch: [() => company.activeCompanyId] });
 const openCount = computed(() => periods.value.filter((p) => p.status === "open").length);
 const closedCount = computed(() => periods.value.filter((p) => p.status === "closed").length);
 const currentPeriod = computed(() => {
@@ -48,20 +50,35 @@ const columns: Column[] = [
 
 const target = ref<AccountingPeriod | null>(null);
 const nextStatus = ref<"open" | "closed">("closed");
-const mutation = useMutation(periodsRepository.setStatus);
+const readiness = ref<PeriodReadiness | null>(null);
+const reopenReason = ref("");
+const readinessMutation = useMutation(periodsRepository.readiness);
+const closeMutation = useMutation(periodsRepository.close);
+const reopenMutation = useMutation(periodsRepository.reopen);
 
-function requestChange(period: AccountingPeriod, status: "open" | "closed") {
-  target.value = period;
+async function requestChange(period: AccountingPeriod, status: "open" | "closed") {
   nextStatus.value = status;
-  mutation.reset();
+  readiness.value = null;
+  closeMutation.reset();
+  reopenMutation.reset();
+  if (status === "closed") {
+    const result = await readinessMutation.run(company.activeCompanyId, period.id);
+    readiness.value = result;
+    if (!result?.ready) return;
+  }
+  target.value = period;
 }
 
 async function confirm() {
   if (!target.value) return;
-  const result = await mutation.run(company.activeCompanyId, target.value.id, nextStatus.value);
+  const result = nextStatus.value === "closed"
+    ? await closeMutation.run(company.activeCompanyId, target.value.id)
+    : await reopenMutation.run(company.activeCompanyId, target.value.id, reopenReason.value);
   if (result) {
     target.value = null;
+    reopenReason.value = "";
     await refresh();
+    await history.refresh();
   }
 }
 </script>
@@ -80,6 +97,12 @@ async function confirm() {
     </div>
 
     <Panel>
+      <div v-if="readiness && !readiness.ready" class="border-b border-line bg-danger/5 p-4">
+        <p class="text-sm font-semibold text-danger">Period close is blocked</p>
+        <ul class="mt-2 grid gap-2 text-xs text-content-secondary">
+          <li v-for="check in readiness.checks.filter(x=>!x.passed)" :key="check.key"><strong>{{check.label}}:</strong> {{check.message}}</li>
+        </ul>
+      </div>
       <AsyncSection
         :loading="loading"
         :error="error"
@@ -120,6 +143,13 @@ async function confirm() {
       </AsyncSection>
     </Panel>
 
+    <Panel class="mt-4" title="Close history" description="Original close and reopen activity is retained for audit.">
+      <div v-if="history.data.value?.length" class="divide-y divide-line">
+        <div v-for="record in history.data.value" :key="record.id" class="flex flex-wrap items-center justify-between gap-2 p-4 text-sm"><span>{{ record.close_type === 'period' ? 'Period close' : 'Fiscal-year close' }} · {{ record.status }}</span><span class="text-content-secondary">{{ record.reopened_at ? `Reopened ${shortDate(record.reopened_at)}` : record.closed_at ? `Closed ${shortDate(record.closed_at)}` : '—' }}</span></div>
+      </div>
+      <p v-else class="p-5 text-sm text-content-muted">No close history yet.</p>
+    </Panel>
+
     <ConfirmDialog
       :open="Boolean(target)"
       :title="nextStatus === 'closed' ? 'Close period' : 'Reopen period'"
@@ -130,11 +160,12 @@ async function confirm() {
       "
       :confirm-label="nextStatus === 'closed' ? 'Close period' : 'Reopen period'"
       :tone="nextStatus === 'closed' ? 'danger' : 'brand'"
-      :busy="mutation.saving.value"
+      :busy="closeMutation.saving.value || reopenMutation.saving.value"
       @confirm="confirm"
       @cancel="target = null"
     >
-      <ValidationMessage :message="mutation.error.value?.message ?? null" />
+      <div v-if="nextStatus==='open'" class="grid gap-2"><label class="text-xs font-medium text-content">Reopen reason</label><textarea v-model="reopenReason" class="field min-h-20" placeholder="Explain the approved correction" /></div>
+      <ValidationMessage :message="closeMutation.error.value?.message ?? reopenMutation.error.value?.message ?? null" />
     </ConfirmDialog>
   </AppShell>
 </template>

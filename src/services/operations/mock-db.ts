@@ -1,5 +1,5 @@
 import { toMinor } from "@/lib/money";
-import type { AuditEvent,BudgetLine,CopilotAction,ExpenseClaim,KnowledgeDocument,Recommendation } from "@/types/operations";
+import type { AuditEvent,CopilotAction,ExpenseClaim,KnowledgeDocument,Recommendation } from "@/types/operations";
 const cs=["c1","c2","c3"];
 const map=<T extends {id:string;company_id:string}>(rows:Omit<T,"id"|"company_id">[]):T[]=>cs.flatMap((company_id,ci)=>rows.map((r,i)=>({...r,id:`${company_id}-${i+1}`,company_id,...("amount" in r?{amount:Math.round(Number((r as any).amount)*(ci?0.42:1))}:{})} as T)));
 export const expenses=map<ExpenseClaim>([
@@ -7,12 +7,6 @@ export const expenses=map<ExpenseClaim>([
  {reference:"EXP-0830",claimant:"Ayesha Siddiqui",category:"Software",date:"2026-09-16",amount:toMinor(18900),status:"approved",receipt:true,notes:"Developer tooling"},
  {reference:"EXP-0829",claimant:"Sana Iqbal",category:"Meals",date:"2026-09-14",amount:toMinor(12800),status:"paid",receipt:true,notes:"Customer meeting"},
  {reference:"EXP-0828",claimant:"Danish Raza",category:"Travel",date:"2026-09-10",amount:toMinor(8600),status:"rejected",receipt:false,notes:"Receipt required"},
-]);
-export const budgets=map<BudgetLine>([
- {account:"5020 · Salary Expense",department:"Engineering",category:"People",month:"Sep",budget:toMinor(12800000),actual:toMinor(12160000),forecast:toMinor(12640000)},
- {account:"5050 · Cloud & Software",department:"Engineering",category:"Technology",month:"Sep",budget:toMinor(2400000),actual:toMinor(2286400),forecast:toMinor(2510000)},
- {account:"5060 · Travel & Conveyance",department:"Sales",category:"Travel",month:"Sep",budget:toMinor(1200000),actual:toMinor(918000),forecast:toMinor(1080000)},
- {account:"5040 · Rent & Utilities",department:"Operations",category:"Facilities",month:"Sep",budget:toMinor(4000000),actual:toMinor(3840000),forecast:toMinor(3920000)},
 ]);
 export const auditEvents=map<AuditEvent>([
  {timestamp:"2026-09-22T05:42:00Z",user:"Fatima Noor",module:"Accounting",action:"Posted journal",record:"JE-2026-00984",result:"success",before:"Draft · PKR 1,450,000",after:"Posted · balanced"},

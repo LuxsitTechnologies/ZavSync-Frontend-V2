@@ -1,31 +1,15 @@
 /** A2 — accounting period management and period-lock checks. */
-import { ApiError, apiRequest, isApiConfigured, previewDelay } from "@/services/api/client";
-import { periods as db, USER } from "@/services/mock/accounting-db";
+import { ApiError, apiRequest } from "@/services/api/client";
 import type { AccountingPeriod } from "@/types/accounting";
+import type { AccountingCloseRecord, PeriodReadiness } from "@/types/planning";
 
 export const periodsRepository = {
-  async list(companyId: string): Promise<AccountingPeriod[]> {
-    if (isApiConfigured()) return apiRequest<AccountingPeriod[]>("/accounting/periods", { companyId });
-    return previewDelay(
-      db.filter((p) => p.company_id === companyId).sort((a, b) => b.start_date.localeCompare(a.start_date)),
-    );
-  },
+  list:(companyId:string)=>apiRequest<AccountingPeriod[]>("/accounting/periods",{companyId}),
 
-  async setStatus(companyId: string, id: string, status: AccountingPeriod["status"]): Promise<AccountingPeriod> {
-    if (isApiConfigured()) {
-      return apiRequest<AccountingPeriod>(`/accounting/periods/${id}`, {
-        companyId,
-        method: "PATCH",
-        body: { status },
-      });
-    }
-    const period = db.find((p) => p.id === id && p.company_id === companyId);
-    if (!period) throw new ApiError("That period does not exist in this company.", "not_found");
-    period.status = status;
-    period.closed_by = status === "closed" ? USER : null;
-    period.closed_at = status === "closed" ? new Date().toISOString() : null;
-    return previewDelay(period, 300);
-  },
+  readiness:(companyId:string,id:string)=>apiRequest<PeriodReadiness>(`/accounting/periods/${id}/readiness`,{companyId}),
+  close:(companyId:string,id:string)=>apiRequest<AccountingCloseRecord>(`/accounting/periods/${id}/close`,{method:"POST",companyId,body:{idempotency_key:crypto.randomUUID()}}),
+  reopen:(companyId:string,id:string,reason:string)=>apiRequest<AccountingCloseRecord>(`/accounting/periods/${id}/reopen`,{method:"POST",companyId,body:{reason}}),
+  history:(companyId:string)=>apiRequest<AccountingCloseRecord[]>("/accounting/close/history",{companyId}),
 
   /** The period a date falls in, if any. */
   async periodFor(companyId: string, date: string): Promise<AccountingPeriod | null> {

@@ -1,0 +1,16 @@
+import type { Money } from "@/types/accounting";
+
+export interface PlanningPeriod { id:string; name:string; start_date:string; end_date:string; status:"open"|"closed" }
+export interface FiscalYear { id:string; company_id:string; name:string; start_date:string; end_date:string; currency:string; status:"open"|"closed"; periods:PlanningPeriod[]; closed_at:string|null; reopened_at:string|null }
+export interface PlanningAccount { id:string; code:string; name:string; type:"revenue"|"expense"; subtype:string|null }
+export interface PlanningLine { id:string; account_id:string; accounting_period_id:string; amount:Money; account:Omit<PlanningAccount,"id">; period:{name:string;start_date:string;end_date:string} }
+export interface Budget { id:string; company_id:string; fiscal_year_id:string; name:string; version:number; status:"draft"|"submitted"|"approved"|"active"|"archived"; currency:string; description:string|null; is_active:boolean; based_on_budget_id:string|null; fiscal_year?:FiscalYear; lines?:PlanningLine[] }
+export interface BudgetActualRow { account_id:string; account_code:string; account_name:string; type:"revenue"|"expense"; subtype:string|null; budget:Money; actual:Money; variance:Money; variance_percentage_bps:number|null; favorable:boolean }
+export interface BudgetActual { budget_id:string; from:string; to:string; rows:BudgetActualRow[]; profit_and_loss:Record<string,Record<string,Money>> }
+export interface Forecast { id:string; company_id:string; fiscal_year_id:string; name:string; version:number; status:"draft"|"active"|"archived"; currency:string; actuals_through:string|null; description:string|null; is_active:boolean; based_on_budget_id:string|null; based_on_forecast_id:string|null; fiscal_year?:FiscalYear; lines?:PlanningLine[] }
+export interface ForecastProjectionRow { account_id:string; account_code:string; account_name:string; type:"revenue"|"expense"; subtype:string|null; actual_completed:Money; forecast_completed:Money; remaining_forecast:Money; full_year_projection:Money; variance:Money; variance_percentage_bps:number|null }
+export interface ForecastProjection { forecast_id:string; actuals_through:string; rows:ForecastProjectionRow[]; profit_and_loss:Record<string,Record<string,Money>> }
+export interface CloseCheck { key:string; label:string; severity:"BLOCKER"|"WARNING"|"INFORMATION"; passed:boolean; message:string; value:number|string|null }
+export interface PeriodReadiness { period_id:string; status:"open"|"closed"; ready:boolean; checks:CloseCheck[]; blocker_count:number; warning_count:number }
+export interface AccountingCloseRecord { id:string; company_id:string; close_type:"period"|"fiscal_year"; accounting_period_id:string|null; fiscal_year_id:string|null; status:"closed"|"reopened"; checklist_snapshot:Record<string,unknown>; reason:string|null; closing_journal_id:string|null; reversal_journal_id:string|null; closed_at:string|null; reopened_at:string|null }
+export interface YearEndPreview { fiscal_year_id:string; ready:boolean; checks:CloseCheck[]; trial_balance:{debit:Money;credit:Money;balanced:boolean}; net_profit:Money; retained_earnings_account:{id:string;code:string;name:string}|null; closing_lines:Array<{account_id:string;description:string;debit:Money;credit:Money}> }
