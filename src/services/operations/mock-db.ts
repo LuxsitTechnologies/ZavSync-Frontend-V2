@@ -1,5 +1,5 @@
 import { toMinor } from "@/lib/money";
-import type { AuditEvent,BankAccount,BankTransaction,BudgetLine,CopilotAction,ExpenseClaim,KnowledgeDocument,Recommendation,Settlement } from "@/types/operations";
+import type { AuditEvent,BudgetLine,CopilotAction,ExpenseClaim,KnowledgeDocument,Recommendation } from "@/types/operations";
 const cs=["c1","c2","c3"];
 const map=<T extends {id:string;company_id:string}>(rows:Omit<T,"id"|"company_id">[]):T[]=>cs.flatMap((company_id,ci)=>rows.map((r,i)=>({...r,id:`${company_id}-${i+1}`,company_id,...("amount" in r?{amount:Math.round(Number((r as any).amount)*(ci?0.42:1))}:{})} as T)));
 export const expenses=map<ExpenseClaim>([
@@ -7,22 +7,6 @@ export const expenses=map<ExpenseClaim>([
  {reference:"EXP-0830",claimant:"Ayesha Siddiqui",category:"Software",date:"2026-09-16",amount:toMinor(18900),status:"approved",receipt:true,notes:"Developer tooling"},
  {reference:"EXP-0829",claimant:"Sana Iqbal",category:"Meals",date:"2026-09-14",amount:toMinor(12800),status:"paid",receipt:true,notes:"Customer meeting"},
  {reference:"EXP-0828",claimant:"Danish Raza",category:"Travel",date:"2026-09-10",amount:toMinor(8600),status:"rejected",receipt:false,notes:"Receipt required"},
-]);
-export const bankAccounts=map<BankAccount>([
- {name:"Operating account",institution:"Habib Metro",masked_number:"•••• 0142",type:"bank",currency:"PKR",balance:toMinor(24120000),available:toMinor(23820000),is_default:true,status:"active"},
- {name:"Payroll account",institution:"Meezan Bank",masked_number:"•••• 8891",type:"bank",currency:"PKR",balance:toMinor(6835400),available:toMinor(6835400),is_default:false,status:"active"},
- {name:"JazzCash merchant",institution:"JazzCash",masked_number:"•••• 4430",type:"wallet",currency:"PKR",balance:toMinor(485200),available:toMinor(485200),is_default:false,status:"active"},
-]);
-export const bankTransactions=map<BankTransaction>([
- {date:"2026-09-21",description:"DESCON ENGINEERING INV-0418",reference:"HMB-884201",amount:toMinor(1450000),direction:"in",status:"suggested",match_reference:"INV-2026-0418",confidence:98},
- {date:"2026-09-20",description:"PAYROLL TRANSFER SEP",reference:"HMB-884193",amount:toMinor(9320000),direction:"out",status:"matched",match_reference:"PAY-2026-09",confidence:100},
- {date:"2026-09-19",description:"ONLINE TRANSFER 72830",reference:"HMB-884107",amount:toMinor(186500),direction:"out",status:"unmatched"},
- {date:"2026-09-18",description:"PACKAGES MALL PARTIAL",reference:"HMB-883990",amount:toMinor(400000),direction:"in",status:"suggested",match_reference:"INV-2026-0417",confidence:94},
-]);
-export const settlements=map<Settlement>([
- {provider:"JazzCash",reference:"JC-SET-9032",date:"2026-09-20",gross:toMinor(535000),fees:toMinor(8025),net:toMinor(526975),status:"settled",bank_account:"Habib Metro ••0142"},
- {provider:"Stripe",reference:"ST-PO-1290",date:"2026-09-19",gross:toMinor(1280000),fees:toMinor(37120),net:toMinor(1242880),status:"pending",bank_account:"Habib Metro ••0142"},
- {provider:"Easypaisa",reference:"EP-SET-4421",date:"2026-09-18",gross:toMinor(212000),fees:toMinor(3180),net:toMinor(208820),status:"settled",bank_account:"Meezan ••8891"},
 ]);
 export const budgets=map<BudgetLine>([
  {account:"5020 · Salary Expense",department:"Engineering",category:"People",month:"Sep",budget:toMinor(12800000),actual:toMinor(12160000),forecast:toMinor(12640000)},

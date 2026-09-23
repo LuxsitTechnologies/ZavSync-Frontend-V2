@@ -48,7 +48,7 @@ export interface RequestOptions {
   /** Active company — sent as a header AND a query param; backend enforces scope. */
   companyId?: string;
   query?: Record<string, string | number | boolean | null | undefined>;
-  body?: unknown;
+  body?: unknown | FormData;
   signal?: AbortSignal;
   idempotencyKey?: string;
 }
@@ -86,17 +86,18 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
   }
 
   let response: Response;
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   try {
     response = await fetch(url.toString(), {
       method: options.method ?? "GET",
       headers: {
-        "Content-Type": "application/json",
+        ...(!isFormData ? { "Content-Type": "application/json" } : {}),
         Accept: "application/json",
         ...(options.companyId ? { "X-Company-Id": options.companyId } : {}),
         ...(csrfToken() ? { "X-XSRF-TOKEN": csrfToken() as string } : {}),
         ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
       },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.body === undefined ? undefined : isFormData ? options.body as FormData : JSON.stringify(options.body),
       credentials: "include",
       signal: options.signal,
     });
