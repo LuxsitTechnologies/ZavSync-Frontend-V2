@@ -1,7 +1,7 @@
 /** Stage 4 purchase-order, approval, receipt and bill-conversion API contracts. */
 import { apiRequest } from "@/services/api/client";
 import type { SupplierBill, SupplierBillInput } from "@/types/accounting";
-import type { PurchaseOrder, PurchaseOrderInput } from "@/types/operations";
+import type { PurchaseOrder, PurchaseOrderInput, PurchaseReceipt } from "@/types/operations";
 
 function compactHash(value: string): string {
   let hash = 2166136261;
@@ -21,6 +21,10 @@ export const procurementRepository = {
     return apiRequest<PurchaseOrder>(`/purchases/orders/${orderId}`, { companyId });
   },
 
+  receipts(companyId: string, orderId: string): Promise<PurchaseReceipt[]> {
+    return apiRequest<PurchaseReceipt[]>(`/purchases/orders/${orderId}/receipts`, { companyId });
+  },
+
   create(companyId: string, input: PurchaseOrderInput): Promise<PurchaseOrder> {
     const key = `purchase-order:${input.supplier_id}:${input.order_date}:${compactHash(JSON.stringify(input))}`;
     return apiRequest<PurchaseOrder>("/purchases/orders", { companyId, method: "POST", body: input, idempotencyKey: key });
@@ -34,14 +38,14 @@ export const procurementRepository = {
     return apiRequest<PurchaseOrder>(`/purchases/orders/${orderId}/approve`, { companyId, method: "POST" });
   },
 
-  receiveRemaining(companyId: string, order: PurchaseOrder): Promise<unknown> {
+  receiveRemaining(companyId: string, order: PurchaseOrder, warehouseId: string): Promise<unknown> {
     const lines = order.lines
       .map((line) => ({
         purchase_order_line_id: line.id,
         quantity_received_milli: line.quantity_milli - line.received_quantity_milli,
       }))
       .filter((line) => line.quantity_received_milli > 0);
-    const input = { receipt_date: new Date().toISOString().slice(0, 10), lines };
+    const input = { receipt_date: new Date().toISOString().slice(0, 10), warehouse_id: warehouseId || undefined, lines };
     return apiRequest(`/purchases/orders/${order.id}/receipts`, {
       companyId,
       method: "POST",

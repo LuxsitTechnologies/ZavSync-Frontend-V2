@@ -14,10 +14,7 @@ import type {
   AccountMapping,
   AccountMappingKey,
   AccountingPeriod,
-  CogsPosting,
   Customer,
-  InventoryItemValuation,
-  InventoryLedgerEntry,
   Journal,
   JournalLine,
   Money,
@@ -375,121 +372,6 @@ for (const company of companies) {
       });
     }
   });
-}
-
-/* ----------------------------- inventory ----------------------------- */
-
-interface ItemSeed { sku: string; name: string; category: string }
-const ITEM_SEEDS: ItemSeed[] = [
-  { sku: "HW-LAP-14", name: "Dell Latitude 5440", category: "Hardware" },
-  { sku: "HW-MON-27", name: "Dell P2723DE Monitor", category: "Hardware" },
-  { sku: "HW-DOC-01", name: "USB-C Docking Station", category: "Accessories" },
-  { sku: "CN-CLR-05", name: "Industrial Cleaning Kit", category: "Consumables" },
-];
-
-interface MovementSeed { date: string; type: InventoryLedgerEntry["type"]; reference: string; ref_type: InventoryLedgerEntry["reference_type"]; qty: number; unit_cost?: number }
-const MOVEMENT_SEEDS: Record<string, MovementSeed[]> = {
-  "HW-LAP-14": [
-    { date: "2026-07-05", type: "opening", reference: "OPEN-2026", ref_type: "inventory", qty: 10, unit_cost: 100000 },
-    { date: "2026-08-11", type: "purchase", reference: "BILL-4433", ref_type: "supplier_bill", qty: 10, unit_cost: 120000 },
-    { date: "2026-09-15", type: "sale", reference: "INV-2026-0298", ref_type: "invoice", qty: -15 },
-    { date: "2026-09-19", type: "purchase", reference: "BILL-4471", ref_type: "supplier_bill", qty: 6, unit_cost: 124000 },
-  ],
-  "HW-MON-27": [
-    { date: "2026-07-05", type: "opening", reference: "OPEN-2026", ref_type: "inventory", qty: 18, unit_cost: 62000 },
-    { date: "2026-08-24", type: "sale", reference: "INV-2026-0284", ref_type: "invoice", qty: -7 },
-    { date: "2026-09-09", type: "adjustment_out", reference: "ADJ-SEP-02", ref_type: "inventory", qty: -1 },
-  ],
-  "HW-DOC-01": [
-    { date: "2026-07-12", type: "purchase", reference: "BILL-4441", ref_type: "supplier_bill", qty: 24, unit_cost: 18500 },
-    { date: "2026-09-02", type: "sale", reference: "INV-2026-0305", ref_type: "invoice", qty: -9 },
-    { date: "2026-09-14", type: "return_in", reference: "CRN-0021", ref_type: "invoice", qty: 2, unit_cost: 18500 },
-  ],
-  "CN-CLR-05": [
-    { date: "2026-07-08", type: "purchase", reference: "BILL-4460", ref_type: "supplier_bill", qty: 60, unit_cost: 4200 },
-    { date: "2026-08-19", type: "sale", reference: "INV-2026-0271", ref_type: "invoice", qty: -40 },
-    { date: "2026-09-11", type: "purchase", reference: "BILL-4468", ref_type: "supplier_bill", qty: 30, unit_cost: 4550 },
-  ],
-};
-
-export const inventoryLedger: InventoryLedgerEntry[] = [];
-export const inventoryValuation: InventoryItemValuation[] = [];
-export const cogsPostings: CogsPosting[] = [];
-
-interface Layer { id: string; date: string; reference: string; original: number; remaining: number; unit_cost: Money }
-export const fifoLayers: (Layer & { company_id: string; item_id: string })[] = [];
-
-for (const company of companies) {
-  const weight = WEIGHT[company.id] ?? 0.3;
-  const itemSeeds = company.id === "c1" ? ITEM_SEEDS : ITEM_SEEDS.slice(0, company.id === "c2" ? 3 : 2);
-  for (const item of itemSeeds) {
-    const itemId = uid("item");
-    const layers: Layer[] = [];
-    let runningQty = 0;
-    let runningValue: Money = 0;
-
-    for (const move of MOVEMENT_SEEDS[item.sku] ?? []) {
-      const qty = move.qty > 0 ? Math.max(1, Math.round(move.qty * (company.id === "c1" ? 1 : weight * 2))) : move.qty;
-      if (qty > 0) {
-        const unitCost = toMinor(move.unit_cost ?? 0);
-        const layerId = uid("lay");
-        layers.push({ id: layerId, date: move.date, reference: move.reference, original: qty, remaining: qty, unit_cost: unitCost });
-        const value = unitCost * qty;
-        runningQty += qty;
-        runningValue += value;
-        inventoryLedger.push({
-          id: uid("il"), company_id: company.id, item_id: itemId, item_name: item.name, item_sku: item.sku,
-          date: move.date, type: move.type, reference: move.reference, reference_type: move.ref_type,
-          quantity_in: qty, quantity_out: 0, unit_cost: unitCost, value,
-          running_quantity: runningQty, running_value: runningValue,
-          journal_id: null,
-        });
-      } else {
-        let needed = Math.min(Math.abs(qty), runningQty);
-        const consumption = [];
-        let cogs: Money = 0;
-        for (const layer of layers) {
-          if (needed <= 0) break;
-          if (layer.remaining <= 0) continue;
-          const take = Math.min(layer.remaining, needed);
-          layer.remaining -= take;
-          needed -= take;
-          const value = layer.unit_cost * take;
-          cogs += value;
-          consumption.push({ layer_id: layer.id, received_date: layer.date, quantity: take, unit_cost: layer.unit_cost, value });
-        }
-        const outQty = Math.abs(qty) - needed;
-        if (outQty === 0) continue;
-        runningQty -= outQty;
-        runningValue -= cogs;
-        const entryId = uid("il");
-        inventoryLedger.push({
-          id: entryId, company_id: company.id, item_id: itemId, item_name: item.name, item_sku: item.sku,
-          date: move.date, type: move.type, reference: move.reference, reference_type: move.ref_type,
-          quantity_in: 0, quantity_out: outQty,
-          unit_cost: outQty ? Math.round(cogs / outQty) : 0, value: cogs,
-          running_quantity: runningQty, running_value: runningValue,
-          journal_id: journals.find((j) => j.company_id === company.id && j.reference_type === "inventory")?.id ?? null,
-        });
-        cogsPostings.push({
-          id: uid("cogs"), company_id: company.id, date: move.date, item_id: itemId, item_name: item.name,
-          reference: move.reference, quantity: outQty, cogs_amount: cogs, consumption,
-          journal_id: journals.find((j) => j.company_id === company.id && j.reference_type === "inventory")?.id ?? null,
-          posted: move.date <= "2026-09-15",
-        });
-      }
-    }
-
-    for (const layer of layers) {
-      fifoLayers.push({ ...layer, company_id: company.id, item_id: itemId });
-    }
-    inventoryValuation.push({
-      id: itemId, company_id: company.id, sku: item.sku, name: item.name, category: item.category,
-      quantity: runningQty, value: runningValue,
-      average_unit_cost: runningQty ? Math.round(runningValue / runningQty) : 0,
-      layers: layers.filter((l) => l.remaining > 0).length,
-    });
-  }
 }
 
 /* ----------------------------- payroll postings ----------------------------- */

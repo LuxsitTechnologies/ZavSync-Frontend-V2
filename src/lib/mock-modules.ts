@@ -289,27 +289,6 @@ export const expenses: Expense[] = [
   { id: "ex7", reference: "EXP-2026-0335", claimant: "Maryam Yousaf", category: "Government fees", date: "2026-08-10", amount: 12500, status: "paid", receipt: true },
 ];
 
-export interface InventoryItem {
-  id: string;
-  sku: string;
-  name: string;
-  category: string;
-  warehouse: string;
-  on_hand: number;
-  reorder_level: number;
-  unit_cost: number;
-}
-
-export const inventory: InventoryItem[] = [
-  { id: "iv1", sku: "CLN-DET-05", name: "Industrial Detergent 5L", category: "Cleaning", warehouse: "Lahore Central", on_hand: 240, reorder_level: 80, unit_cost: 1850 },
-  { id: "iv2", sku: "CLN-MOP-01", name: "Microfibre Mop Head", category: "Cleaning", warehouse: "Lahore Central", on_hand: 62, reorder_level: 100, unit_cost: 640 },
-  { id: "iv3", sku: "UNI-SEC-M", name: "Security Uniform (M)", category: "Uniform", warehouse: "Karachi Depot", on_hand: 118, reorder_level: 60, unit_cost: 4200 },
-  { id: "iv4", sku: "UNI-SEC-L", name: "Security Uniform (L)", category: "Uniform", warehouse: "Karachi Depot", on_hand: 34, reorder_level: 60, unit_cost: 4200 },
-  { id: "iv5", sku: "SAF-GLV-02", name: "Nitrile Gloves (box 100)", category: "Safety", warehouse: "Islamabad Store", on_hand: 410, reorder_level: 150, unit_cost: 1120 },
-  { id: "iv6", sku: "TEC-FLT-14", name: "HVAC Filter 14x20", category: "Technical", warehouse: "Lahore Central", on_hand: 27, reorder_level: 40, unit_cost: 3600 },
-  { id: "iv7", sku: "TEC-OIL-20", name: "Generator Oil 20L", category: "Technical", warehouse: "Islamabad Store", on_hand: 88, reorder_level: 30, unit_cost: 9800 },
-];
-
 export interface Client {
   id: string;
   name: string;

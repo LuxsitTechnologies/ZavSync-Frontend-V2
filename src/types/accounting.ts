@@ -488,19 +488,23 @@ export interface SupplierBill extends CompanyScoped, AuditTrail {
 /* ------------------------------------------------------------------ */
 
 export type InventoryTxnType =
-  | "opening"
-  | "purchase"
-  | "sale"
-  | "adjustment_in"
-  | "adjustment_out"
-  | "return_in"
-  | "return_out";
+  | "purchase_receipt"
+  | "sale_issue"
+  | "customer_return"
+  | "supplier_return"
+  | "transfer_out"
+  | "transfer_in"
+  | "positive_adjustment"
+  | "negative_adjustment"
+  | "cost_adjustment";
 
 export interface InventoryLedgerEntry extends CompanyScoped {
   id: string;
   item_id: string;
   item_name: string;
   item_sku: string;
+  warehouse_id: string;
+  warehouse: string;
   date: string;
   type: InventoryTxnType;
   reference: string;
@@ -508,7 +512,7 @@ export interface InventoryLedgerEntry extends CompanyScoped {
   quantity_in: number;
   quantity_out: number;
   /** Backend-computed FIFO unit cost for the movement. */
-  unit_cost: Money;
+  unit_cost: Money | null;
   /** Backend-computed value of the movement. */
   value: Money;
   running_quantity: number;
@@ -519,12 +523,17 @@ export interface InventoryLedgerEntry extends CompanyScoped {
 export interface FifoLayer {
   id: string;
   item_id: string;
+  item_sku: string;
+  item_name: string;
+  warehouse_id: string;
+  warehouse: string;
   received_date: string;
   reference: string;
   original_quantity: number;
   remaining_quantity: number;
   unit_cost: Money;
   remaining_value: Money;
+  age_days: number;
 }
 
 export interface FifoConsumption {
@@ -552,12 +561,115 @@ export interface InventoryItemValuation extends CompanyScoped {
   id: string;
   sku: string;
   name: string;
-  category: string;
+  item_id: string;
+  category: string | null;
+  warehouse_id: string;
+  warehouse: string;
   quantity: number;
+  quantity_on_hand_milli: number;
   /** FIFO value from the backend valuation engine. */
   value: Money;
   average_unit_cost: Money;
-  layers: number;
+  inventory_value: Money;
+}
+
+export type InventoryItemType = "inventory" | "non_inventory" | "service";
+
+export interface InventoryItem extends CompanyScoped, AuditTrail {
+  id: string;
+  sku: string;
+  name: string;
+  description: string | null;
+  type: InventoryItemType;
+  track_inventory: boolean;
+  unit: string;
+  sales_unit: string | null;
+  purchase_unit: string | null;
+  category: string | null;
+  barcode: string | null;
+  is_active: boolean;
+  sales_price: Money;
+  default_purchase_cost: Money;
+  reorder_level_milli: number;
+  reorder_quantity_milli: number;
+  inventory_asset_account_id: string | null;
+  cogs_account_id: string | null;
+  sales_account_id: string | null;
+  inventory_adjustment_account_id: string | null;
+  quantity_on_hand_milli: number;
+  inventory_value: Money;
+}
+
+export interface InventoryItemInput {
+  sku: string;
+  name: string;
+  description?: string | null;
+  type: InventoryItemType;
+  track_inventory: boolean;
+  unit: string;
+  sales_unit?: string | null;
+  purchase_unit?: string | null;
+  category?: string | null;
+  barcode?: string | null;
+  is_active: boolean;
+  sales_price: Money;
+  default_purchase_cost: Money;
+  reorder_level_milli: number;
+  reorder_quantity_milli: number;
+  inventory_asset_account_id: string | null;
+  cogs_account_id: string | null;
+  sales_account_id: string | null;
+  inventory_adjustment_account_id: string | null;
+}
+
+export interface Warehouse extends CompanyScoped, AuditTrail {
+  id: string;
+  code: string;
+  name: string;
+  location: string | null;
+  is_active: boolean;
+  is_default: boolean;
+  quantity_on_hand_milli: number;
+  inventory_value: Money;
+}
+
+export interface WarehouseInput {
+  code: string;
+  name: string;
+  location?: string | null;
+  is_active: boolean;
+  is_default: boolean;
+}
+
+export interface InventoryTransaction extends CompanyScoped {
+  id: string;
+  number: string;
+  type: InventoryTxnType;
+  transaction_date: string;
+  source_warehouse_id: string | null;
+  destination_warehouse_id: string | null;
+  reference: string | null;
+  reason: string | null;
+  journal_id: string | null;
+}
+
+export interface LowStockItem {
+  id: string;
+  sku: string;
+  name: string;
+  quantity_on_hand_milli: number;
+  reorder_level_milli: number;
+  reorder_quantity_milli: number;
+  status: "low_stock" | "out_of_stock";
+}
+
+export interface InventoryReconciliation {
+  as_of: string;
+  inventory_valuation: Money;
+  gl_inventory_balance: Money;
+  difference: Money;
+  status: "reconciled" | "difference";
+  explanation: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -611,6 +723,7 @@ export type AccountMappingKey =
   | "input_tax"
   | "inventory_asset"
   | "cogs"
+  | "inventory_adjustment"
   | "salary_expense"
   | "salary_payable"
   | "employer_contribution_expense"

@@ -17,12 +17,10 @@ import DataTable, { type Column } from "@/components/zs/DataTable.vue";
 import StatCard from "@/components/zs/StatCard.vue";
 import SearchInput from "@/components/zs/SearchInput.vue";
 import StatusBadge from "@/components/zs/StatusBadge.vue";
-import ZButton from "@/components/zs/ZButton.vue";
 import AsyncSection from "@/components/zs/AsyncSection.vue";
-import ConfirmDialog from "@/components/zs/ConfirmDialog.vue";
 import DateRangeFilter from "@/components/accounting/DateRangeFilter.vue";
 
-import { useAsyncData, useMutation } from "@/composables/useAsyncData";
+import { useAsyncData } from "@/composables/useAsyncData";
 import { useCompanyStore } from "@/stores/company";
 import { inventoryRepository } from "@/services/accounting/inventory.repository";
 import { formatMoney, formatMoneyOrDash, formatQuantity } from "@/lib/money";
@@ -44,7 +42,17 @@ const search = ref("");
 const expandedCogsId = ref<string | null>(null);
 
 const itemsState = useAsyncData(
-  () => inventoryRepository.items(company.activeCompanyId),
+  () => inventoryRepository.masterItems(company.activeCompanyId),
+  { watch: [() => company.activeCompanyId] },
+);
+
+const valuationState = useAsyncData(
+  () => inventoryRepository.valuation(company.activeCompanyId),
+  { watch: [() => company.activeCompanyId] },
+);
+
+const reconciliationState = useAsyncData(
+  () => inventoryRepository.reconciliation(company.activeCompanyId),
   { watch: [() => company.activeCompanyId] },
 );
 
@@ -84,10 +92,10 @@ watch(itemFilter, () => {
   expandedCogsId.value = null;
 });
 
-const totalValue = computed(() => (itemsState.data.value ?? []).reduce((s, i) => s + i.value, 0));
+const totalValue = computed(() => (valuationState.data.value ?? []).reduce((s, i) => s + i.inventory_value, 0));
 const itemsTracked = computed(() => (itemsState.data.value ?? []).length);
 const movementsInRange = computed(() => (ledgerState.data.value ?? []).length);
-const unpostedCogs = computed(() => (cogsAllState.data.value ?? []).filter((c) => !c.posted).length);
+const cogsCount = computed(() => (cogsAllState.data.value ?? []).length);
 
 const ledgerColumns: Column[] = [
   { key: "item", header: "Item" },
@@ -118,7 +126,6 @@ const cogsColumns: Column[] = [
   { key: "amount", header: "COGS amount", align: "right", class: "num font-medium" },
   { key: "status", header: "Status" },
   { key: "journal", header: "Journal" },
-  { key: "actions", header: "", align: "right" },
 ];
 
 const layerTotals = computed(() => {
@@ -146,26 +153,8 @@ function referenceLabel(row: InventoryLedgerEntry) {
   return `${row.reference} · ${labelize(row.reference_type)}`;
 }
 
-const postDialogOpen = ref(false);
-const postTarget = ref<CogsPosting | null>(null);
-const postMutation = useMutation((cogsId: string) =>
-  inventoryRepository.postCogs(company.activeCompanyId, cogsId),
-);
-
-function openPostDialog(row: CogsPosting) {
-  postTarget.value = row;
-  postMutation.reset();
-  postDialogOpen.value = true;
-}
-
-async function confirmPost() {
-  if (!postTarget.value) return;
-  const result = await postMutation.run(postTarget.value.id);
-  if (result) {
-    postDialogOpen.value = false;
-    postTarget.value = null;
-    await Promise.all([ledgerState.refresh(), cogsAllState.refresh(), cogsItemState.refresh(), itemsState.refresh()]);
-  }
+function formatMilliQuantity(value: number) {
+  return formatQuantity(value / 1000);
 }
 </script>
 
@@ -188,7 +177,12 @@ async function confirmPost() {
       <StatCard label="Total FIFO inventory value" :value="formatMoney(totalValue)" tone="brand" />
       <StatCard label="Items tracked" :value="String(itemsTracked)" />
       <StatCard label="Movements in range" :value="String(movementsInRange)" />
-      <StatCard label="Unposted COGS movements" :value="String(unpostedCogs)" :tone="unpostedCogs > 0 ? 'warning' : 'neutral'" />
+      <StatCard label="COGS postings" :value="String(cogsCount)" />
+      <StatCard
+        label="Inventory / GL"
+        :value="reconciliationState.data.value?.status === 'reconciled' ? 'Reconciled' : formatMoney(reconciliationState.data.value?.difference ?? 0)"
+        :tone="reconciliationState.data.value?.status === 'reconciled' ? 'neutral' : 'warning'"
+      />
     </div>
 
     <Panel title="Ledger" description="All inventory movements for the selected item and date range.">
@@ -221,11 +215,11 @@ async function confirmPost() {
           <template #date="{ row }: { row: InventoryLedgerEntry }">{{ shortDate(row.date) }}</template>
           <template #type="{ row }: { row: InventoryLedgerEntry }"><StatusBadge :status="row.type" /></template>
           <template #reference="{ row }: { row: InventoryLedgerEntry }">{{ referenceLabel(row) }}</template>
-          <template #qty_in="{ row }: { row: InventoryLedgerEntry }">{{ row.quantity_in ? formatQuantity(row.quantity_in) : "—" }}</template>
-          <template #qty_out="{ row }: { row: InventoryLedgerEntry }">{{ row.quantity_out ? formatQuantity(row.quantity_out) : "—" }}</template>
-          <template #unit_cost="{ row }: { row: InventoryLedgerEntry }">{{ formatMoneyOrDash(row.unit_cost) }}</template>
+          <template #qty_in="{ row }: { row: InventoryLedgerEntry }">{{ row.quantity_in ? formatMilliQuantity(row.quantity_in) : "—" }}</template>
+          <template #qty_out="{ row }: { row: InventoryLedgerEntry }">{{ row.quantity_out ? formatMilliQuantity(row.quantity_out) : "—" }}</template>
+          <template #unit_cost="{ row }: { row: InventoryLedgerEntry }">{{ row.unit_cost === null ? "—" : formatMoneyOrDash(row.unit_cost) }}</template>
           <template #value="{ row }: { row: InventoryLedgerEntry }">{{ formatMoneyOrDash(row.value) }}</template>
-          <template #run_qty="{ row }: { row: InventoryLedgerEntry }">{{ formatQuantity(row.running_quantity) }}</template>
+          <template #run_qty="{ row }: { row: InventoryLedgerEntry }">{{ formatMilliQuantity(row.running_quantity) }}</template>
           <template #run_value="{ row }: { row: InventoryLedgerEntry }">{{ formatMoney(row.running_value) }}</template>
           <template #footer><span>{{ (ledgerState.data.value ?? []).length }} movements</span></template>
         </DataTable>
@@ -249,14 +243,14 @@ async function confirmPost() {
           <DataTable :columns="layerColumns" :rows="layersState.data.value ?? []" :min-width="900">
             <template #received="{ row }">{{ shortDate(row.received_date) }}</template>
             <template #reference="{ row }">{{ row.reference }}</template>
-            <template #original="{ row }">{{ formatQuantity(row.original_quantity) }}</template>
-            <template #remaining="{ row }">{{ formatQuantity(row.remaining_quantity) }}</template>
+            <template #original="{ row }">{{ formatMilliQuantity(row.original_quantity) }}</template>
+            <template #remaining="{ row }">{{ formatMilliQuantity(row.remaining_quantity) }}</template>
             <template #unit_cost="{ row }">{{ formatMoney(row.unit_cost) }}</template>
             <template #value="{ row }">{{ formatMoney(row.remaining_value) }}</template>
             <template #footer>
               <span>{{ (layersState.data.value ?? []).length }} layers</span>
               <span class="num font-medium text-content">
-                Remaining: {{ formatQuantity(layerTotals.remaining) }} · {{ formatMoney(layerTotals.value) }}
+                Remaining: {{ formatMilliQuantity(layerTotals.remaining) }} · {{ formatMoney(layerTotals.value) }}
               </span>
             </template>
           </DataTable>
@@ -283,7 +277,7 @@ async function confirmPost() {
                 {{ row.reference }}
               </button>
             </template>
-            <template #quantity="{ row }: { row: CogsPosting }">{{ formatQuantity(row.quantity) }}</template>
+            <template #quantity="{ row }: { row: CogsPosting }">{{ formatMilliQuantity(row.quantity) }}</template>
             <template #amount="{ row }: { row: CogsPosting }">{{ formatMoney(row.cogs_amount) }}</template>
             <template #status="{ row }: { row: CogsPosting }">
               <span :class="`zs-badge ${row.posted ? 'badge-success' : 'badge-warning'}`">
@@ -295,9 +289,6 @@ async function confirmPost() {
                 View journal
               </RouterLink>
               <span v-else class="text-content-muted">—</span>
-            </template>
-            <template #actions="{ row }: { row: CogsPosting }">
-              <ZButton v-if="!row.posted" variant="outline" @click="openPostDialog(row)">Post to ledger</ZButton>
             </template>
             <template #footer><span>{{ (cogsItemState.data.value ?? []).length }} postings</span></template>
           </DataTable>
@@ -317,7 +308,7 @@ async function confirmPost() {
             <tbody>
               <tr v-for="line in expandedCogs.consumption" :key="line.layer_id" class="table-row-zs">
                 <td class="px-3 py-2 num text-content-secondary">{{ shortDate(line.received_date) }}</td>
-                <td class="px-3 py-2 num text-right text-content-secondary">{{ formatQuantity(line.quantity) }}</td>
+                <td class="px-3 py-2 num text-right text-content-secondary">{{ formatMilliQuantity(line.quantity) }}</td>
                 <td class="px-3 py-2 num text-right text-content-secondary">{{ formatMoney(line.unit_cost) }}</td>
                 <td class="px-3 py-2 num text-right font-medium text-content">{{ formatMoney(line.value) }}</td>
               </tr>
@@ -327,16 +318,5 @@ async function confirmPost() {
       </Panel>
     </template>
 
-    <ConfirmDialog
-      :open="postDialogOpen"
-      title="Post COGS to the ledger"
-      :message="`This posts Dr Cost of Goods Sold / Cr Inventory Asset for ${postTarget?.reference ?? 'this movement'}. The entry is produced by the accounting backend from the FIFO consumption already recorded.`"
-      confirm-label="Post entry"
-      :busy="postMutation.saving.value"
-      @confirm="confirmPost"
-      @cancel="postDialogOpen = false"
-    >
-      <p v-if="postMutation.error.value" class="text-xs text-danger">{{ postMutation.error.value.message }}</p>
-    </ConfirmDialog>
   </AppShell>
 </template>
