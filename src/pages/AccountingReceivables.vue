@@ -73,7 +73,7 @@ const customers = computed(() => customersData.value ?? []);
 
 /* -------------------- Summary cards (display aggregation only) -------------------- */
 
-const THIS_MONTH_PREFIX = "2026-09";
+const THIS_MONTH_PREFIX = new Date().toISOString().slice(0, 7);
 
 const stats = computed(() => {
   const rows = invoices.value;

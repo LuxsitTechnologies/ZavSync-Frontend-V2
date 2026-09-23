@@ -12,10 +12,9 @@ import DataTable, { type Column } from "@/components/zs/DataTable.vue";
 import AsyncSection from "@/components/zs/AsyncSection.vue";
 import StatusBadge from "@/components/zs/StatusBadge.vue";
 import ZButton from "@/components/zs/ZButton.vue";
-import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 import DateRangeFilter from "@/components/accounting/DateRangeFilter.vue";
 
-import { useAsyncData, useMutation } from "@/composables/useAsyncData";
+import { useAsyncData } from "@/composables/useAsyncData";
 import { payablesRepository } from "@/services/accounting/payables.repository";
 import { useCompanyStore } from "@/stores/company";
 import { formatMoney } from "@/lib/money";
@@ -28,8 +27,9 @@ setPageMeta("Supplier Statements", "Running-balance statement of account for a s
 const company = useCompanyStore();
 
 const supplierId = ref<string>("");
-const from = ref("2026-01-01");
-const to = ref("2026-09-21");
+const today = new Date().toISOString().slice(0, 10);
+const from = ref(`${today.slice(0, 4)}-01-01`);
+const to = ref(today);
 
 const { data: supplierData } = useAsyncData(() => payablesRepository.suppliers(company.activeCompanyId), {
   watch: [() => company.activeCompanyId],
@@ -65,12 +65,8 @@ const columns: Column[] = [
 
 const rows = computed<(StatementLine & { id: string })[]>(() => data.value?.lines ?? []);
 
-const exportMutation = useMutation(payablesRepository.exportStatement);
-
-async function exportPdf() {
-  if (!supplierId.value) return;
-  const result = await exportMutation.run(company.activeCompanyId, supplierId.value, from.value, to.value);
-  if (result) window.open(result.url, "_blank");
+function exportPdf() {
+  window.print();
 }
 </script>
 
@@ -91,14 +87,8 @@ async function exportPdf() {
           <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
         </select>
         <DateRangeFilter v-model:from="from" v-model:to="to" />
-        <ZButton variant="outline" :disabled="!canLoad || exportMutation.saving.value" @click="exportPdf">
-          {{ exportMutation.saving.value ? "Exporting…" : "Export PDF" }}
-        </ZButton>
+        <ZButton variant="outline" :disabled="!canLoad" @click="exportPdf">Print / Save PDF</ZButton>
       </Toolbar>
-
-      <div class="px-4 pt-3">
-        <ValidationMessage :message="exportMutation.error.value?.message ?? null" />
-      </div>
 
       <template v-if="!canLoad">
         <div class="p-10 text-center text-sm text-content-muted">

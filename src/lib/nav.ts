@@ -96,6 +96,7 @@ export const navigation: NavGroup[] = [
         icon: Calculator,
         children: [
           { label: "Invoices", to: "/accounting/invoices", icon: FileText },
+          { label: "Customers", to: "/accounting/customers", icon: Building2 },
           { label: "FBR Invoices", to: "/accounting/fbr", icon: Landmark },
           { label: "Chart of Accounts", to: "/accounting/chart-of-accounts", icon: BookOpen },
           { label: "General Ledger", to: "/accounting/general-ledger", icon: ScrollText },

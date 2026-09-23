@@ -46,10 +46,24 @@ export const dataSource: "api" | "preview" = isApiConfigured() ? "api" : "previe
 export interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   /** Active company — sent as a header AND a query param; backend enforces scope. */
-  companyId: string;
+  companyId?: string;
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
   signal?: AbortSignal;
+  idempotencyKey?: string;
+}
+
+function csrfToken(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const cookie = document.cookie.split("; ").find((value) => value.startsWith("XSRF-TOKEN="));
+  return cookie ? decodeURIComponent(cookie.slice("XSRF-TOKEN=".length)) : undefined;
+}
+
+export async function ensureCsrfCookie(): Promise<void> {
+  if (!isApiConfigured()) return;
+  const origin = new URL(BASE_URL, window.location.origin).origin;
+  const response = await fetch(`${origin}/sanctum/csrf-cookie`, { credentials: "include", headers: { Accept: "application/json" } });
+  if (!response.ok) throw new ApiError("Could not initialize the secure sign-in session.", "network", {}, response.status);
 }
 
 function kindFor(status: number): ApiErrorKind {
@@ -66,7 +80,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
   }
 
   const url = new URL(`${BASE_URL}${path}`);
-  url.searchParams.set("company_id", options.companyId);
+  if (options.companyId) url.searchParams.set("company_id", options.companyId);
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== null && value !== undefined && value !== "") url.searchParams.set(key, String(value));
   }
@@ -78,7 +92,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        "X-Company-Id": options.companyId,
+        ...(options.companyId ? { "X-Company-Id": options.companyId } : {}),
+        ...(csrfToken() ? { "X-XSRF-TOKEN": csrfToken() as string } : {}),
+        ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       credentials: "include",

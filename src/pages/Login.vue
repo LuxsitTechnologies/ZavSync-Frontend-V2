@@ -6,17 +6,31 @@ import AuthLayout from "@/components/zs/AuthLayout.vue";
 import Field from "@/components/zs/Field.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import { setPageMeta } from "@/lib/page-meta";
+import ValidationMessage from "@/components/zs/ValidationMessage.vue";
+import { authRepository } from "@/services/auth.repository";
+import { ApiError, isApiConfigured } from "@/services/api/client";
+import { useCompanyStore } from "@/stores/company";
 
 setPageMeta("Sign in", "Sign in to your ZavSync workspace.");
 
 const router = useRouter();
 const loading = ref(false);
-const email = ref("humza@zavtech.io");
-const password = ref("demo-password");
+const error = ref<string | null>(null);
+const email = ref(isApiConfigured() ? "finance@example.com" : "humza@zavtech.io");
+const password = ref(isApiConfigured() ? "password" : "demo-password");
+const companyStore = useCompanyStore();
 
-function onSubmit() {
+async function onSubmit() {
   loading.value = true;
-  setTimeout(() => router.push("/"), 400);
+  error.value = null;
+  try {
+    if (isApiConfigured()) companyStore.hydrate(await authRepository.login(email.value, password.value));
+    await router.push("/");
+  } catch (reason) {
+    error.value = reason instanceof ApiError ? reason.message : "Could not sign in.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 
@@ -43,6 +57,7 @@ function onSubmit() {
       <ZButton type="submit" :disabled="loading" class="w-full justify-center">
         {{ loading ? "Signing in…" : "Sign in" }}
       </ZButton>
+      <ValidationMessage :message="error" />
     </form>
 
     <template #footer>

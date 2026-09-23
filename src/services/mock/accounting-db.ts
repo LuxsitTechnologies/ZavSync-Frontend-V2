@@ -24,8 +24,6 @@ import type {
   Payment,
   PayrollPosting,
   ReceivableInvoice,
-  Supplier,
-  SupplierBill,
 } from "@/types/accounting";
 
 export const USER = "Humza Mazhar";
@@ -370,124 +368,6 @@ for (const company of companies) {
         document_id: invoiceId,
         document_number: seed.number,
         payment_date: seed.date,
-        amount: paid,
-        method: "bank_transfer",
-        reference: `TT-${seed.number.slice(-4)}`,
-        journal_id: null,
-      });
-    }
-  });
-}
-
-/* ----------------------------- payables ----------------------------- */
-
-interface SupplierSeed { name: string; code: string; terms: number; tax: string; expense: string }
-const SUPPLIER_SEEDS: SupplierSeed[] = [
-  { name: "Netsol Hardware", code: "SUP-001", terms: 30, tax: "5566778-1", expense: "1200" },
-  { name: "Orient Facilities", code: "SUP-002", terms: 15, tax: "6677889-2", expense: "5040" },
-  { name: "K-Electric", code: "SUP-003", terms: 7, tax: "7788990-3", expense: "5040" },
-  { name: "Amazon Web Services", code: "SUP-004", terms: 30, tax: "—", expense: "5050" },
-  { name: "Ali & Co Chartered Accountants", code: "SUP-005", terms: 45, tax: "8899001-4", expense: "5070" },
-];
-
-interface BillSeed { number: string; supplier: number; date: string; due: string; subtotal: number; tax: number; paid: number; status?: "draft" }
-const BILL_SEEDS: BillSeed[] = [
-  { number: "BILL-4471", supplier: 0, date: "2026-09-16", due: "2026-10-16", subtotal: 980000, tax: 147000, paid: 0 },
-  { number: "BILL-4468", supplier: 3, date: "2026-09-12", due: "2026-10-12", subtotal: 386400, tax: 0, paid: 386400 },
-  { number: "BILL-4460", supplier: 1, date: "2026-09-01", due: "2026-09-16", subtotal: 640000, tax: 96000, paid: 640000 },
-  { number: "BILL-4452", supplier: 2, date: "2026-08-22", due: "2026-08-29", subtotal: 412000, tax: 61800, paid: 0 },
-  { number: "BILL-4441", supplier: 4, date: "2026-07-30", due: "2026-09-13", subtotal: 350000, tax: 52500, paid: 150000 },
-  { number: "BILL-4433", supplier: 1, date: "2026-06-20", due: "2026-07-05", subtotal: 288000, tax: 43200, paid: 0 },
-  { number: "BILL-4480", supplier: 0, date: "2026-09-20", due: "2026-10-20", subtotal: 145000, tax: 21750, paid: 0, status: "draft" },
-];
-
-export const suppliers: Supplier[] = [];
-export const supplierBills: SupplierBill[] = [];
-export const supplierPayments: Payment[] = [];
-
-for (const company of companies) {
-  const weight = WEIGHT[company.id] ?? 0.3;
-  const seeds = company.id === "c1" ? SUPPLIER_SEEDS : SUPPLIER_SEEDS.slice(0, company.id === "c2" ? 3 : 2);
-  const ids = seeds.map((seed) => {
-    const id = uid("sup");
-    suppliers.push({
-      id,
-      company_id: company.id,
-      name: company.id === "c1" ? seed.name : `${seed.name} (${company.code})`,
-      code: seed.code,
-      tax_number: seed.tax,
-      email: `ar@${seed.name.toLowerCase().replace(/[^a-z]+/g, "")}.com`,
-      phone: "+92 21 111 000 000",
-      address: "Shahrah-e-Faisal, Karachi, Pakistan",
-      payment_terms_days: seed.terms,
-      default_expense_account_id: findAccount(company.id, seed.expense)?.id ?? null,
-      default_payable_account_id: findAccount(company.id, "2010")?.id ?? null,
-      status: "active",
-      outstanding: 0,
-      created_by: USER,
-      created_at: "2026-07-01T04:00:00Z",
-      updated_by: null,
-      updated_at: null,
-    });
-    return id;
-  });
-
-  const billSeeds = company.id === "c1" ? BILL_SEEDS : BILL_SEEDS.slice(0, company.id === "c2" ? 4 : 3);
-  billSeeds.forEach((seed) => {
-    const supplierId = ids[seed.supplier % ids.length]!;
-    const supplier = suppliers.find((s) => s.id === supplierId)!;
-    const expenseAccount =
-      accounts.find((a) => a.id === supplier.default_expense_account_id) ?? findAccount(company.id, "5040")!;
-    const total = toMinor(Math.round((seed.subtotal + seed.tax) * weight));
-    const paid = toMinor(Math.round(seed.paid * weight));
-    const outstanding = total - paid;
-    const overdueDays = outstanding > 0 ? Math.max(0, daysBetween(seed.due, TODAY)) : 0;
-    const status: SupplierBill["status"] =
-      seed.status === "draft"
-        ? "draft"
-        : outstanding <= 0
-          ? "paid"
-          : overdueDays > 0
-            ? "overdue"
-            : paid > 0
-              ? "partial"
-              : "unpaid";
-    if (status !== "draft") supplier.outstanding += outstanding;
-    const billId = uid("bill");
-    supplierBills.push({
-      id: billId,
-      company_id: company.id,
-      bill_number: `${seed.number}${company.id === "c1" ? "" : `-${company.code}`}`,
-      supplier_id: supplierId,
-      supplier_name: supplier.name,
-      bill_date: seed.date,
-      due_date: seed.due,
-      reference: `PO-${seed.number.slice(-4)}`,
-      expense_account_id: expenseAccount.id,
-      expense_account_name: `${expenseAccount.code} · ${expenseAccount.name}`,
-      subtotal: toMinor(Math.round(seed.subtotal * weight)),
-      tax: toMinor(Math.round(seed.tax * weight)),
-      total,
-      paid_amount: paid,
-      outstanding,
-      status,
-      days_overdue: overdueDays,
-      journal_id: journals.find((j) => j.company_id === company.id && j.reference === seed.number)?.id ?? null,
-      created_by: USER,
-      created_at: `${seed.date}T05:00:00Z`,
-      updated_by: null,
-      updated_at: null,
-    });
-    if (paid > 0) {
-      supplierPayments.push({
-        id: uid("pay"),
-        company_id: company.id,
-        number: `PAY-${seed.number.slice(-4)}`,
-        party_id: supplierId,
-        party_name: supplier.name,
-        document_id: billId,
-        document_number: seed.number,
-        payment_date: seed.due,
         amount: paid,
         method: "bank_transfer",
         reference: `TT-${seed.number.slice(-4)}`,

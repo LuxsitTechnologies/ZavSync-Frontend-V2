@@ -40,7 +40,7 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
 ];
 
 const amount = ref<Money>(props.outstanding);
-const paymentDate = ref("2026-09-21");
+const paymentDate = ref(new Date().toISOString().slice(0, 10));
 const method = ref<PaymentMethod>("bank_transfer");
 const bankAccountId = ref<string | null>(null);
 const reference = ref("");
@@ -51,7 +51,7 @@ watch(
   (open) => {
     if (!open) return;
     amount.value = props.outstanding;
-    paymentDate.value = "2026-09-21";
+    paymentDate.value = new Date().toISOString().slice(0, 10);
     method.value = "bank_transfer";
     reference.value = "";
     note.value = "";

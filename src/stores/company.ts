@@ -1,32 +1,40 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 
-import { companies, type Company } from "@/lib/mock-data";
+import { companies as previewCompanies, currentUser as previewUser } from "@/lib/mock-data";
+import { isApiConfigured } from "@/services/api/client";
+import type { AuthPayload } from "@/services/auth.repository";
 
 const STORAGE_KEY = "zavsync.active_company";
 
-/**
- * Active company for the whole application. Every accounting request is scoped
- * to `activeCompanyId`; the repository layer rejects records from any other
- * company, so switching companies fully re-scopes the accounting screens.
- */
+export interface CompanyOption {
+  id: string;
+  name: string;
+  code?: string;
+  currency?: string;
+  timezone?: string;
+}
+
 export const useCompanyStore = defineStore("company", () => {
   const stored = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-  const known = companies.some((c) => c.id === stored);
-  const activeCompanyId = ref<string>(known && stored ? stored : (companies[0]?.id ?? ""));
+  const companies = ref<CompanyOption[]>(isApiConfigured() ? [] : previewCompanies);
+  const currentUser = ref<{ id?: number; name: string; email: string; role?: string }>(previewUser);
+  const activeCompanyId = ref<string>(stored && companies.value.some((company) => company.id === stored) ? stored : (companies.value[0]?.id ?? ""));
+  const activeCompany = computed(() => companies.value.find((company) => company.id === activeCompanyId.value));
 
-  const activeCompany = computed<Company | undefined>(() =>
-    companies.find((c) => c.id === activeCompanyId.value),
-  );
+  function hydrate(payload: AuthPayload) {
+    companies.value = payload.companies;
+    currentUser.value = payload.user;
+    activeCompanyId.value = stored && companies.value.some((company) => company.id === stored) ? stored : (companies.value[0]?.id ?? "");
+  }
 
   function setCompany(id: string) {
-    if (!companies.some((c) => c.id === id)) return;
-    activeCompanyId.value = id;
+    if (companies.value.some((company) => company.id === id)) activeCompanyId.value = id;
   }
 
   watch(activeCompanyId, (id) => {
-    if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY, id);
+    if (typeof localStorage !== "undefined" && id) localStorage.setItem(STORAGE_KEY, id);
   });
 
-  return { companies, activeCompanyId, activeCompany, setCompany };
+  return { companies, currentUser, activeCompanyId, activeCompany, hydrate, setCompany };
 });

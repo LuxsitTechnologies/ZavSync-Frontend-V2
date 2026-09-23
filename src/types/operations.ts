@@ -1,7 +1,9 @@
 import type { Money } from "@/types/accounting";
-export type WorkflowStatus = "draft"|"pending"|"approved"|"rejected"|"executed"|"paid"|"partially_received"|"received"|"matched"|"unmatched"|"processing"|"indexed"|"failed";
+export type WorkflowStatus = "draft"|"pending"|"approved"|"rejected"|"cancelled"|"executed"|"paid"|"partially_received"|"received"|"matched"|"unmatched"|"processing"|"indexed"|"failed";
 export interface CompanyRecord { id:string; company_id:string }
-export interface PurchaseOrder extends CompanyRecord { number:string; supplier:string; date:string; expected_date:string; owner:string; status:WorkflowStatus; total:Money; received:number; lines:{description:string;quantity:number;unit_cost:Money}[] }
+export interface PurchaseOrderLine { id:string; description:string; procurement_type:"goods"|"service"; quantity_milli:number; received_quantity_milli:number; billed_quantity_milli:number; unit:string; unit_price:Money; discount:Money; tax_rate_bps:number; total:Money; expense_account_id:string|null }
+export interface PurchaseOrder extends CompanyRecord { number:string; supplier_id:string; supplier:string; date:string; expected_date:string|null; created_by:string; status:WorkflowStatus; subtotal:Money; discount:Money; tax:Money; total:Money; received:number; lines:PurchaseOrderLine[] }
+export interface PurchaseOrderInput { supplier_id:string; order_date:string; expected_delivery_date?:string|null; currency:string; reference?:string|null; notes?:string|null; lines:{description:string;procurement_type:"goods"|"service";quantity_milli:number;unit:string;unit_price:Money;discount?:Money;tax_rate_bps?:number;expense_account_id?:string|null}[] }
 export interface ExpenseClaim extends CompanyRecord { reference:string; claimant:string; category:string; date:string; amount:Money; status:WorkflowStatus; receipt:boolean; notes:string }
 export interface BankAccount extends CompanyRecord { name:string; institution:string; masked_number:string; type:"bank"|"cash"|"wallet"|"processor"; currency:string; balance:Money; available:Money; is_default:boolean; status:"active"|"disconnected" }
 export interface BankTransaction extends CompanyRecord { date:string; description:string; reference:string; amount:Money; direction:"in"|"out"; status:"matched"|"suggested"|"unmatched"; match_reference?:string; confidence?:number }

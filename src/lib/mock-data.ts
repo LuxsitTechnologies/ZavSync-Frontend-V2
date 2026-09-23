@@ -11,8 +11,6 @@ export type EmployeeStatus =
   | "resigned"
   | "terminated";
 export type EmploymentType = "full_time" | "part_time" | "contract" | "intern";
-export type PaymentStatus = "paid" | "partial" | "unpaid" | "overdue" | "draft";
-export type FbrStatus = "submitted" | "pending" | "rejected" | "not_applicable";
 
 export interface Company {
   id: string;
@@ -32,20 +30,6 @@ export interface Employee {
   status: EmployeeStatus;
   joining_date: string;
   location: string;
-}
-
-export interface Invoice {
-  id: string;
-  invoice_number: string;
-  client_name: string;
-  issue_date: string;
-  due_date: string;
-  currency: string;
-  total: number;
-  amount_paid: number;
-  balance: number;
-  payment_status: PaymentStatus;
-  fbr_status: FbrStatus;
 }
 
 export const companies: Company[] = [
@@ -77,35 +61,10 @@ export const employees: Employee[] = [
   { id: "e14", employee_code: "ZTS-0114", full_name: "Owais Farooq", email: "owais.f@zavtech.io", phone: "+92 313 8890231", department: "Operations", designation: "Fleet Coordinator", employment_type: "contract", status: "resigned", joining_date: "2021-04-04", location: "Multan" },
 ];
 
-export const invoices: Invoice[] = [
-  { id: "i1", invoice_number: "INV-2026-0418", client_name: "Descon Engineering", issue_date: "2026-08-14", due_date: "2026-09-13", currency: "PKR", total: 1450000, amount_paid: 1450000, balance: 0, payment_status: "paid", fbr_status: "submitted" },
-  { id: "i2", invoice_number: "INV-2026-0417", client_name: "Packages Mall", issue_date: "2026-08-11", due_date: "2026-09-10", currency: "PKR", total: 862500, amount_paid: 400000, balance: 462500, payment_status: "partial", fbr_status: "submitted" },
-  { id: "i3", invoice_number: "INV-2026-0416", client_name: "Systems Ltd", issue_date: "2026-08-08", due_date: "2026-09-07", currency: "PKR", total: 2310000, amount_paid: 0, balance: 2310000, payment_status: "unpaid", fbr_status: "pending" },
-  { id: "i4", invoice_number: "INV-2026-0415", client_name: "Nestlé Pakistan", issue_date: "2026-07-29", due_date: "2026-08-12", currency: "PKR", total: 675400, amount_paid: 0, balance: 675400, payment_status: "overdue", fbr_status: "submitted" },
-  { id: "i5", invoice_number: "INV-2026-0414", client_name: "Interloop Limited", issue_date: "2026-07-25", due_date: "2026-08-24", currency: "PKR", total: 1180000, amount_paid: 1180000, balance: 0, payment_status: "paid", fbr_status: "submitted" },
-  { id: "i6", invoice_number: "INV-2026-0413", client_name: "Emaar Pakistan", issue_date: "2026-07-19", due_date: "2026-08-18", currency: "PKR", total: 3425000, amount_paid: 1712500, balance: 1712500, payment_status: "partial", fbr_status: "rejected" },
-  { id: "i7", invoice_number: "INV-2026-0412", client_name: "Bahria Town", issue_date: "2026-07-14", due_date: "2026-07-28", currency: "PKR", total: 540000, amount_paid: 0, balance: 540000, payment_status: "overdue", fbr_status: "pending" },
-  { id: "i8", invoice_number: "INV-2026-0411", client_name: "K-Electric", issue_date: "2026-07-05", due_date: "2026-08-04", currency: "PKR", total: 1990000, amount_paid: 1990000, balance: 0, payment_status: "paid", fbr_status: "submitted" },
-  { id: "i9", invoice_number: "INV-2026-0410", client_name: "Shifa International", issue_date: "2026-06-30", due_date: "2026-07-30", currency: "PKR", total: 728000, amount_paid: 728000, balance: 0, payment_status: "paid", fbr_status: "submitted" },
-  { id: "i10", invoice_number: "INV-2026-0409", client_name: "Gourmet Foods", issue_date: "2026-08-20", due_date: "2026-09-19", currency: "PKR", total: 315000, amount_paid: 0, balance: 315000, payment_status: "draft", fbr_status: "not_applicable" },
-  { id: "i11", invoice_number: "INV-2026-0408", client_name: "Lucky Cement", issue_date: "2026-06-22", due_date: "2026-07-22", currency: "PKR", total: 2650000, amount_paid: 2650000, balance: 0, payment_status: "paid", fbr_status: "submitted" },
-  { id: "i12", invoice_number: "INV-2026-0407", client_name: "Habib Metro Bank", issue_date: "2026-06-15", due_date: "2026-07-15", currency: "PKR", total: 1120000, amount_paid: 560000, balance: 560000, payment_status: "partial", fbr_status: "submitted" },
-];
-
 export const dashboard = {
   kpis: [
-    { key: "revenue", label: "Revenue (MTD)", value: 8420000, format: "money" as const, delta: 12.4 },
-    { key: "outstanding", label: "Outstanding", value: 6575400, format: "money" as const, delta: -4.1 },
     { key: "headcount", label: "Active Headcount", value: 128, format: "number" as const, delta: 3.2 },
     { key: "attendance", label: "Attendance Today", value: 94.2, format: "percent" as const, delta: 1.8 },
-  ],
-  revenueSeries: [
-    { month: "Mar", invoiced: 5.2, collected: 4.6 },
-    { month: "Apr", invoiced: 6.1, collected: 5.4 },
-    { month: "May", invoiced: 5.8, collected: 5.7 },
-    { month: "Jun", invoiced: 7.4, collected: 6.2 },
-    { month: "Jul", invoiced: 8.9, collected: 7.1 },
-    { month: "Aug", invoiced: 8.4, collected: 6.8 },
   ],
   attendanceSplit: [
     { label: "Present", value: 118, tone: "success" as const },
@@ -117,11 +76,9 @@ export const dashboard = {
     { id: "a1", type: "Leave request", subject: "Fatima Noor · 3 days annual", meta: "Submitted 2h ago" },
     { id: "a2", type: "Expense claim", subject: "PKR 42,500 · Client travel", meta: "Usman Tariq · 5h ago" },
     { id: "a3", type: "Payroll batch", subject: "August 2026 · 128 employees", meta: "Awaiting finance sign-off" },
-    { id: "a4", type: "FBR resubmission", subject: "INV-2026-0413 · Emaar Pakistan", meta: "Rejected — invalid HS code" },
   ],
   activity: [
     { id: "t1", who: "Nida Hassan", what: "posted payroll run for July 2026", when: "12 min ago" },
-    { id: "t2", who: "Maryam Yousaf", what: "submitted INV-2026-0418 to FBR", when: "1h ago" },
     { id: "t3", who: "Hira Zafar", what: "approved 2 leave requests", when: "3h ago" },
     { id: "t4", who: "Bilal Ahmed Khan", what: "clocked in at 09:04", when: "Today" },
     { id: "t5", who: "System", what: "synced 46 attendance devices", when: "Today 06:00" },

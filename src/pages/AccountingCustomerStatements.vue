@@ -11,10 +11,9 @@ import DataTable, { type Column } from "@/components/zs/DataTable.vue";
 import AsyncSection from "@/components/zs/AsyncSection.vue";
 import StatusBadge from "@/components/zs/StatusBadge.vue";
 import ZButton from "@/components/zs/ZButton.vue";
-import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 import DateRangeFilter from "@/components/accounting/DateRangeFilter.vue";
 
-import { useAsyncData, useMutation } from "@/composables/useAsyncData";
+import { useAsyncData } from "@/composables/useAsyncData";
 import { receivablesRepository } from "@/services/accounting/receivables.repository";
 import { useCompanyStore } from "@/stores/company";
 import { formatMoney, formatMoneyOrDash } from "@/lib/money";
@@ -32,8 +31,9 @@ const { data: customersData } = useAsyncData(() => receivablesRepository.custome
 const customers = computed(() => customersData.value ?? []);
 
 const customerId = ref<string>("");
-const from = ref("2026-01-01");
-const to = ref("2026-09-21");
+const today = new Date().toISOString().slice(0, 10);
+const from = ref(`${today.slice(0, 4)}-01-01`);
+const to = ref(today);
 
 const hasSelection = computed(() => Boolean(customerId.value));
 
@@ -60,14 +60,8 @@ const columns: Column[] = [
   { key: "balance", header: "Balance", align: "right", class: "num" },
 ];
 
-/* -------------------- Export PDF -------------------- */
-
-const exportMutation = useMutation(receivablesRepository.exportStatement);
-
-async function exportPdf() {
-  if (!customerId.value) return;
-  const result = await exportMutation.run(company.activeCompanyId, customerId.value, from.value, to.value);
-  if (result) window.open(result.url, "_blank");
+function printStatement() {
+  if (statement.value) window.print();
 }
 </script>
 
@@ -75,8 +69,8 @@ async function exportPdf() {
   <AppShell>
     <PageHeader title="Customer Statements" description="Statement of account with running balance for a chosen customer.">
       <template #actions>
-        <ZButton variant="outline" :disabled="!hasSelection || exportMutation.saving.value" @click="exportPdf">
-          {{ exportMutation.saving.value ? "Exporting…" : "Export PDF" }}
+        <ZButton variant="outline" :disabled="!statement" @click="printStatement">
+          Print / Save PDF
         </ZButton>
       </template>
     </PageHeader>
@@ -93,8 +87,6 @@ async function exportPdf() {
           </label>
           <DateRangeFilter v-model:from="from" v-model:to="to" />
         </Toolbar>
-
-        <ValidationMessage :message="exportMutation.error.value?.message ?? null" />
 
         <div v-if="!hasSelection" class="p-10 text-center">
           <p class="text-sm font-semibold text-content">Choose a customer</p>

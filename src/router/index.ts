@@ -12,6 +12,8 @@ const routes: RouteRecordRaw[] = [
 
   // Accounting
   { path: "/accounting/invoices", component: () => import("@/pages/AccountingInvoices.vue") },
+  { path: "/accounting/invoices/:id", component: () => import("@/pages/AccountingInvoiceDetail.vue") },
+  { path: "/accounting/customers", component: () => import("@/pages/AccountingCustomers.vue") },
   { path: "/accounting/fbr", component: () => import("@/pages/AccountingFbr.vue") },
   {
     path: "/accounting/chart-of-accounts",

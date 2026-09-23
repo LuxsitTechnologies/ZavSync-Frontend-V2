@@ -196,7 +196,9 @@ export interface LedgerQuery {
 /* A3 — Accounts Receivable                                            */
 /* ------------------------------------------------------------------ */
 
-export type ReceivableStatus = "unpaid" | "partial" | "paid" | "overdue";
+export type ReceivableStatus = "draft" | "unpaid" | "partial" | "paid" | "overdue" | "void";
+export type InvoiceAccountingStatus = "draft" | "unpaid" | "partial" | "paid" | "void";
+export type InvoiceFbrStatus = "not_submitted" | "pending" | "submitted" | "accepted" | "rejected" | "failed";
 
 export interface Customer extends CompanyScoped {
   id: string;
@@ -208,6 +210,42 @@ export interface Customer extends CompanyScoped {
   payment_terms_days: number;
   is_active: boolean;
   outstanding: Money;
+  legal_name?: string | null;
+  type?: "business" | "individual" | "government";
+  ntn?: string | null;
+  cnic?: string | null;
+  strn?: string | null;
+  billing_address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  country?: string;
+  postal_code?: string | null;
+  contact_person?: string | null;
+  credit_limit?: Money | null;
+  currency?: string;
+  notes?: string | null;
+}
+
+export interface CustomerInput {
+  name: string;
+  legal_name?: string | null;
+  type: "business" | "individual" | "government";
+  ntn?: string | null;
+  cnic?: string | null;
+  strn?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  billing_address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  country: string;
+  postal_code?: string | null;
+  contact_person?: string | null;
+  payment_terms_days: number;
+  credit_limit?: Money | null;
+  currency: string;
+  is_active: boolean;
+  notes?: string | null;
 }
 
 export interface ReceivableInvoice extends CompanyScoped, AuditTrail {
@@ -228,11 +266,73 @@ export interface ReceivableInvoice extends CompanyScoped, AuditTrail {
   journal_id?: string | null;
 }
 
+export interface InvoiceLineInput {
+  item_id?: string | null;
+  item_name?: string | null;
+  description: string;
+  quantity_milli: number;
+  unit: string;
+  unit_price: Money;
+  discount: Money;
+  tax_rate_bps: number;
+  other_tax_rate_bps?: number;
+  advance_tax_rate_bps?: number;
+  withholding_tax_rate_bps?: number;
+  sales_type: string;
+  tax_metadata?: Record<string, unknown> | null;
+}
+
+export interface InvoiceInput {
+  customer_id: string;
+  invoice_date: string;
+  due_date: string;
+  currency: string;
+  notes?: string | null;
+  terms?: string | null;
+  lines: InvoiceLineInput[];
+}
+
+export interface InvoiceLine extends InvoiceLineInput {
+  id: string;
+  position: number;
+  subtotal: Money;
+  taxable_amount: Money;
+  tax_amount: Money;
+  other_tax_amount: Money;
+  advance_tax_amount: Money;
+  withholding_tax_amount: Money;
+  total: Money;
+}
+
+export interface InvoiceDetail extends ReceivableInvoice {
+  accounting_status: InvoiceAccountingStatus;
+  payment_status: ReceivableStatus;
+  discount: Money;
+  taxable_amount: Money;
+  sales_tax: Money;
+  other_tax: Money;
+  advance_tax: Money;
+  withholding_tax: Money;
+  balance_due: Money;
+  amount_paid: Money;
+  balance: Money;
+  notes: string | null;
+  terms: string | null;
+  fbr_status: InvoiceFbrStatus;
+  fbr_reference_number: string | null;
+  fbr_response_metadata: Record<string, unknown> | null;
+  reversal_journal_id: string | null;
+  lines?: InvoiceLine[];
+  customer?: Customer;
+  company?: { id: string; name: string; currency: string };
+}
+
 export type PaymentMethod = "bank_transfer" | "cash" | "cheque" | "card";
 
 export interface PaymentInput {
   amount: Money;
   payment_date: string;
+  posting_date?: string;
   method: PaymentMethod;
   bank_account_id: string | null;
   reference: string;
@@ -277,7 +377,7 @@ export interface AgingRow {
 export interface StatementLine {
   id: string;
   date: string;
-  type: "invoice" | "payment" | "credit_note" | "bill";
+  type: "invoice" | "payment" | "credit_note" | "bill" | "bill_void";
   reference: string;
   description: string;
   debit: Money;
@@ -328,7 +428,36 @@ export interface SupplierInput {
   status: SupplierStatus;
 }
 
-export type BillStatus = "draft" | "unpaid" | "partial" | "paid" | "overdue";
+export interface SupplierBillLineInput {
+  purchase_order_line_id?: string | null;
+  purchase_receipt_line_id?: string | null;
+  item_id?: string | null;
+  item_name?: string | null;
+  description: string;
+  procurement_type: "goods" | "service";
+  quantity_milli: number;
+  unit: string;
+  unit_price: Money;
+  discount?: Money;
+  tax_rate_bps?: number;
+  withholding_rate_bps?: number;
+  expense_account_id: string;
+}
+
+export interface SupplierBillInput {
+  supplier_id: string;
+  purchase_order_id?: string | null;
+  purchase_receipt_id?: string | null;
+  supplier_invoice_number: string;
+  bill_date: string;
+  posting_date: string;
+  due_date: string;
+  currency: string;
+  notes?: string | null;
+  lines: SupplierBillLineInput[];
+}
+
+export type BillStatus = "draft" | "unpaid" | "partial" | "paid" | "overdue" | "void";
 
 export interface SupplierBill extends CompanyScoped, AuditTrail {
   id: string;
@@ -337,6 +466,7 @@ export interface SupplierBill extends CompanyScoped, AuditTrail {
   supplier_name: string;
   bill_date: string;
   due_date: string;
+  posting_date?: string;
   reference: string;
   expense_account_id: string;
   expense_account_name: string;
@@ -348,6 +478,9 @@ export interface SupplierBill extends CompanyScoped, AuditTrail {
   status: BillStatus;
   days_overdue: number;
   journal_id?: string | null;
+  accounting_status?: "draft" | "unpaid" | "partial" | "paid" | "void";
+  purchase_order_id?: string | null;
+  purchase_receipt_id?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -469,6 +602,12 @@ export type AccountMappingKey =
   | "cash"
   | "sales_revenue"
   | "sales_tax_payable"
+  | "other_tax_payable"
+  | "advance_tax_payable"
+  | "withholding_tax_receivable"
+  | "purchase_expense"
+  | "purchase_tax_recoverable"
+  | "withholding_tax_payable"
   | "input_tax"
   | "inventory_asset"
   | "cogs"

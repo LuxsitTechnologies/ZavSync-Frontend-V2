@@ -1,12 +1,7 @@
 import { toMinor } from "@/lib/money";
-import type { AuditEvent,BankAccount,BankTransaction,BudgetLine,CopilotAction,ExpenseClaim,KnowledgeDocument,PurchaseOrder,Recommendation,Settlement } from "@/types/operations";
+import type { AuditEvent,BankAccount,BankTransaction,BudgetLine,CopilotAction,ExpenseClaim,KnowledgeDocument,Recommendation,Settlement } from "@/types/operations";
 const cs=["c1","c2","c3"];
 const map=<T extends {id:string;company_id:string}>(rows:Omit<T,"id"|"company_id">[]):T[]=>cs.flatMap((company_id,ci)=>rows.map((r,i)=>({...r,id:`${company_id}-${i+1}`,company_id,...("amount" in r?{amount:Math.round(Number((r as any).amount)*(ci?0.42:1))}:{})} as T)));
-export const purchaseOrders=map<PurchaseOrder>([
- {number:"PO-2026-0194",supplier:"Systems Hardware Co.",date:"2026-09-12",expected_date:"2026-09-28",owner:"Usman Tariq",status:"pending",total:toMinor(1285000),received:0,lines:[{description:"Dell Latitude laptops",quantity:5,unit_cost:toMinor(257000)}]},
- {number:"PO-2026-0193",supplier:"CloudWays Pakistan",date:"2026-09-06",expected_date:"2026-09-20",owner:"Fatima Noor",status:"partially_received",total:toMinor(840000),received:60,lines:[{description:"Annual cloud services",quantity:12,unit_cost:toMinor(70000)}]},
- {number:"PO-2026-0192",supplier:"OfficeHub",date:"2026-08-26",expected_date:"2026-09-05",owner:"Hira Zafar",status:"received",total:toMinor(312500),received:100,lines:[{description:"Workstation furniture",quantity:5,unit_cost:toMinor(62500)}]},
-]);
 export const expenses=map<ExpenseClaim>([
  {reference:"EXP-0831",claimant:"Usman Tariq",category:"Client travel",date:"2026-09-18",amount:toMinor(42500),status:"pending",receipt:true,notes:"Islamabad client workshop"},
  {reference:"EXP-0830",claimant:"Ayesha Siddiqui",category:"Software",date:"2026-09-16",amount:toMinor(18900),status:"approved",receipt:true,notes:"Developer tooling"},

@@ -4,7 +4,6 @@ import { RouterLink, useRoute } from "vue-router";
 import { Bell, ChevronRight, Menu, Moon, Search, Sun } from "lucide-vue-next";
 
 import { breadcrumbFor } from "@/lib/nav";
-import { currentUser } from "@/lib/mock-data";
 import { useCompanyStore } from "@/stores/company";
 import { initials } from "@/lib/format";
 
@@ -14,6 +13,7 @@ const route = useRoute();
 const trail = computed(() => breadcrumbFor(route.path));
 const dark = ref(false);
 const companyStore = useCompanyStore();
+const currentUser = computed(() => companyStore.currentUser);
 
 function toggleTheme() {
   dark.value = !dark.value;

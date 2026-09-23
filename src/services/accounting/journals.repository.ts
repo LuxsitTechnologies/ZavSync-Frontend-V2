@@ -135,6 +135,7 @@ export const journalsRepository = {
         companyId,
         method: "POST",
         body: input,
+        idempotencyKey: id ? undefined : `manual-journal:${input.lines.map((line) => line.id).join(":")}`,
       });
     }
     const errors = validateJournal(input);
@@ -150,6 +151,7 @@ export const journalsRepository = {
         companyId,
         method: "POST",
         body: { posting_date: postingDate, reason },
+        idempotencyKey: `journal-reversal:${id}`,
       });
     }
     const original = db.find((j) => j.id === id && j.company_id === companyId);
