@@ -1,18 +1,27 @@
-import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useCompanyStore } from '@/stores/company'
-import { useAsyncData } from '@/composables/useAsyncData'
-import { crmRepository } from '@/services/crm/repository'
-export function useCrmData(){
- const company=useCompanyStore(); const {activeCompanyId}=storeToRefs(company)
- const companies=useAsyncData(()=>crmRepository.companies(activeCompanyId.value),{watch:[activeCompanyId],isEmpty:r=>r.length===0})
- const contacts=useAsyncData(()=>crmRepository.contacts(activeCompanyId.value),{watch:[activeCompanyId],isEmpty:r=>r.length===0})
- const leads=useAsyncData(()=>crmRepository.leads(activeCompanyId.value),{watch:[activeCompanyId],isEmpty:r=>r.length===0})
- const activities=useAsyncData(()=>crmRepository.activities(activeCompanyId.value),{watch:[activeCompanyId],isEmpty:r=>r.length===0})
- const tasks=useAsyncData(()=>crmRepository.tasks(activeCompanyId.value),{watch:[activeCompanyId],isEmpty:r=>r.length===0})
- const emails=useAsyncData(()=>crmRepository.emails(activeCompanyId.value),{watch:[activeCompanyId]})
- const sequences=useAsyncData(()=>crmRepository.sequences(activeCompanyId.value),{watch:[activeCompanyId]})
- const integrations=useAsyncData(()=>crmRepository.integrations(activeCompanyId.value),{watch:[activeCompanyId]})
- const loading=computed(()=>companies.loading.value||contacts.loading.value||leads.loading.value)
- return {activeCompanyId,companies,contacts,leads,activities,tasks,emails,sequences,integrations,loading}
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
+import { useCompanyStore } from "@/stores/company";
+import { useAsyncData } from "@/composables/useAsyncData";
+import { crmRepository } from "@/services/crm/repository";
+import { emailEvents, integrations as previewIntegrations, sequences as previewSequences } from "@/services/crm/outreach-preview";
+
+export function useCrmData() {
+  const company = useCompanyStore();
+  const { activeCompanyId } = storeToRefs(company);
+  const watch = [activeCompanyId];
+  const companies = useAsyncData(() => crmRepository.companies(activeCompanyId.value), { watch, isEmpty: (rows) => rows.length === 0 });
+  const contacts = useAsyncData(() => crmRepository.contacts(activeCompanyId.value), { watch, isEmpty: (rows) => rows.length === 0 });
+  const leads = useAsyncData(() => crmRepository.leads(activeCompanyId.value), { watch, isEmpty: (rows) => rows.length === 0 });
+  const deals = useAsyncData(() => crmRepository.deals(activeCompanyId.value), { watch, isEmpty: (rows) => rows.length === 0 });
+  const pipelines = useAsyncData(() => crmRepository.pipelines(activeCompanyId.value), { watch, isEmpty: (rows) => rows.length === 0 });
+  const activities = useAsyncData(() => crmRepository.activities(activeCompanyId.value), { watch, isEmpty: (rows) => rows.length === 0 });
+  const owners = useAsyncData(() => crmRepository.owners(activeCompanyId.value), { watch });
+  const dashboard = useAsyncData(() => crmRepository.dashboard(activeCompanyId.value), { watch });
+  const tasks = useAsyncData(async () => (activities.data.value ?? []).filter((item) => item.type === "Task"), { watch: [activities.data] });
+  const emails = useAsyncData(async () => emailEvents.filter((row) => row.companyId === activeCompanyId.value), { watch });
+  const sequences = useAsyncData(async () => previewSequences.filter((row) => row.companyId === activeCompanyId.value), { watch });
+  const integrations = useAsyncData(async () => previewIntegrations.filter((row) => row.companyId === activeCompanyId.value), { watch });
+  const loading = computed(() => companies.loading.value || contacts.loading.value || leads.loading.value || deals.loading.value || pipelines.loading.value);
+  const refresh = () => Promise.all([companies.refresh(), contacts.refresh(), leads.refresh(), deals.refresh(), pipelines.refresh(), activities.refresh(), dashboard.refresh()]);
+  return { activeCompanyId, companies, contacts, leads, deals, pipelines, activities, owners, dashboard, tasks, emails, sequences, integrations, loading, refresh };
 }
