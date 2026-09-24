@@ -19,7 +19,6 @@ import type {
   JournalLine,
   Money,
   Payment,
-  PayrollPosting,
   ReceivableInvoice,
 } from "@/types/accounting";
 
@@ -136,11 +135,6 @@ const MAPPING_SEEDS: { key: AccountMappingKey; label: string; description: strin
   { key: "input_tax", label: "Input tax receivable", description: "Debited for recoverable tax on supplier bills.", code: "1300", required: false },
   { key: "inventory_asset", label: "Inventory asset", description: "Debited on receipts, credited on FIFO issues.", code: "1200", required: true },
   { key: "cogs", label: "Cost of goods sold", description: "Debited with the FIFO cost of inventory consumed.", code: "5010", required: true },
-  { key: "salary_expense", label: "Salary expense", description: "Debited with gross salary on payroll posting.", code: "5020", required: true },
-  { key: "salary_payable", label: "Salary payable", description: "Credited with net pay on payroll posting.", code: "2030", required: true },
-  { key: "employer_contribution_expense", label: "Employer contribution expense", description: "Debited with employer-side contributions.", code: "5030", required: true },
-  { key: "employer_contribution_payable", label: "Employer contribution payable", description: "Credited with employer-side contributions.", code: "2040", required: true },
-  { key: "payroll_tax_payable", label: "Payroll tax payable", description: "Credited with payroll tax withheld from employees.", code: "2050", required: false },
 ];
 
 export const accountMappings: AccountMapping[] = companies.flatMap((company) =>
@@ -192,12 +186,6 @@ const JOURNAL_SEEDS: JournalSeed[] = [
     description: "FIFO cost of goods sold — laptop issue", status: "posted",
     source_label: "Inventory issue COGS-SEP-014", source_route: "/accounting/inventory-ledger",
     lines: [["5010", "COGS — FIFO layers", 1345000, 0], ["1200", "Inventory relieved", 0, 1345000]],
-  },
-  {
-    number: "JV-2026-0095", date: "2026-09-10", reference: "PR-2026-08", reference_type: "payroll",
-    description: "Payroll posting — August 2026", status: "posted",
-    source_label: "Payroll run PR-2026-08", source_route: "/payroll/posting",
-    lines: [["5020", "Gross salary", 9480000, 0], ["5030", "Employer contributions", 412000, 0], ["2030", "Net salary payable", 0, 8296000], ["2050", "Payroll tax withheld", 0, 1184000], ["2040", "Employer contribution payable", 0, 412000]],
   },
   {
     number: "JV-2026-0096", date: "2026-09-12", reference: "PAY-2026-0072", reference_type: "supplier_payment",
@@ -373,60 +361,5 @@ for (const company of companies) {
     }
   });
 }
-
-/* ----------------------------- payroll postings ----------------------------- */
-
-interface RunSeed { run: string; label: string; period: string; pay_date: string; employees: number; gross: number; deductions: number; employer: number; status: PayrollPosting["accounting_status"] }
-const RUN_SEEDS: RunSeed[] = [
-  { run: "PR-2026-09", label: "September 2026 — Monthly payroll", period: "Sep 2026", pay_date: "2026-09-28", employees: 128, gross: 9820000, deductions: 1260000, employer: 428000, status: "not_posted" },
-  { run: "PR-2026-08", label: "August 2026 — Monthly payroll", period: "Aug 2026", pay_date: "2026-08-28", employees: 126, gross: 9480000, deductions: 1184000, employer: 412000, status: "posted" },
-  { run: "PR-2026-07", label: "July 2026 — Monthly payroll", period: "Jul 2026", pay_date: "2026-07-28", employees: 124, gross: 9260000, deductions: 1142000, employer: 402000, status: "posted" },
-];
-
-export const payrollPostings: PayrollPosting[] = companies.flatMap((company) => {
-  const weight = WEIGHT[company.id] ?? 0.3;
-  const seeds = company.id === "c1" ? RUN_SEEDS : RUN_SEEDS.slice(0, 2);
-  return seeds.map((seed) => {
-    const gross = toMinor(Math.round(seed.gross * weight));
-    const deductions = toMinor(Math.round(seed.deductions * weight));
-    const employer = toMinor(Math.round(seed.employer * weight));
-    const net = gross - deductions;
-    const map = (key: AccountMappingKey) => {
-      const mapping = accountMappings.find((m) => m.company_id === company.id && m.key === key);
-      const account = accounts.find((a) => a.id === mapping?.account_id);
-      return {
-        account_id: account?.id ?? null,
-        account_code: account?.code ?? null,
-        account_name: account?.name ?? null,
-      };
-    };
-    const journal = journals.find((j) => j.company_id === company.id && j.reference === seed.run);
-    return {
-      id: uid("prp"),
-      company_id: company.id,
-      run_id: seed.run,
-      run_label: seed.label,
-      period: seed.period,
-      pay_date: seed.pay_date,
-      employees: Math.max(4, Math.round(seed.employees * weight)),
-      gross,
-      deductions,
-      employer_contributions: employer,
-      net_pay: net,
-      accounting_status: seed.status,
-      posting_date: seed.status === "posted" ? seed.pay_date : null,
-      journal_id: journal?.id ?? null,
-      journal_number: journal?.number ?? null,
-      locked: seed.status === "posted",
-      preview: [
-        { label: "Salary expense (gross)", ...map("salary_expense"), debit: gross, credit: 0 },
-        { label: "Employer contributions", ...map("employer_contribution_expense"), debit: employer, credit: 0 },
-        { label: "Net salary payable", ...map("salary_payable"), debit: 0, credit: net },
-        { label: "Payroll tax withheld", ...map("payroll_tax_payable"), debit: 0, credit: deductions },
-        { label: "Employer contribution payable", ...map("employer_contribution_payable"), debit: 0, credit: employer },
-      ],
-    };
-  });
-});
 
 export const nowIso = () => NOW;

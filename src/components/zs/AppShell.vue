@@ -35,9 +35,9 @@ const navOpen = ref(false);
       </div>
     </div>
 
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="flex min-w-0 flex-1 flex-col overflow-x-hidden">
       <Topbar @open-nav="navOpen = true" />
-      <main class="mx-auto w-full max-w-content flex-1 animate-fade-in p-4 lg:p-6">
+      <main class="mx-auto min-w-0 w-full max-w-content flex-1 animate-fade-in p-4 lg:p-6">
         <slot />
       </main>
     </div>

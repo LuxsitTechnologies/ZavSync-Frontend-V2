@@ -673,40 +673,6 @@ export interface InventoryReconciliation {
   explanation: string;
 }
 
-/* ------------------------------------------------------------------ */
-/* A7 — Payroll posting integration                                    */
-/* ------------------------------------------------------------------ */
-
-export type PayrollAccountingStatus = "not_posted" | "posted" | "reversed";
-
-export interface PayrollPostingLine {
-  label: string;
-  account_id: string | null;
-  account_code: string | null;
-  account_name: string | null;
-  debit: Money;
-  credit: Money;
-}
-
-export interface PayrollPosting extends CompanyScoped {
-  id: string;
-  run_id: string;
-  run_label: string;
-  period: string;
-  pay_date: string;
-  employees: number;
-  gross: Money;
-  deductions: Money;
-  employer_contributions: Money;
-  net_pay: Money;
-  accounting_status: PayrollAccountingStatus;
-  posting_date: string | null;
-  journal_id: string | null;
-  journal_number: string | null;
-  locked: boolean;
-  preview: PayrollPostingLine[];
-}
-
 /** Configurable per-company mapping — never hard-code jurisdiction accounts. */
 export type AccountMappingKey =
   | "accounts_receivable"
@@ -726,10 +692,15 @@ export type AccountMappingKey =
   | "cogs"
   | "inventory_adjustment"
   | "salary_expense"
-  | "salary_payable"
-  | "employer_contribution_expense"
-  | "employer_contribution_payable"
-  | "payroll_tax_payable";
+  | "wage_expense"
+  | "payroll_net_payable"
+  | "payroll_tax_payable"
+  | "payroll_employee_contribution_payable"
+  | "payroll_employer_contribution_expense"
+  | "payroll_employer_contribution_payable"
+  | "payroll_other_deduction_payable"
+  | "payroll_reimbursement_payable"
+  | "retained_earnings";
 
 export interface AccountMapping extends CompanyScoped {
   key: AccountMappingKey;

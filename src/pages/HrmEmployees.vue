@@ -6,148 +6,64 @@ import AppShell from "@/components/zs/AppShell.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import PageHeader from "@/components/zs/PageHeader.vue";
 import StatusBadge from "@/components/zs/StatusBadge.vue";
-import { employees, type EmployeeStatus } from "@/lib/mock-data";
+import SidePanel from "@/components/zs/SidePanel.vue";
+import AsyncSection from "@/components/zs/AsyncSection.vue";
+import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { initials, labelize, shortDate } from "@/lib/format";
+import { formatMoney, parseMoneyInput } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
+import { payrollRepository } from "@/services/payroll/payroll.repository";
+import { useCompanyStore } from "@/stores/company";
+import type { Employee, EmployeeInput, EmployeePayrollProfile, EmployeeStatus } from "@/types/payroll";
 
-setPageMeta(
-  "Employees",
-  "Search, filter and manage the employee directory across departments, employment types and statuses.",
-);
-
-const STATUSES: (EmployeeStatus | "all")[] = [
-  "all",
-  "active",
-  "probation",
-  "on_leave",
-  "notice_period",
-  "resigned",
-  "terminated",
-];
-
+setPageMeta("Employees", "Company-scoped employee directory and effective-dated payroll profiles.");
+const company = useCompanyStore();
+const state = useAsyncData(() => payrollRepository.employees(company.activeCompanyId), { watch: [() => company.activeCompanyId] });
+const componentState = useAsyncData(() => payrollRepository.components(company.activeCompanyId), { watch: [() => company.activeCompanyId] });
+const accountState = useAsyncData(() => payrollRepository.financialAccounts(company.activeCompanyId), { watch: [() => company.activeCompanyId] });
+const STATUSES: (EmployeeStatus | "all")[] = ["all", "active", "probation", "on_leave", "notice_period", "resigned", "terminated"];
 const query = ref("");
 const status = ref<EmployeeStatus | "all">("all");
 const department = ref("all");
+const employees = computed(() => state.data.value ?? []);
+const departments = computed(() => ["all", ...Array.from(new Set(employees.value.map((employee) => employee.department).filter((value): value is string => !!value)))]);
+const rows = computed(() => employees.value.filter((employee) => {
+  const q = query.value.trim().toLowerCase();
+  return (!q || employee.full_name.toLowerCase().includes(q) || employee.employee_code.toLowerCase().includes(q) || (employee.email ?? "").toLowerCase().includes(q)) && (status.value === "all" || employee.status === status.value) && (department.value === "all" || employee.department === department.value);
+}));
 
-const departments = computed(() => [
-  "all",
-  ...Array.from(new Set(employees.map((e) => e.department))),
-]);
+const employeeOpen = ref(false);
+const employeeEditing = ref<Employee | null>(null);
+const employeeForm = ref<EmployeeInput>({ employee_code: "", full_name: "", email: "", phone: "", department: "", designation: "", employment_type: "full_time", status: "active", joining_date: new Date().toISOString().slice(0, 10), leaving_date: null, location: "" });
+const employeeMutation = useMutation(() => employeeEditing.value ? payrollRepository.updateEmployee(company.activeCompanyId, employeeEditing.value.id, employeeForm.value) : payrollRepository.createEmployee(company.activeCompanyId, employeeForm.value));
+function openNewEmployee() { employeeEditing.value = null; employeeForm.value = { employee_code: "", full_name: "", email: "", phone: "", department: "", designation: "", employment_type: "full_time", status: "active", joining_date: new Date().toISOString().slice(0, 10), leaving_date: null, location: "" }; employeeMutation.reset(); employeeOpen.value = true; }
+function openEditEmployee(employee: Employee) { employeeEditing.value = employee; employeeForm.value = { employee_code: employee.employee_code, full_name: employee.full_name, email: employee.email, phone: employee.phone, department: employee.department, designation: employee.designation, employment_type: employee.employment_type, status: employee.status, joining_date: employee.joining_date, leaving_date: employee.leaving_date, location: employee.location }; employeeMutation.reset(); employeeOpen.value = true; }
+async function saveEmployee() { const result = await employeeMutation.run(); if (result) { employeeOpen.value = false; await state.refresh(); } }
 
-const rows = computed(() =>
-  employees.filter((e) => {
-    const q = query.value.trim().toLowerCase();
-    const matchesQuery =
-      !q ||
-      e.full_name.toLowerCase().includes(q) ||
-      e.employee_code.toLowerCase().includes(q) ||
-      e.email.toLowerCase().includes(q);
-    const matchesStatus = status.value === "all" || e.status === status.value;
-    const matchesDept = department.value === "all" || e.department === department.value;
-    return matchesQuery && matchesStatus && matchesDept;
-  }),
-);
+const profileOpen = ref(false);
+const selectedEmployee = ref<Employee | null>(null);
+const profiles = ref<EmployeePayrollProfile[]>([]);
+const profileLoading = ref(false);
+const profileError = ref<string | null>(null);
+const profileForm = ref({ base_salary: "", effective_from: new Date().toISOString().slice(0, 10), currency: "PKR", payroll_status: "active", payment_financial_account_id: "", employee_bank_reference: "", tax_identifier: "", component_ids: [] as string[] });
+const profileMutation = useMutation((employeeId: string, baseSalary: number) => payrollRepository.createProfile(company.activeCompanyId, employeeId, { payroll_status: profileForm.value.payroll_status, pay_frequency: "monthly", base_salary: baseSalary, currency: profileForm.value.currency, effective_from: profileForm.value.effective_from, effective_to: null, tax_identifier: profileForm.value.tax_identifier || null, statutory_registration: null, payment_financial_account_id: profileForm.value.payment_financial_account_id || null, employee_bank_reference: profileForm.value.employee_bank_reference || null, components: profileForm.value.component_ids.map((id) => ({ payroll_component_id: id, is_active: true })) }));
+async function openProfile(employee: Employee) { selectedEmployee.value = employee; profileOpen.value = true; profileLoading.value = true; profileError.value = null; try { profiles.value = await payrollRepository.profiles(company.activeCompanyId, employee.id); } catch (error) { profiles.value = []; profileError.value = error instanceof Error ? error.message : "Unable to load payroll profile history."; } finally { profileLoading.value = false; } }
+async function createProfile() { if (!selectedEmployee.value) return; const salary = parseMoneyInput(profileForm.value.base_salary); if (salary === null) return; const result = await profileMutation.run(selectedEmployee.value.id, salary); if (result) { profiles.value = await payrollRepository.profiles(company.activeCompanyId, selectedEmployee.value.id); await state.refresh(); profileForm.value.base_salary = ""; } }
 </script>
 
 <template>
   <AppShell>
-    <PageHeader
-      title="Employees"
-      :description="`${employees.length} people across ${departments.length - 1} departments`"
-    >
-      <template #actions>
-        <ZButton variant="outline">
-          <Download class="size-4" /> Export
-        </ZButton>
-        <ZButton>
-          <Plus class="size-4" /> Add employee
-        </ZButton>
-      </template>
-    </PageHeader>
-
-    <div class="panel overflow-hidden">
-      <div class="flex flex-wrap items-center gap-2 border-b border-line p-3">
-        <div class="relative min-w-56 flex-1">
-          <Search
-            class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-content-muted"
-          />
-          <input
-            v-model="query"
-            placeholder="Search name, code or email"
-            class="field pl-8"
-            aria-label="Search employees"
-          />
-        </div>
-        <select v-model="department" class="field w-44" aria-label="Filter by department">
-          <option v-for="d in departments" :key="d" :value="d">
-            {{ d === "all" ? "All departments" : d }}
-          </option>
-        </select>
-        <select v-model="status" class="field w-40" aria-label="Filter by status">
-          <option v-for="s in STATUSES" :key="s" :value="s">
-            {{ s === "all" ? "All statuses" : labelize(s) }}
-          </option>
-        </select>
-        <ZButton variant="ghost">
-          <Filter class="size-4" /> More filters
-        </ZButton>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[900px]">
-          <thead>
-            <tr class="table-head">
-              <th class="px-4 py-2.5 text-left">Employee</th>
-              <th class="px-4 py-2.5 text-left">Code</th>
-              <th class="px-4 py-2.5 text-left">Department</th>
-              <th class="px-4 py-2.5 text-left">Designation</th>
-              <th class="px-4 py-2.5 text-left">Type</th>
-              <th class="px-4 py-2.5 text-left">Joined</th>
-              <th class="px-4 py-2.5 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="e in rows" :key="e.id" class="table-row-zs cursor-pointer">
-              <td class="px-4">
-                <div class="flex items-center gap-2.5">
-                  <span
-                    class="grid size-7 shrink-0 place-items-center rounded-full bg-primary-subtle text-2xs font-semibold text-primary-subtle-fg"
-                  >
-                    {{ initials(e.full_name) }}
-                  </span>
-                  <div class="leading-tight">
-                    <p class="font-medium text-content">{{ e.full_name }}</p>
-                    <p class="text-2xs text-content-muted">{{ e.email }}</p>
-                  </div>
-                </div>
-              </td>
-              <td class="num px-4 text-content-secondary">{{ e.employee_code }}</td>
-              <td class="px-4 text-content-secondary">{{ e.department }}</td>
-              <td class="px-4 text-content-secondary">{{ e.designation }}</td>
-              <td class="px-4 text-content-secondary">{{ labelize(e.employment_type) }}</td>
-              <td class="num px-4 text-content-muted">{{ shortDate(e.joining_date) }}</td>
-              <td class="px-4">
-                <StatusBadge :status="e.status" />
-              </td>
-            </tr>
-            <tr v-if="rows.length === 0">
-              <td colspan="7" class="p-10 text-center text-sm text-content-muted">
-                No employees match these filters.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div
-        class="flex items-center justify-between border-t border-line px-4 py-2.5 text-xs text-content-muted"
-      >
-        <span>Showing {{ rows.length }} of {{ employees.length }} employees</span>
-        <div class="flex items-center gap-1">
-          <ZButton variant="outline" disabled>Previous</ZButton>
-          <ZButton variant="outline" disabled>Next</ZButton>
-        </div>
-      </div>
+    <PageHeader title="Employees" :description="`${employees.length} people across ${departments.length - 1} departments`"><template #actions><ZButton variant="outline" disabled title="Payroll exports require a dedicated authorized backend endpoint"><Download class="size-4" /> Export</ZButton><ZButton @click="openNewEmployee"><Plus class="size-4" /> Add employee</ZButton></template></PageHeader>
+    <div class="panel min-w-0 overflow-hidden">
+      <div class="flex flex-wrap items-center gap-2 border-b border-line p-3"><div class="relative min-w-56 flex-1"><Search class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-content-muted"/><input v-model="query" placeholder="Search name, code or email" class="field pl-8" aria-label="Search employees"/></div><select v-model="department" class="field w-44" aria-label="Filter by department"><option v-for="item in departments" :key="item" :value="item">{{ item === "all" ? "All departments" : item }}</option></select><select v-model="status" class="field w-40" aria-label="Filter by status"><option v-for="item in STATUSES" :key="item" :value="item">{{ item === "all" ? "All statuses" : labelize(item) }}</option></select><ZButton variant="ghost"><Filter class="size-4" /> More filters</ZButton></div>
+      <AsyncSection :loading="state.loading.value" :error="state.error.value" :empty="state.isEmpty.value" empty-title="No employees" empty-message="Add the first employee for this company." @retry="state.refresh">
+        <div class="max-w-full overflow-x-auto"><table class="w-full min-w-[980px]"><thead><tr class="table-head"><th class="px-4 py-2.5 text-left">Employee</th><th class="px-4 py-2.5 text-left">Code</th><th class="px-4 py-2.5 text-left">Department</th><th class="px-4 py-2.5 text-left">Designation</th><th class="px-4 py-2.5 text-left">Type</th><th class="px-4 py-2.5 text-left">Joined</th><th class="px-4 py-2.5 text-left">Status</th><th class="px-4 py-2.5 text-right"></th></tr></thead><tbody><tr v-for="employee in rows" :key="employee.id" class="table-row-zs"><td class="px-4"><div class="flex items-center gap-2.5"><span class="grid size-7 shrink-0 place-items-center rounded-full bg-primary-subtle text-2xs font-semibold text-primary-subtle-fg">{{ initials(employee.full_name) }}</span><div class="leading-tight"><p class="font-medium text-content">{{ employee.full_name }}</p><p class="text-2xs text-content-muted">{{ employee.email ?? "—" }}</p></div></div></td><td class="num px-4 text-content-secondary">{{ employee.employee_code }}</td><td class="px-4 text-content-secondary">{{ employee.department ?? "—" }}</td><td class="px-4 text-content-secondary">{{ employee.designation ?? "—" }}</td><td class="px-4 text-content-secondary">{{ labelize(employee.employment_type) }}</td><td class="num px-4 text-content-muted">{{ shortDate(employee.joining_date) }}</td><td class="px-4"><StatusBadge :status="employee.status"/></td><td class="px-4 text-right"><div class="flex justify-end gap-1"><ZButton variant="ghost" @click="openEditEmployee(employee)">Edit</ZButton><ZButton variant="ghost" @click="openProfile(employee)">Payroll profile</ZButton></div></td></tr><tr v-if="rows.length === 0"><td colspan="8" class="p-10 text-center text-sm text-content-muted">No employees match these filters.</td></tr></tbody></table></div>
+      </AsyncSection>
+      <div class="flex items-center justify-between border-t border-line px-4 py-2.5 text-xs text-content-muted"><span>Showing {{ rows.length }} of {{ employees.length }} employees</span><div class="flex items-center gap-1"><ZButton variant="outline" disabled>Previous</ZButton><ZButton variant="outline" disabled>Next</ZButton></div></div>
     </div>
+
+    <SidePanel :open="employeeOpen" :title="employeeEditing ? 'Edit employee' : 'Add employee'" description="Maintain the company employee master used by payroll." @close="employeeOpen = false"><form class="space-y-4" @submit.prevent="saveEmployee"><div class="grid gap-3 sm:grid-cols-2"><label class="block"><span class="label-caps">Employee code</span><input v-model="employeeForm.employee_code" class="field mt-1.5 w-full" required/></label><label class="block"><span class="label-caps">Full name</span><input v-model="employeeForm.full_name" class="field mt-1.5 w-full" required/></label></div><label class="block"><span class="label-caps">Email</span><input v-model="employeeForm.email" type="email" class="field mt-1.5 w-full"/></label><div class="grid gap-3 sm:grid-cols-2"><label class="block"><span class="label-caps">Department</span><input v-model="employeeForm.department" class="field mt-1.5 w-full"/></label><label class="block"><span class="label-caps">Designation</span><input v-model="employeeForm.designation" class="field mt-1.5 w-full"/></label></div><div class="grid gap-3 sm:grid-cols-2"><label class="block"><span class="label-caps">Employment type</span><select v-model="employeeForm.employment_type" class="field mt-1.5 w-full"><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="intern">Intern</option></select></label><label class="block"><span class="label-caps">Status</span><select v-model="employeeForm.status" class="field mt-1.5 w-full"><option v-for="item in STATUSES.filter((value) => value !== 'all')" :key="item" :value="item">{{ labelize(item) }}</option></select></label></div><label class="block"><span class="label-caps">Joining date</span><input v-model="employeeForm.joining_date" type="date" class="field mt-1.5 w-full" required/></label><p v-if="employeeMutation.error.value" class="text-xs text-danger">{{ employeeMutation.error.value.message }}</p><ZButton type="submit" :disabled="employeeMutation.saving.value">{{ employeeEditing ? "Save employee" : "Create employee" }}</ZButton></form></SidePanel>
+
+    <SidePanel :open="profileOpen" title="Payroll profile" :description="selectedEmployee?.full_name" width="lg" @close="profileOpen = false"><div v-if="profileLoading" class="text-sm text-content-muted">Loading profile history…</div><p v-else-if="profileError" class="rounded-md border border-danger/20 bg-danger/5 p-3 text-sm text-danger">{{ profileError }}</p><div v-else class="space-y-5"><div><p class="label-caps mb-2">Effective-dated history</p><div v-if="profiles.length" class="divide-y divide-line rounded-md border border-line"><div v-for="profile in profiles" :key="profile.id" class="flex items-center justify-between p-3"><div><p class="text-sm font-medium text-content">{{ formatMoney(profile.base_salary, profile.currency) }}</p><p class="text-xs text-content-muted">Effective {{ shortDate(profile.effective_from) }} · {{ profile.payroll_status }}</p></div><span class="zs-badge badge-neutral">{{ profile.components?.length ?? 0 }} components</span></div></div><p v-else class="text-xs text-content-muted">No payroll profile exists yet.</p></div><form class="space-y-4 rounded-md bg-surface-sunken p-4" @submit.prevent="createProfile"><p class="text-sm font-semibold text-content">New profile version</p><div class="grid gap-3 sm:grid-cols-2"><label class="block"><span class="label-caps">Base salary (PKR)</span><input v-model="profileForm.base_salary" class="field mt-1.5 w-full" inputmode="decimal" required/></label><label class="block"><span class="label-caps">Effective from</span><input v-model="profileForm.effective_from" type="date" class="field mt-1.5 w-full" required/></label></div><label class="block"><span class="label-caps">Payment account</span><select v-model="profileForm.payment_financial_account_id" class="field mt-1.5 w-full"><option value="">Not specified</option><option v-for="account in accountState.data.value ?? []" :key="account.id" :value="account.id">{{ account.name }}</option></select></label><div><p class="label-caps mb-2">Default components</p><div class="grid gap-2 sm:grid-cols-2"><label v-for="component in (componentState.data.value ?? []).filter((item) => item.is_active)" :key="component.id" class="flex items-center gap-2 text-xs text-content-secondary"><input v-model="profileForm.component_ids" type="checkbox" :value="component.id"/>{{ component.code }} · {{ component.name }}</label></div></div><p v-if="profileMutation.error.value" class="text-xs text-danger">{{ profileMutation.error.value.message }}</p><ZButton type="submit" :disabled="profileMutation.saving.value">Create profile version</ZButton></form></div></SidePanel>
   </AppShell>
 </template>

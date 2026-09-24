@@ -15,7 +15,7 @@ import AccountSelect from "@/components/accounting/AccountSelect.vue";
 import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
-import { payrollPostingRepository } from "@/services/accounting/payroll-posting.repository";
+import { accountMappingsRepository } from "@/services/accounting/account-mappings.repository";
 import { useCompanyStore } from "@/stores/company";
 import { setPageMeta } from "@/lib/page-meta";
 import type { AccountMapping } from "@/types/accounting";
@@ -28,7 +28,7 @@ setPageMeta(
 const company = useCompanyStore();
 
 const { data, loading, error, isEmpty, refresh } = useAsyncData(
-  () => payrollPostingRepository.mappings(company.activeCompanyId),
+  () => accountMappingsRepository.list(company.activeCompanyId),
   { watch: [() => company.activeCompanyId] },
 );
 
@@ -37,7 +37,7 @@ const missingRequired = computed(() =>
   mappings.value.filter((m) => m.required && !m.account_id),
 );
 
-const saveMutation = useMutation(payrollPostingRepository.saveMapping);
+const saveMutation = useMutation(accountMappingsRepository.save);
 const rowState = reactive<Record<string, { saving: boolean; error: string | null; savedAt: number | null }>>({});
 
 function stateFor(key: string) {
