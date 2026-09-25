@@ -69,8 +69,3 @@ export interface CrmDashboard {
   leadsBySource: Array<{ source: string; leads: number; converted: number }>;
 }
 export interface CustomerMatch { id: string; name: string; customerNumber?: string; email?: string; phone?: string; ntn?: string | null; cnic?: string | null }
-
-export interface EmailEvent { id:string; companyId:string; leadId:string; date:string; subject:string; sequence:string; status:'Sent'|'Delivered'|'Opened'|'Replied'|'Follow-up pending'|'Follow-up sent'; sender:string; step:number; body:string }
-export interface SequenceStep { id:string; subject:string; body:string; delayDays:number }
-export interface Sequence { id:string; companyId:string; name:string; objective:string; tone:string; leadId:string; steps:SequenceStep[]; status:'Draft'|'Active'|'Paused'|'Completed'; enrolled:number; completed:number; replied:number; openRate:number; replyRate:number }
-export interface EmailIntegration { id:string; companyId:string; provider:'Gmail'|'Microsoft Outlook'; email:string; status:'Not Connected'|'Connecting'|'Connected'|'Connection Error'|'Expired'; lastSync?:string }

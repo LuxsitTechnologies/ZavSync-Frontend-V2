@@ -1,11 +1,9 @@
 /**
  * ZavSync API client.
  *
- * The accounting frontend never talks to a backend directly: every screen goes
- * through a repository in `src/services/accounting/*`. Each repository calls
- * `apiRequest()` when a real API base URL is configured, and otherwise falls
- * back to its in-memory preview adapter. Nothing here pretends mock data is
- * production data — `isApiConfigured()` is surfaced in the UI.
+ * Feature screens talk to ZavSync through domain repositories. Production
+ * repositories use apiRequest(); legacy preview adapters remain isolated to
+ * modules that have not yet received backend implementations.
  */
 
 export type ApiErrorKind = "validation" | "permission" | "not_found" | "conflict" | "server" | "network";

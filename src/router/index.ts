@@ -133,8 +133,10 @@ router.beforeEach((to)=>{
     '/users':'platform.users.view','/settings':'platform.settings.view','/roles':'platform.roles.view',
     '/audit-log':'platform.audit.view','/security':'platform.security.view','/system-health':'platform.jobs.view',
     '/knowledge/documents':'platform.documents.view',
+    '/outreach/integrations':'outreach.providers.manage','/outreach/compose':'outreach.templates.manage',
+    '/outreach/automations':'outreach.sequences.manage','/outreach/tracking':'outreach.reports.view',
   };
-  const permission=permissionByPath[to.path];
+  const permission=to.path.startsWith('/outreach/automations/')?'outreach.sequences.manage':permissionByPath[to.path];
   if(permission&&company.activeCompanyId&&!company.hasPermission(permission))return '/';
   if(module&&company.activeCompanyId&&!company.hasModule(module))return '/';
   return true;

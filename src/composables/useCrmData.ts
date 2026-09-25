@@ -3,7 +3,6 @@ import { storeToRefs } from "pinia";
 import { useCompanyStore } from "@/stores/company";
 import { useAsyncData } from "@/composables/useAsyncData";
 import { crmRepository } from "@/services/crm/repository";
-import { emailEvents, integrations as previewIntegrations, sequences as previewSequences } from "@/services/crm/outreach-preview";
 
 export function useCrmData() {
   const company = useCompanyStore();
@@ -18,10 +17,7 @@ export function useCrmData() {
   const owners = useAsyncData(() => crmRepository.owners(activeCompanyId.value), { watch });
   const dashboard = useAsyncData(() => crmRepository.dashboard(activeCompanyId.value), { watch });
   const tasks = useAsyncData(async () => (activities.data.value ?? []).filter((item) => item.type === "Task"), { watch: [activities.data] });
-  const emails = useAsyncData(async () => emailEvents.filter((row) => row.companyId === activeCompanyId.value), { watch });
-  const sequences = useAsyncData(async () => previewSequences.filter((row) => row.companyId === activeCompanyId.value), { watch });
-  const integrations = useAsyncData(async () => previewIntegrations.filter((row) => row.companyId === activeCompanyId.value), { watch });
   const loading = computed(() => companies.loading.value || contacts.loading.value || leads.loading.value || deals.loading.value || pipelines.loading.value);
   const refresh = () => Promise.all([companies.refresh(), contacts.refresh(), leads.refresh(), deals.refresh(), pipelines.refresh(), activities.refresh(), dashboard.refresh()]);
-  return { activeCompanyId, companies, contacts, leads, deals, pipelines, activities, owners, dashboard, tasks, emails, sequences, integrations, loading, refresh };
+  return { activeCompanyId, companies, contacts, leads, deals, pipelines, activities, owners, dashboard, tasks, loading, refresh };
 }
