@@ -1,0 +1,18 @@
+export interface Paginated<T> { data:T[]; current_page:number; last_page:number; per_page:number; total:number }
+export interface PlatformPermission { id:number; name:string; description:string|null }
+export interface PlatformRole { id:number; company_id:string; name:string; is_system:boolean; archived_at:string|null; permissions:PlatformPermission[]; memberships_count?:number; permissions_count?:number }
+export interface CompanyMembership { id:number; company_id:string; user:{id:number;name:string;email:string}; role:PlatformRole|null; roles:PlatformRole[]; is_active:boolean; suspended_at:string|null }
+export interface CompanyInvitation { id:string; email:string; status:"PENDING"|"ACCEPTED"|"EXPIRED"|"REVOKED"; role_ids:number[]; expires_at:string; created_at:string; inviter?:{name:string} }
+export interface CompanySettings { company_id:string; legal_name:string; trading_name:string|null; registration_number:string|null; tax_identifier:string|null; cnic:string|null; email:string|null; phone:string|null; website:string|null; address:string|null; country_code:string; timezone:string; base_currency:string; date_format:string; time_format:string; number_format:string; fiscal_year_start_month:number; default_payment_terms_days:number; invoice_prefix:string; purchase_prefix:string; logo_path?:string|null }
+export interface PlatformModule { key:string; name:string; is_active:boolean }
+export interface Plan { id:number; code:string; name:string; description:string|null; price_minor:number|null; currency:string; billing_interval:string; usage_limits:Record<string,number>; modules:PlatformModule[] }
+export interface Subscription { id:string; status:string; billing_interval:string; starts_at:string; trial_ends_at:string|null; renews_at:string|null; ends_at:string|null; plan:Plan }
+export interface SubscriptionPayload { subscription:Subscription|null; entitlements:Array<{id:number;module_key:string;is_enabled:boolean;limits:Record<string,number>|null}>; enabled_modules:string[]; plans:Plan[]; modules:PlatformModule[] }
+export interface PlatformNotification { id:string; type:string; channel:string; title:string; message:string; related_url:string|null; delivery_state:string; read_at:string|null; created_at:string }
+export interface NotificationInbox { unread_count:number; notifications:Paginated<PlatformNotification> }
+export interface NotificationPreference { type:string; in_app_enabled:boolean; email_enabled:boolean }
+export interface PlatformDocument { id:string; documentable_type:string; documentable_id:string; category:string; original_filename:string; mime_type:string; size_bytes:number; created_at:string }
+export interface AuditRecord { id:string; user:{name:string;email:string}|null; action:string; module:string; entity_type:string; entity_id:string; old_values:Record<string,unknown>|null; new_values:Record<string,unknown>|null; ip_address:string|null; correlation_id:string|null; created_at:string }
+export interface SecurityPayload { sessions_supported:boolean; sessions:Array<{id:string;user_id:number;ip_address:string|null;user_agent:string|null;last_activity:number}>; events:Paginated<{id:string;type:string;result:string;ip_address:string|null;user_agent:string|null;created_at:string}>; invitations:CompanyInvitation[] }
+export interface FailedJob { id:number;uuid:string;connection:string;queue:string;type:string;failed_at:string;exception_summary:string }
+export interface CompanyExport { id:string;status:string;sections:string[];completed_at:string|null;expires_at:string|null;created_at:string }

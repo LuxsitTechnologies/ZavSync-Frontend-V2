@@ -6,14 +6,28 @@ import AuthLayout from "@/components/zs/AuthLayout.vue";
 import Field from "@/components/zs/Field.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import { setPageMeta } from "@/lib/page-meta";
+import ValidationMessage from "@/components/zs/ValidationMessage.vue";
+import { authRepository } from "@/services/auth.repository";
+import { ApiError } from "@/services/api/client";
 
 setPageMeta("Reset password", "Request a password reset link for your ZavSync account.");
 
 const sent = ref(false);
 const email = ref("");
+const loading = ref(false);
+const error = ref<string | null>(null);
 
-function onSubmit() {
-  sent.value = true;
+async function onSubmit() {
+  loading.value = true;
+  error.value = null;
+  try {
+    await authRepository.forgotPassword(email.value);
+    sent.value = true;
+  } catch (reason) {
+    error.value = reason instanceof ApiError ? reason.message : "Could not request a password reset.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 
@@ -38,7 +52,8 @@ function onSubmit() {
         placeholder="you@company.com"
         hint="Use the address your workspace invite was sent to."
       />
-      <ZButton type="submit" class="w-full justify-center">Send reset link</ZButton>
+      <ValidationMessage :message="error" />
+      <ZButton type="submit" :disabled="loading" class="w-full justify-center">{{ loading ? "Sending…" : "Send reset link" }}</ZButton>
     </form>
 
     <template #footer>

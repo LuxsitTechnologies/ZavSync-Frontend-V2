@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { RouterLink, useRoute } from "vue-router";
-import { Bell, ChevronRight, Menu, Moon, Search, Sun } from "lucide-vue-next";
+import { RouterLink, useRoute,useRouter } from "vue-router";
+import { ChevronRight, Menu, Moon, Search, Sun } from "lucide-vue-next";
 
-import { breadcrumbFor } from "@/lib/nav";
+import { breadcrumbFor,moduleForPath } from "@/lib/nav";
 import { useCompanyStore } from "@/stores/company";
 import { initials } from "@/lib/format";
+import NotificationCenter from "./NotificationCenter.vue";
+import {showToast} from "@/composables/useToast";
 
 defineEmits<{ openNav: [] }>();
 
 const route = useRoute();
+const router=useRouter();
 const trail = computed(() => breadcrumbFor(route.path));
 const dark = ref(false);
 const companyStore = useCompanyStore();
@@ -19,6 +22,7 @@ function toggleTheme() {
   dark.value = !dark.value;
   document.documentElement.classList.toggle("dark", dark.value);
 }
+async function changeCompany(id:string){try{await companyStore.setCompany(id);const module=moduleForPath(route.path);if(module&&!companyStore.hasModule(module))await router.push('/')}catch(error){showToast('Company switch failed',error instanceof Error?error.message:'Could not switch company.','danger')}}
 </script>
 
 <template>
@@ -61,7 +65,7 @@ function toggleTheme() {
         :value="companyStore.activeCompanyId"
         class="field w-44"
         aria-label="Active company"
-        @change="companyStore.setCompany(($event.target as HTMLSelectElement).value)"
+        @change="changeCompany(($event.target as HTMLSelectElement).value)"
       >
         <option v-for="c in companyStore.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
@@ -76,14 +80,7 @@ function toggleTheme() {
         <Moon v-else class="size-4" />
       </button>
 
-      <button
-        type="button"
-        class="relative grid size-8 place-items-center rounded-md text-content-secondary hover:bg-surface-hover"
-        aria-label="Notifications"
-      >
-        <Bell class="size-4" />
-        <span class="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-danger" />
-      </button>
+      <NotificationCenter/>
 
       <div class="flex items-center gap-2 border-l border-line pl-3">
         <span

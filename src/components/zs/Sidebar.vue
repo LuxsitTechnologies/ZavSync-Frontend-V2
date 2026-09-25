@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
 import Logo from "./Logo.vue";
 import NavBranch from "./NavBranch.vue";
 import NavLeaf from "./NavLeaf.vue";
-import { navigation } from "@/lib/nav";
+import { navigationForModules } from "@/lib/nav";
+import { useCompanyStore } from "@/stores/company";
 import { cn } from "@/lib/utils";
 
 withDefaults(defineProps<{ class?: string }>(), { class: "" });
+const company=useCompanyStore();
+const navigation=computed(()=>navigationForModules(company.activeModules,company.isPlatformAdmin,company.activePermissions));
 </script>
 
 <template>
@@ -40,7 +44,7 @@ withDefaults(defineProps<{ class?: string }>(), { class: "" });
     <div class="border-t border-sidebar-border p-3">
       <div class="rounded-md bg-surface-sunken p-3">
         <p class="text-xs font-semibold text-content">ZavSync preview</p>
-        <p class="mt-1 text-xs text-content-muted">Mock data only — no backend connected yet.</p>
+        <p class="mt-1 text-xs text-content-muted">Secure company workspace · permissions and modules enforced.</p>
       </div>
     </div>
   </aside>

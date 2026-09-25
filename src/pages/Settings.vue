@@ -1,109 +1,15 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { Building2, Save } from "lucide-vue-next";
-
-import AppShell from "@/components/zs/AppShell.vue";
-import ZButton from "@/components/zs/ZButton.vue";
-import PageHeader from "@/components/zs/PageHeader.vue";
-import Panel from "@/components/zs/Panel.vue";
-import Field from "@/components/zs/Field.vue";
-import { companies } from "@/lib/mock-data";
-import { setPageMeta } from "@/lib/page-meta";
-
-setPageMeta("Settings", "Company profile, tax registration, fiscal calendar and integrations.");
-
-const TABS = ["Company", "Tax & FBR", "Payroll", "Integrations"] as const;
-const tab = ref<(typeof TABS)[number]>("Company");
-
-const integrations = [
-  { name: "FBR IRIS", state: "Connected", tone: "badge-success" },
-  { name: "Habib Metro bank feed", state: "Connected", tone: "badge-success" },
-  { name: "Biometric devices (ZKTeco)", state: "Connected", tone: "badge-success" },
-  { name: "Email (SMTP relay)", state: "Not configured", tone: "badge-neutral" },
-];
+import {reactive,ref,watch} from "vue";import {Building2,Save,Upload} from "lucide-vue-next";import AppShell from "@/components/zs/AppShell.vue";import ZButton from "@/components/zs/ZButton.vue";import PageHeader from "@/components/zs/PageHeader.vue";import Panel from "@/components/zs/Panel.vue";import Field from "@/components/zs/Field.vue";import StatusBadge from "@/components/zs/StatusBadge.vue";import SidePanel from "@/components/zs/SidePanel.vue";import ValidationMessage from "@/components/zs/ValidationMessage.vue";import {useAsyncData,useMutation} from "@/composables/useAsyncData";import {platformRepository} from "@/services/platform/repository";import {authRepository} from "@/services/auth.repository";import {useCompanyStore} from "@/stores/company";import {showToast} from "@/composables/useToast";import {setPageMeta} from "@/lib/page-meta";import type {CompanySettings,NotificationPreference} from "@/types/platform";
+setPageMeta("Settings","Company profile, regional defaults, subscription and notifications.");const TABS=['Company','Regional','Operations','Subscription','Notifications'] as const,tab=ref<typeof TABS[number]>('Company'),company=useCompanyStore();
+const defaults:CompanySettings={company_id:'',legal_name:'',trading_name:null,registration_number:null,tax_identifier:null,cnic:null,email:null,phone:null,website:null,address:null,country_code:'PK',timezone:'Asia/Karachi',base_currency:'PKR',date_format:'DD/MM/YYYY',time_format:'24h',number_format:'1,234.56',fiscal_year_start_month:7,default_payment_terms_days:30,invoice_prefix:'INV',purchase_prefix:'PO'};const form=reactive({...defaults});const state=useAsyncData(()=>platformRepository.settings(company.activeCompanyId),{watch:[()=>company.activeCompanyId]});watch(()=>state.data.value,value=>{if(value)Object.assign(form,value)},{immediate:true});const save=useMutation(()=>platformRepository.saveSettings(company.activeCompanyId,{...form}));async function saveSettings(){const result=await save.run();if(!result)return;Object.assign(form,result);showToast('Settings saved','Company configuration and audit history were updated.')}
+const subscription=useAsyncData(()=>platformRepository.subscription(company.activeCompanyId),{watch:[()=>company.activeCompanyId]});async function selectPlan(event:Event){const plan=subscription.data.value?.plans.find(x=>x.id===Number((event.target as HTMLSelectElement).value));if(!plan)return;await platformRepository.saveSubscription(company.activeCompanyId,{plan_id:plan.id,status:'ACTIVE',billing_interval:plan.billing_interval});showToast('Subscription updated');await subscription.refresh()}
+async function toggleModule(key:string,enabled:boolean){await platformRepository.setEntitlement(company.activeCompanyId,key,enabled);showToast('Module entitlement updated');await subscription.refresh()}
+const preferenceTypes=['invoice.updated','payment.received','approval.requested','payroll.approved','crm.assigned','task.reminder','bank.reconciliation_issue','period.close_blocked','security.login'];const preferences=ref<NotificationPreference[]>([]);const preferenceState=useAsyncData(()=>platformRepository.notificationPreferences(company.activeCompanyId),{watch:[()=>company.activeCompanyId]});watch(()=>preferenceState.data.value,value=>{preferences.value=preferenceTypes.map(type=>value?.find(x=>x.type===type)??{type,in_app_enabled:true,email_enabled:true})},{immediate:true});async function savePreferences(){await platformRepository.saveNotificationPreferences(company.activeCompanyId,preferences.value);showToast('Notification preferences saved')}
+const createOpen=ref(false),newCompany=reactive({name:'',currency:'PKR',timezone:'Asia/Karachi',country_code:'PK',plan_id:0});const createCompany=useMutation(()=>platformRepository.createCompany(newCompany));async function submitCompany(){const result=await createCompany.run();if(!result)return;company.hydrate(await authRepository.me());await company.setCompany(result.company.id);createOpen.value=false;showToast('Company created','Your trial workspace is ready to configure.')}async function uploadLogo(event:Event){const file=(event.target as HTMLInputElement).files?.[0];if(!file)return;const result=await platformRepository.uploadLogo(company.activeCompanyId,file);Object.assign(form,result.settings);showToast('Company logo uploaded')}
 </script>
-
-<template>
-  <AppShell>
-    <PageHeader title="Settings" description="Configuration for the active company workspace">
-      <template #actions>
-        <ZButton>
-          <Save class="size-4" /> Save changes
-        </ZButton>
-      </template>
-    </PageHeader>
-
-    <div class="mb-4 flex flex-wrap gap-1 border-b border-line">
-      <button
-        v-for="t in TABS"
-        :key="t"
-        type="button"
-        :class="
-          t === tab
-            ? '-mb-px border-b-2 border-primary px-3 py-2 text-sm font-medium text-content'
-            : '-mb-px border-b-2 border-transparent px-3 py-2 text-sm text-content-secondary hover:text-content'
-        "
-        @click="tab = t"
-      >
-        {{ t }}
-      </button>
-    </div>
-
-    <div v-if="tab === 'Company'" class="grid gap-4 lg:grid-cols-2">
-      <Panel title="Company profile" body-class="space-y-4 p-4">
-        <Field label="Legal name" model-value="Zavtech Solutions (Pvt) Ltd" />
-        <Field label="Trading name" model-value="Zavtech" />
-        <Field label="Registered address" model-value="12-C, Gulberg III, Lahore" />
-        <Field label="Primary contact" type="email" model-value="finance@zavtech.io" />
-      </Panel>
-      <Panel title="Companies in workspace" body-class="divide-y divide-line">
-        <div v-for="c in companies" :key="c.id" class="flex items-center gap-3 px-4 py-3">
-          <span class="grid size-8 place-items-center rounded-md bg-surface-sunken text-content-secondary">
-            <Building2 class="size-4" />
-          </span>
-          <div class="leading-tight">
-            <p class="text-sm font-medium text-content">{{ c.name }}</p>
-            <p class="text-2xs text-content-muted">Isolated ledger, payroll and rota data</p>
-          </div>
-        </div>
-      </Panel>
-    </div>
-
-    <div v-if="tab === 'Tax & FBR'" class="grid gap-4 lg:grid-cols-2">
-      <Panel title="Tax registration" body-class="space-y-4 p-4">
-        <Field label="NTN" model-value="0712345-8" />
-        <Field label="STRN" model-value="17-00-9911-004-55" />
-        <Field label="Provincial authority" model-value="Punjab Revenue Authority" />
-      </Panel>
-      <Panel title="FBR digital invoicing" body-class="space-y-4 p-4">
-        <Field label="IRIS endpoint" model-value="https://gw.fbr.gov.pk/di_data/v1" />
-        <Field label="POS / integration ID" model-value="7000021" />
-        <Field
-          label="Submission schedule"
-          model-value="Nightly 23:00 PKT"
-          hint="Rejected documents are retried once, then flagged for review."
-        />
-      </Panel>
-    </div>
-
-    <div v-if="tab === 'Payroll'" class="grid gap-4 lg:grid-cols-2">
-      <Panel title="Pay cycle" body-class="space-y-4 p-4">
-        <Field label="Cycle" model-value="Monthly — 28th" />
-        <Field label="Cut-off for attendance" model-value="25th of month" />
-        <Field label="Overtime multiplier" model-value="2.0×" />
-      </Panel>
-      <Panel title="Statutory defaults" body-class="space-y-4 p-4">
-        <Field label="EOBI contribution" model-value="PKR 370 per registered employee" />
-        <Field label="Provident fund" model-value="8.33% of basic" />
-        <Field label="Tax slabs" model-value="FBR 2026–27" />
-      </Panel>
-    </div>
-
-    <Panel v-if="tab === 'Integrations'" title="Connected services" body-class="divide-y divide-line">
-      <div v-for="i in integrations" :key="i.name" class="flex items-center justify-between px-4 py-3">
-        <span class="text-sm text-content">{{ i.name }}</span>
-        <span :class="`zs-badge ${i.tone}`">{{ i.state }}</span>
-      </div>
-    </Panel>
-  </AppShell>
-</template>
+<template><AppShell><PageHeader title="Settings" description="Configuration for the active company workspace"><template #actions><ZButton v-if="tab==='Company'" variant="outline" @click="createOpen=true"><Building2 class="size-4"/>New company</ZButton><ZButton v-if="tab!=='Subscription'&&tab!=='Notifications'" :disabled="save.saving.value" @click="saveSettings"><Save class="size-4"/>{{save.saving.value?'Saving…':'Save changes'}}</ZButton><ZButton v-if="tab==='Notifications'" @click="savePreferences"><Save class="size-4"/>Save preferences</ZButton></template></PageHeader><div class="mb-4 flex flex-wrap gap-1 border-b border-line"><button v-for="item in TABS" :key="item" type="button" class="-mb-px border-b-2 px-3 py-2 text-sm" :class="item===tab?'border-primary font-medium text-content':'border-transparent text-content-secondary hover:text-content'" @click="tab=item">{{item}}</button></div><ValidationMessage :message="state.error.value?.message??save.error.value?.message"/>
+<div v-if="tab==='Company'" class="grid gap-4 lg:grid-cols-2"><Panel title="Company identity" body-class="space-y-4 p-4"><Field v-model="form.legal_name" label="Legal name" required/><Field v-model="form.trading_name" label="Trading name"/><Field v-model="form.registration_number" label="Registration number"/><Field v-model="form.tax_identifier" label="NTN / tax identifier"/><Field v-model="form.cnic" label="CNIC" hint="Format: 12345-1234567-1"/><label class="block"><span class="label-caps">Company logo</span><span class="mt-1.5 flex items-center gap-2"><input type="file" accept=".png,.jpg,.jpeg,.webp" class="field w-full" @change="uploadLogo"/><Upload class="size-4 text-content-muted"/></span></label></Panel><Panel title="Contact details" body-class="space-y-4 p-4"><Field v-model="form.email" label="Primary email" type="email"/><Field v-model="form.phone" label="Phone"/><Field v-model="form.website" label="Website"/><label class="block"><span class="label-caps">Registered address</span><textarea v-model="form.address" class="field mt-1.5 min-h-24 w-full"></textarea></label></Panel></div>
+<div v-if="tab==='Regional'" class="grid gap-4 lg:grid-cols-2"><Panel title="Regional defaults" body-class="space-y-4 p-4"><Field v-model="form.country_code" label="Country code"/><Field v-model="form.timezone" label="Timezone"/><Field v-model="form.base_currency" label="Base currency" hint="Locked after financial activity begins."/></Panel><Panel title="Display & fiscal calendar" body-class="space-y-4 p-4"><Field v-model="form.date_format" label="Date format"/><Field v-model="form.time_format" label="Time format"/><Field v-model="form.number_format" label="Number format"/><Field :model-value="String(form.fiscal_year_start_month)" label="Fiscal year start month" type="number" @update:model-value="form.fiscal_year_start_month=Number($event)"/></Panel></div>
+<div v-if="tab==='Operations'" class="grid gap-4 lg:grid-cols-2"><Panel title="Commercial defaults" body-class="space-y-4 p-4"><Field :model-value="String(form.default_payment_terms_days)" label="Payment terms (days)" type="number" @update:model-value="form.default_payment_terms_days=Number($event)"/><Field v-model="form.invoice_prefix" label="Invoice prefix"/><Field v-model="form.purchase_prefix" label="Purchase prefix"/></Panel><Panel title="Historical safety" body-class="p-4"><p class="text-sm text-content-secondary">Base currency and numbering changes require elevated permission, are audited, and cannot rewrite posted financial history.</p></Panel></div>
+<div v-if="tab==='Subscription'" class="grid gap-4 lg:grid-cols-[22rem_1fr]"><Panel title="Current subscription" body-class="space-y-4 p-4"><div><p class="label-caps">Status</p><StatusBadge :status="subscription.data.value?.subscription?.status.toLowerCase()??'unconfigured'"/></div><label class="block"><span class="label-caps">Plan</span><select class="field mt-1.5 w-full" :value="subscription.data.value?.subscription?.plan.id??''" @change="selectPlan"><option value="">Select plan</option><option v-for="plan in subscription.data.value?.plans??[]" :key="plan.id" :value="plan.id">{{plan.name}}</option></select></label><p class="text-xs text-content-muted">Plan prices use integer minor units. Downgrades preserve company data.</p></Panel><Panel title="Module entitlements" description="A user needs both company entitlement and role permission"><div class="divide-y divide-line"><label v-for="module in subscription.data.value?.modules??[]" :key="module.key" class="flex items-center justify-between gap-4 px-4 py-3"><span><span class="block text-sm font-medium text-content">{{module.name}}</span><span class="text-2xs text-content-muted">{{module.key}}</span></span><input type="checkbox" class="size-4 accent-[var(--primary)]" :checked="subscription.data.value?.enabled_modules.includes(module.key)" @change="toggleModule(module.key,($event.target as HTMLInputElement).checked)"/></label></div></Panel></div>
+<Panel v-if="tab==='Notifications'" title="Notification preferences" description="Critical security notifications cannot be disabled"><div class="divide-y divide-line"><div v-for="preference in preferences" :key="preference.type" class="grid items-center gap-3 px-4 py-3 sm:grid-cols-[1fr_auto_auto]"><span class="text-sm font-medium text-content">{{preference.type}}</span><label class="flex items-center gap-2 text-xs text-content-secondary"><input v-model="preference.in_app_enabled" type="checkbox" :disabled="preference.type.startsWith('security.')" class="accent-[var(--primary)]"/>In app</label><label class="flex items-center gap-2 text-xs text-content-secondary"><input v-model="preference.email_enabled" type="checkbox" :disabled="preference.type.startsWith('security.')" class="accent-[var(--primary)]"/>Email</label></div></div></Panel><SidePanel :open="createOpen" title="Create company" description="Creates an isolated trial workspace with administrator access." @close="createOpen=false"><form class="space-y-4" @submit.prevent="submitCompany"><Field v-model="newCompany.name" label="Legal name" required/><Field v-model="newCompany.currency" label="Base currency" required/><Field v-model="newCompany.timezone" label="Timezone" required/><Field v-model="newCompany.country_code" label="Country code" required/><label class="block"><span class="label-caps">Plan</span><select v-model="newCompany.plan_id" class="field mt-1.5 w-full" required><option :value="0">Select plan</option><option v-for="plan in subscription.data.value?.plans??[]" :key="plan.id" :value="plan.id">{{plan.name}}</option></select></label><ValidationMessage :message="createCompany.error.value?.message"/><ZButton type="submit" :disabled="createCompany.saving.value">{{createCompany.saving.value?'Creating…':'Create company'}}</ZButton></form></SidePanel></AppShell></template>

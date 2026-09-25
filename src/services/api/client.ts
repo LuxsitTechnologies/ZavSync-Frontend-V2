@@ -15,18 +15,24 @@ export class ApiError extends Error {
   /** Field-level messages keyed by form field name. */
   fields: Record<string, string>;
   status?: number;
+  errorCode?: string;
+  requestId?: string;
 
   constructor(
     message: string,
     kind: ApiErrorKind = "server",
     fields: Record<string, string> = {},
     status?: number,
+    errorCode?: string,
+    requestId?: string,
   ) {
     super(message);
     this.name = "ApiError";
     this.kind = kind;
     this.fields = fields;
     this.status = status;
+    this.errorCode = errorCode;
+    this.requestId = requestId;
   }
 }
 
@@ -108,9 +114,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
   if (!response.ok) {
     let message = `Request failed (${response.status}).`;
     let fields: Record<string, string> = {};
+    let errorCode: string | undefined;
     try {
-      const payload = (await response.json()) as { message?: string; errors?: Record<string, string[]> };
+      const payload = (await response.json()) as { message?: string; error_code?:string; errors?: Record<string, string[]> };
       if (payload.message) message = payload.message;
+      errorCode = payload.error_code;
       if (payload.errors) {
         fields = Object.fromEntries(
           Object.entries(payload.errors).map(([k, v]) => [k, Array.isArray(v) ? (v[0] ?? "") : String(v)]),
@@ -119,11 +127,19 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
     } catch {
       /* keep the default message */
     }
-    throw new ApiError(message, kindFor(response.status), fields, response.status);
+    throw new ApiError(message, kindFor(response.status), fields, response.status, errorCode, response.headers.get("X-Request-Id")??undefined);
   }
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+export async function apiDownload(path:string,companyId:string,filename:string):Promise<void>{
+  if(!isApiConfigured())throw new ApiError("No ZavSync API is configured for this build.","network");
+  const url=new URL(`${BASE_URL}${path}`);url.searchParams.set("company_id",companyId);
+  const response=await fetch(url.toString(),{credentials:"include",headers:{Accept:"application/octet-stream","X-Company-Id":companyId,...(csrfToken()?{"X-XSRF-TOKEN":csrfToken() as string}:{})}});
+  if(!response.ok)throw new ApiError("The document could not be downloaded.",kindFor(response.status),{},response.status,undefined,response.headers.get("X-Request-Id")??undefined);
+  const link=document.createElement("a");link.href=URL.createObjectURL(await response.blob());link.download=filename;link.click();URL.revokeObjectURL(link.href);
 }
 
 /** Simulated latency for the preview adapters so loading states are real. */

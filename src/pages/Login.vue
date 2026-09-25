@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import AuthLayout from "@/components/zs/AuthLayout.vue";
 import Field from "@/components/zs/Field.vue";
@@ -8,24 +8,26 @@ import ZButton from "@/components/zs/ZButton.vue";
 import { setPageMeta } from "@/lib/page-meta";
 import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 import { authRepository } from "@/services/auth.repository";
-import { ApiError, isApiConfigured } from "@/services/api/client";
+import { ApiError } from "@/services/api/client";
 import { useCompanyStore } from "@/stores/company";
 
 setPageMeta("Sign in", "Sign in to your ZavSync workspace.");
 
 const router = useRouter();
+const route = useRoute();
 const loading = ref(false);
 const error = ref<string | null>(null);
-const email = ref(isApiConfigured() ? "finance@example.com" : "humza@zavtech.io");
-const password = ref(isApiConfigured() ? "password" : "demo-password");
+const email = ref("");
+const password = ref("");
 const companyStore = useCompanyStore();
 
 async function onSubmit() {
   loading.value = true;
   error.value = null;
   try {
-    if (isApiConfigured()) companyStore.hydrate(await authRepository.login(email.value, password.value));
-    await router.push("/");
+    companyStore.hydrate(await authRepository.login(email.value, password.value));
+    const redirect = typeof route.query.redirect === "string" && route.query.redirect.startsWith("/") && !route.query.redirect.startsWith("//") ? route.query.redirect : "/";
+    await router.push(redirect);
   } catch (reason) {
     error.value = reason instanceof ApiError ? reason.message : "Could not sign in.";
   } finally {

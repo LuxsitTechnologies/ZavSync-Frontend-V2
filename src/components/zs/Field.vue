@@ -6,7 +6,7 @@ withDefaults(
     type?: string;
     required?: boolean;
     placeholder?: string;
-    modelValue?: string;
+    modelValue?: string | null;
   }>(),
   { hint: undefined, type: "text", required: false, placeholder: undefined, modelValue: "" },
 );

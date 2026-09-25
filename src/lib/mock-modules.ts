@@ -281,31 +281,6 @@ export const leads: Lead[] = [
 
 export const pipelineStages = ["New", "Qualified", "Proposal", "Negotiation", "Won"] as const;
 
-export interface Role {
-  id: string;
-  name: string;
-  users: number;
-  scope: string;
-  permissions: string[];
-}
-
-export const roles: Role[] = [
-  { id: "ro1", name: "Super Admin", users: 2, scope: "All companies", permissions: ["*"] },
-  { id: "ro2", name: "Company Admin", users: 5, scope: "Single company", permissions: ["hrm.*", "accounting.*", "payroll.*", "crm.*", "settings.view"] },
-  { id: "ro3", name: "Finance Manager", users: 4, scope: "Single company", permissions: ["accounting.*", "payroll.approve", "expenses.approve"] },
-  { id: "ro4", name: "HR Manager", users: 6, scope: "Single company", permissions: ["hrm.*", "leave.approve", "payroll.view"] },
-  { id: "ro5", name: "Site Supervisor", users: 34, scope: "Assigned sites", permissions: ["attendance.mark", "rota.view", "expenses.create"] },
-  { id: "ro6", name: "Employee", users: 611, scope: "Self", permissions: ["self.view", "leave.request", "expenses.create"] },
-];
-
-export const permissionMatrix = [
-  { module: "HRM", view: ["Super Admin", "Company Admin", "HR Manager"], create: ["Company Admin", "HR Manager"], approve: ["HR Manager"] },
-  { module: "Payroll", view: ["Super Admin", "Finance Manager", "HR Manager"], create: ["Finance Manager"], approve: ["Super Admin", "Finance Manager"] },
-  { module: "Accounting", view: ["Super Admin", "Finance Manager"], create: ["Finance Manager"], approve: ["Super Admin"] },
-  { module: "CRM", view: ["Super Admin", "Company Admin"], create: ["Company Admin"], approve: ["Company Admin"] },
-  { module: "Inventory", view: ["Super Admin", "Company Admin", "Site Supervisor"], create: ["Company Admin"], approve: ["Company Admin"] },
-];
-
 export const aiSuggestions = [
   "Which clients have overdue invoices above PKR 500,000?",
   "Summarise attendance exceptions for Field Operations this week.",

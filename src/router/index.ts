@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
+import {moduleForPath} from "@/lib/nav";
+import {useCompanyStore} from "@/stores/company";
 
 const routes: RouteRecordRaw[] = [
   { path: "/", name: "dashboard", component: () => import("@/pages/Dashboard.vue") },
@@ -103,8 +105,11 @@ const routes: RouteRecordRaw[] = [
   { path: "/knowledge/chat/:threadId", component: () => import("@/pages/KnowledgeChat.vue") },
   { path: "/copilot", component: () => import("@/pages/Copilot.vue") },
   { path: "/settings", component: () => import("@/pages/Settings.vue") },
+  { path: "/users", component: () => import("@/pages/Users.vue") },
   { path: "/roles", component: () => import("@/pages/Roles.vue") },
   { path: "/audit-log", component: () => import("@/pages/AuditLog.vue") },
+  { path: "/security", component: () => import("@/pages/Security.vue") },
+  { path: "/system-health", component: () => import("@/pages/SystemHealth.vue") },
 
   // Auth
   { path: "/login", component: () => import("@/pages/Login.vue") },
@@ -118,4 +123,19 @@ export const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior: () => ({ top: 0 }),
+});
+
+router.beforeEach((to)=>{
+  if(to.path==='/login'||to.path==='/forgot-password'||to.path==='/set-password')return true;
+  const company=useCompanyStore(),module=moduleForPath(to.path);
+  if(to.path==='/system-health'&&!company.isPlatformAdmin)return '/';
+  const permissionByPath:Record<string,string>={
+    '/users':'platform.users.view','/settings':'platform.settings.view','/roles':'platform.roles.view',
+    '/audit-log':'platform.audit.view','/security':'platform.security.view','/system-health':'platform.jobs.view',
+    '/knowledge/documents':'platform.documents.view',
+  };
+  const permission=permissionByPath[to.path];
+  if(permission&&company.activeCompanyId&&!company.hasPermission(permission))return '/';
+  if(module&&company.activeCompanyId&&!company.hasModule(module))return '/';
+  return true;
 });

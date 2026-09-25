@@ -5,10 +5,13 @@ export interface AuthCompany {
   name: string;
   currency: string;
   timezone: string;
+  roles: string[];
+  permissions: string[];
+  modules: string[];
 }
 
 export interface AuthPayload {
-  user: { id: number; name: string; email: string };
+  user: { id: number; name: string; email: string; is_platform_admin: boolean };
   companies: AuthCompany[];
 }
 
@@ -24,5 +27,17 @@ export const authRepository = {
 
   logout(): Promise<{ message: string }> {
     return apiRequest<{ message: string }>("/auth/logout", { method: "POST" });
+  },
+
+  forgotPassword(email:string):Promise<{message:string}>{
+    return apiRequest<{message:string}>("/auth/forgot-password",{method:"POST",body:{email}});
+  },
+
+  resetPassword(input:{email:string;token:string;password:string;password_confirmation:string}):Promise<{message:string}>{
+    return apiRequest<{message:string}>("/auth/reset-password",{method:"POST",body:input});
+  },
+
+  switchCompany(company_id:string):Promise<{company:AuthCompany}>{
+    return apiRequest<{company:AuthCompany}>("/auth/switch-company",{method:"POST",body:{company_id}});
   },
 };

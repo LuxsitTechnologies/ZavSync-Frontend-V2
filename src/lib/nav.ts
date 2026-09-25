@@ -59,6 +59,9 @@ export interface NavItem {
   icon?: Component;
   badge?: string;
   children?: NavItem[];
+  module?: string;
+  platformAdmin?: boolean;
+  permission?: string;
 }
 
 export interface NavGroup {
@@ -76,7 +79,7 @@ export const navigation: NavGroup[] = [
     label: "People",
     items: [
       {
-        label: "HRM",
+        label: "HRM", module:"payroll",
         icon: Users,
         children: [
           { label: "Employees", to: "/hrm/employees", icon: Users },
@@ -95,26 +98,26 @@ export const navigation: NavGroup[] = [
         label: "Accounting",
         icon: Calculator,
         children: [
-          { label: "Invoices", to: "/accounting/invoices", icon: FileText },
-          { label: "Customers", to: "/accounting/customers", icon: Building2 },
-          { label: "FBR Invoices", to: "/accounting/fbr", icon: Landmark },
-          { label: "Chart of Accounts", to: "/accounting/chart-of-accounts", icon: BookOpen },
-          { label: "General Ledger", to: "/accounting/general-ledger", icon: ScrollText },
-          { label: "Journals", to: "/accounting/journals", icon: NotebookPen },
-          { label: "Receivables", to: "/accounting/receivables", icon: HandCoins },
-          { label: "Payables", to: "/accounting/payables", icon: ReceiptText },
-          { label: "Inventory Ledger", to: "/accounting/inventory-ledger", icon: Scale },
-          { label: "Periods", to: "/accounting/periods", icon: Lock },
-          { label: "Accounting Setup", to: "/accounting/setup", icon: Settings2 },
-          { label: "Services", to: "/accounting/services", icon: Wrench },
-          { label: "Financial Reports", to: "/accounting/reports", icon: BarChart3 },
-          { label: "Cash Flow", to: "/accounting/cash-flow", icon: ChartNoAxesCombined },
-          { label: "Budgeting", to: "/accounting/budgets", icon: CandlestickChart },
-          { label: "Year-End Close", to: "/accounting/year-end", icon: Lock },
+          { label: "Invoices", to: "/accounting/invoices", icon: FileText, module:"invoicing" },
+          { label: "Customers", to: "/accounting/customers", icon: Building2, module:"receivables" },
+          { label: "FBR Invoices", to: "/accounting/fbr", icon: Landmark, module:"invoicing" },
+          { label: "Chart of Accounts", to: "/accounting/chart-of-accounts", icon: BookOpen, module:"accounting" },
+          { label: "General Ledger", to: "/accounting/general-ledger", icon: ScrollText, module:"accounting" },
+          { label: "Journals", to: "/accounting/journals", icon: NotebookPen, module:"accounting" },
+          { label: "Receivables", to: "/accounting/receivables", icon: HandCoins, module:"receivables" },
+          { label: "Payables", to: "/accounting/payables", icon: ReceiptText, module:"payables" },
+          { label: "Inventory Ledger", to: "/accounting/inventory-ledger", icon: Scale, module:"inventory" },
+          { label: "Periods", to: "/accounting/periods", icon: Lock, module:"accounting" },
+          { label: "Accounting Setup", to: "/accounting/setup", icon: Settings2, module:"accounting" },
+          { label: "Services", to: "/accounting/services", icon: Wrench, module:"accounting" },
+          { label: "Financial Reports", to: "/accounting/reports", icon: BarChart3, module:"accounting" },
+          { label: "Cash Flow", to: "/accounting/cash-flow", icon: ChartNoAxesCombined, module:"banking" },
+          { label: "Budgeting", to: "/accounting/budgets", icon: CandlestickChart, module:"budgeting" },
+          { label: "Year-End Close", to: "/accounting/year-end", icon: Lock, module:"budgeting" },
         ],
       },
       {
-        label: "Payroll",
+        label: "Payroll", module:"payroll",
         icon: Wallet,
         children: [
           { label: "Payroll Dashboard", to: "/payroll", icon: BarChart3 },
@@ -131,10 +134,10 @@ export const navigation: NavGroup[] = [
   {
     label: "Operations",
     items: [
-      { label: "Inventory", to: "/inventory", icon: Boxes },
-      { label: "Purchases", to: "/purchases", icon: ShoppingCart },
+      { label: "Inventory", to: "/inventory", icon: Boxes, module:"inventory" },
+      { label: "Purchases", to: "/purchases", icon: ShoppingCart, module:"procurement" },
       {
-        label: "CRM",
+        label: "CRM", module:"crm",
         icon: Building2,
         children: [
           { label: "Overview", to: "/crm", icon: LayoutDashboard },
@@ -156,7 +159,7 @@ export const navigation: NavGroup[] = [
     label: "Intelligence",
     items: [
       {
-        label: "ZavSync AI",
+        label: "ZavSync AI", module:"ai",
         icon: Sparkles,
         children: [
           { label: "Ask ZavSync", to: "/ai", icon: Sparkles },
@@ -168,16 +171,16 @@ export const navigation: NavGroup[] = [
         ],
       },
       {
-        label: "Knowledge",
+        label: "Knowledge", module:"analytics",
         icon: Library,
         children: [
-          { label: "Documents", to: "/knowledge/documents", icon: FileText },
+          { label: "Documents", to: "/knowledge/documents", icon: FileText, permission: "platform.documents.view" },
           { label: "Chat", to: "/knowledge/chat", icon: MessageSquareText },
           { label: "Security", to: "/knowledge/security", icon: ShieldCheck },
         ],
       },
       {
-        label: "Outreach",
+        label: "Outreach", module:"outreach",
         icon: Mail,
         children: [
           { label: "Email Integrations", to: "/outreach/integrations", icon: Settings2 },
@@ -191,12 +194,44 @@ export const navigation: NavGroup[] = [
   {
     label: "Administration",
     items: [
-      { label: "Settings", to: "/settings", icon: Settings },
-      { label: "Roles & Permissions", to: "/roles", icon: ShieldCheck },
-      { label: "Audit Log", to: "/audit-log", icon: History },
+      { label: "Users & Invitations", to: "/users", icon: Users, permission: "platform.users.view" },
+      { label: "Settings", to: "/settings", icon: Settings, permission: "platform.settings.view" },
+      { label: "Roles & Permissions", to: "/roles", icon: ShieldCheck, permission: "platform.roles.view" },
+      { label: "Audit Log", to: "/audit-log", icon: History, permission: "platform.audit.view" },
+      { label: "Security Center", to: "/security", icon: Lock, permission: "platform.security.view" },
+      { label: "System Health", to: "/system-health", icon: Activity, platformAdmin: true, permission: "platform.jobs.view" },
     ],
   },
 ];
+
+export function navigationForModules(modules:string[],isPlatformAdmin=false,permissions:string[]=[]):NavGroup[]{
+  const filter=(items:NavItem[]):NavItem[]=>items.flatMap(item=>{
+    if(item.module&&!modules.includes(item.module))return [];
+    if(item.platformAdmin&&!isPlatformAdmin)return [];
+    if(item.permission&&!permissions.includes('*')&&!permissions.includes(item.permission))return [];
+    const children=item.children?filter(item.children):undefined;
+    if(item.children&&!children?.length)return [];
+    return [{...item,children}];
+  });
+  return navigation.map(group=>({...group,items:filter(group.items)})).filter(group=>group.items.length>0);
+}
+
+export function moduleForPath(path:string):string|null{
+  if(path.startsWith('/payroll')||path.startsWith('/hrm'))return 'payroll';
+  if(path.startsWith('/crm'))return 'crm';
+  if(path.startsWith('/purchases'))return 'procurement';
+  if(path==='/inventory'||path.includes('inventory'))return 'inventory';
+  if(path.includes('receivable')||path.includes('/customers'))return 'receivables';
+  if(path.includes('payable')||path.includes('/suppliers'))return 'payables';
+  if(path.includes('/invoices')||path.includes('/fbr'))return 'invoicing';
+  if(path.startsWith('/banking')||path.includes('cash-flow'))return 'banking';
+  if(path.includes('budgets')||path.includes('year-end'))return 'budgeting';
+  if(path.startsWith('/accounting'))return 'accounting';
+  if(path.startsWith('/outreach'))return 'outreach';
+  if(path.startsWith('/ai')||path==='/copilot')return 'ai';
+  if(path.startsWith('/knowledge'))return 'analytics';
+  return null;
+}
 
 /** Breadcrumb trail for a path, derived from the same tree. */
 export function breadcrumbFor(path: string): { label: string; to?: string }[] {
