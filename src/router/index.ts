@@ -96,6 +96,9 @@ const routes: RouteRecordRaw[] = [
   // Intelligence & administration
   { path: "/ai", component: () => import("@/pages/Ai.vue") },
   { path: "/ai/priorities", component: () => import("@/pages/AiPriorities.vue") },
+  { path: "/ai/briefing", component: () => import("@/pages/AiBriefing.vue") },
+  { path: "/ai/actions", component: () => import("@/pages/AiActions.vue") },
+  { path: "/ai/operations", component: () => import("@/pages/AiOperations.vue") },
   { path: "/ai/calendar", component: () => import("@/pages/AiCalendar.vue") },
   { path: "/ai/meetings", component: () => import("@/pages/AiMeetings.vue") },
   { path: "/ai/analytics", component: () => import("@/pages/PredictiveAnalytics.vue") },
@@ -132,7 +135,9 @@ router.beforeEach((to)=>{
   const permissionByPath:Record<string,string>={
     '/users':'platform.users.view','/settings':'platform.settings.view','/roles':'platform.roles.view',
     '/audit-log':'platform.audit.view','/security':'platform.security.view','/system-health':'platform.jobs.view',
-    '/ai':'ai.copilot.use','/ai/priorities':'ai.actions.review','/copilot':'ai.actions.review',
+    '/ai':'ai.copilot.use','/ai/priorities':'intelligence.view','/ai/briefing':'intelligence.briefings.view',
+    '/ai/actions':'ai.actions.review','/ai/operations':'intelligence.observability.view','/copilot':'ai.actions.review',
+    '/ai/calendar':'intelligence.calendar.manage','/ai/meetings':'intelligence.calendar.manage','/ai/analytics':'intelligence.anomalies.view',
     '/knowledge/documents':'ai.knowledge.view','/knowledge/chat':'ai.copilot.use','/knowledge/security':'ai.providers.view',
     '/outreach/integrations':'outreach.providers.manage','/outreach/compose':'outreach.templates.manage',
     '/outreach/automations':'outreach.sequences.manage','/outreach/tracking':'outreach.reports.view',

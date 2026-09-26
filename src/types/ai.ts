@@ -148,3 +148,137 @@ export interface AiEvaluationRun {
   completed_at?: string | null;
   evaluation_case?: { id: string; name: string };
 }
+
+export interface OperationalPrioritySignal {
+  id: string;
+  category: string;
+  source_module: string;
+  source_type: string;
+  source_id?: string | null;
+  title: string;
+  description: string;
+  severity: string;
+  priority_score: number;
+  confidence_bps?: number | null;
+  status: string;
+  supporting_metrics: Record<string, unknown>;
+  score_breakdown: Record<string, number>;
+  explanation_metadata?: Record<string, unknown> | null;
+  related_url?: string | null;
+  due_at?: string | null;
+  detected_at: string;
+  assigned_user_id?: number | null;
+  assigned_user?: { id: number; name: string; email: string } | null;
+}
+
+export interface AnomalyResult {
+  id: string;
+  category: string;
+  source_module: string;
+  metric: string;
+  method: string;
+  observed_value: number;
+  expected_value: number;
+  deviation_value: number;
+  deviation_bps?: number | null;
+  threshold_bps: number;
+  sample_size: number;
+  window_start: string;
+  window_end: string;
+  status: string;
+  explanation: string;
+}
+
+export interface IntelligenceForecast {
+  id: string;
+  metric: string;
+  source_module: string;
+  method: string;
+  horizon_days: number;
+  status: string;
+  source_data: Record<string, unknown>;
+  assumptions: Record<string, unknown>;
+  projection_points: Array<Record<string, unknown>>;
+  confidence_bps?: number | null;
+  limitations?: string | null;
+  generated_at: string;
+}
+
+export interface IntelligenceScenario {
+  id: string;
+  name: string;
+  scenario_type: string;
+  status: string;
+  assumptions: Record<string, number>;
+  baseline: Record<string, number | string | null>;
+  scenario: Record<string, number | string | null>;
+  delta: Record<string, number>;
+  calculated_at: string;
+}
+
+export interface IntelligenceBriefing {
+  id: string;
+  period: "TODAY" | "THIS_WEEK" | "THIS_MONTH";
+  status: string;
+  structured_data: {
+    period: string;
+    from: string;
+    to: string;
+    generated_from: string;
+    top_priorities: OperationalPrioritySignal[];
+    sections: Array<{ category: string; count: number; signals: OperationalPrioritySignal[] }>;
+  };
+  narrative?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  enrichment_error_code?: string | null;
+  enrichment_attempted_at?: string | null;
+  generated_at: string;
+}
+
+export interface IntelligenceObservability {
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_minor: number;
+  average_latency_ms?: number | null;
+  failures: number;
+  retrieval_count: number;
+  citation_count: number;
+  proposal_count: number;
+  by_provider: Array<Record<string, unknown>>;
+  by_model: Array<Record<string, unknown>>;
+  by_operation: Array<Record<string, unknown>>;
+  errors: Array<{ category: string; count: number }>;
+  tools: { runs: number; failed: number; by_name: Array<Record<string, unknown>> };
+  vector_store: { driver: string; available: boolean; production_external: boolean };
+}
+
+export interface ProviderReconciliation {
+  id: string;
+  provider: string;
+  period_start: string;
+  period_end: string;
+  internal_cost_minor: number;
+  provider_cost_minor?: number | null;
+  difference_minor?: number | null;
+  status: string;
+  provider_reference?: string | null;
+}
+
+export interface IntelligenceEvaluationDashboard {
+  runs: AiEvaluationRun[];
+  summary: {
+    total: number;
+    completed: number;
+    average_score_bps?: number | null;
+    checks: Array<{ name: string; runs: number; passed: number; pass_rate_bps: number }>;
+  };
+}
+
+export interface CalendarCapability {
+  available: boolean;
+  provider: string | null;
+  status: string;
+  message: string;
+}
