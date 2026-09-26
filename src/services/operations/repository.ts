@@ -1,6 +1,6 @@
 import { apiRequest,isApiConfigured,previewDelay,validationError } from "@/services/api/client";
-import {copilotActions,expenses,recommendations } from "./mock-db";
-import type {BankAccount,BankTransaction,CashForecast,CopilotAction,ExpenseClaim,Recommendation,Settlement } from "@/types/operations";
+import { expenses } from "./mock-db";
+import type { BankAccount, BankTransaction, CashForecast, ExpenseClaim, Settlement } from "@/types/operations";
 const scoped=<T extends {company_id:string}>(rows:T[],id:string)=>rows.filter(r=>r.company_id===id);
 async function list<T extends {company_id:string}>(companyId:string,path:string,rows:T[]){return isApiConfigured()?apiRequest<T[]>(path,{companyId}):previewDelay(scoped(rows,companyId));}
 export const operationsRepository={
@@ -18,8 +18,6 @@ export const operationsRepository={
  createSettlement(companyId:string,input:{provider:string;settlement_reference:string;settlement_date:string;gross_amount:number;fee_amount:number;adjustment_amount:number;net_amount:number;destination_financial_account_id:string;clearing_account_id:string;fee_account_id:string}){return apiRequest("/banking/settlements",{method:"POST",companyId,idempotencyKey:crypto.randomUUID(),body:{...input,currency:"PKR",post:true,allocations:[]}})},
  cashForecast:(companyId:string,horizon:7|30|60|90)=>apiRequest<CashForecast>("/banking/cash-forecast",{companyId,query:{horizon}}),
  bankGl:(companyId:string,financialAccountId:string)=>apiRequest<{statement_balance:number|null;book_balance:number;unmatched_credits:number;unmatched_debits:number;difference:number|null;status:"balanced"|"unbalanced"}>(`/banking/accounts/${financialAccountId}/bank-gl`,{companyId}),
- recommendations:(id:string)=>list<Recommendation>(id,"/ai/recommendations",recommendations), copilot:(id:string)=>list<CopilotAction>(id,"/copilot/actions",copilotActions),
  async updateStatus<T extends {id:string;company_id:string;status:string}>(companyId:string,path:string,rows:T[],recordId:string,status:T["status"]){if(isApiConfigured())return apiRequest<T>(`${path}/${recordId}`,{method:"PATCH",companyId,body:{status}});const row=rows.find(x=>x.id===recordId&&x.company_id===companyId);if(!row)throw validationError("This record is unavailable in the active company.");row.status=status;return previewDelay(row);},
- updateExpenseStatus(companyId:string,id:string,status:ExpenseClaim["status"]){return this.updateStatus(companyId,"/expenses",expenses,id,status)}, updateRecommendation(companyId:string,id:string,status:Recommendation["status"]){return this.updateStatus(companyId,"/ai/recommendations",recommendations,id,status)},
- async addCopilot(companyId:string,action:Omit<CopilotAction,"id"|"company_id"|"created_at">){const row:CopilotAction={...action,id:`${companyId}-cop-${Date.now()}`,company_id:companyId,created_at:new Date().toISOString()};copilotActions.unshift(row);return previewDelay(row)}, updateCopilot(companyId:string,id:string,status:CopilotAction["status"]){return this.updateStatus(companyId,"/copilot/actions",copilotActions,id,status)},
+ updateExpenseStatus(companyId:string,id:string,status:ExpenseClaim["status"]){return this.updateStatus(companyId,"/expenses",expenses,id,status)},
 };

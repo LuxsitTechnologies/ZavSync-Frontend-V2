@@ -280,23 +280,3 @@ export const leads: Lead[] = [
 ];
 
 export const pipelineStages = ["New", "Qualified", "Proposal", "Negotiation", "Won"] as const;
-
-export const aiSuggestions = [
-  "Which clients have overdue invoices above PKR 500,000?",
-  "Summarise attendance exceptions for Field Operations this week.",
-  "Draft an email chasing the Emaar FBR rejection.",
-  "Forecast September payroll cost if headcount grows 4%.",
-];
-
-export const aiConversation = [
-  {
-    id: "m1",
-    role: "user" as const,
-    text: "Why is August collection lower than invoiced?",
-  },
-  {
-    id: "m2",
-    role: "assistant" as const,
-    text: "Invoiced PKR 8.42M vs collected PKR 6.80M. The gap sits in three accounts: Systems Ltd (PKR 2.31M, unpaid, due 07 Sep), Emaar Pakistan (PKR 1.71M part-paid, FBR rejection blocking release) and Bahria Town (PKR 0.54M, 25 days overdue). Clearing the Emaar HS-code rejection would unlock the largest single balance.",
-  },
-];

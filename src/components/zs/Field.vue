@@ -5,10 +5,11 @@ withDefaults(
     hint?: string;
     type?: string;
     required?: boolean;
+    disabled?: boolean;
     placeholder?: string;
     modelValue?: string | null;
   }>(),
-  { hint: undefined, type: "text", required: false, placeholder: undefined, modelValue: "" },
+  { hint: undefined, type: "text", required: false, disabled: false, placeholder: undefined, modelValue: "" },
 );
 defineEmits<{ "update:modelValue": [value: string] }>();
 </script>
@@ -20,6 +21,7 @@ defineEmits<{ "update:modelValue": [value: string] }>();
       class="field mt-1.5"
       :type="type"
       :required="required"
+      :disabled="disabled"
       :placeholder="placeholder"
       :value="modelValue"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"

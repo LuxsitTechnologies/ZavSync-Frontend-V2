@@ -162,21 +162,21 @@ export const navigation: NavGroup[] = [
         label: "ZavSync AI", module:"ai",
         icon: Sparkles,
         children: [
-          { label: "Ask ZavSync", to: "/ai", icon: Sparkles },
-          { label: "Priorities", to: "/ai/priorities", icon: ListTodo },
+          { label: "Ask ZavSync", to: "/ai", icon: Sparkles, permission: "ai.copilot.use" },
+          { label: "Action Review", to: "/ai/priorities", icon: ListTodo, permission: "ai.actions.review" },
           { label: "Smart Agenda", to: "/ai/calendar", icon: CalendarClock },
           { label: "Meeting Assistant", to: "/ai/meetings", icon: UsersRound },
           { label: "Predictive Analytics", to: "/ai/analytics", icon: BrainCircuit },
-          { label: "Execution Copilot", to: "/copilot", icon: Bot },
+          { label: "Execution Copilot", to: "/copilot", icon: Bot, permission: "ai.actions.review" },
         ],
       },
       {
-        label: "Knowledge", module:"analytics",
+        label: "Knowledge", module:"ai",
         icon: Library,
         children: [
-          { label: "Documents", to: "/knowledge/documents", icon: FileText, permission: "platform.documents.view" },
-          { label: "Chat", to: "/knowledge/chat", icon: MessageSquareText },
-          { label: "Security", to: "/knowledge/security", icon: ShieldCheck },
+          { label: "Documents", to: "/knowledge/documents", icon: FileText, permission: "ai.knowledge.view" },
+          { label: "Chat", to: "/knowledge/chat", icon: MessageSquareText, permission: "ai.copilot.use" },
+          { label: "Governance", to: "/knowledge/security", icon: ShieldCheck, permission: "ai.providers.view" },
         ],
       },
       {
@@ -229,7 +229,7 @@ export function moduleForPath(path:string):string|null{
   if(path.startsWith('/accounting'))return 'accounting';
   if(path.startsWith('/outreach'))return 'outreach';
   if(path.startsWith('/ai')||path==='/copilot')return 'ai';
-  if(path.startsWith('/knowledge'))return 'analytics';
+  if(path.startsWith('/knowledge'))return 'ai';
   return null;
 }
 

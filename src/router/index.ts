@@ -132,11 +132,12 @@ router.beforeEach((to)=>{
   const permissionByPath:Record<string,string>={
     '/users':'platform.users.view','/settings':'platform.settings.view','/roles':'platform.roles.view',
     '/audit-log':'platform.audit.view','/security':'platform.security.view','/system-health':'platform.jobs.view',
-    '/knowledge/documents':'platform.documents.view',
+    '/ai':'ai.copilot.use','/ai/priorities':'ai.actions.review','/copilot':'ai.actions.review',
+    '/knowledge/documents':'ai.knowledge.view','/knowledge/chat':'ai.copilot.use','/knowledge/security':'ai.providers.view',
     '/outreach/integrations':'outreach.providers.manage','/outreach/compose':'outreach.templates.manage',
     '/outreach/automations':'outreach.sequences.manage','/outreach/tracking':'outreach.reports.view',
   };
-  const permission=to.path.startsWith('/outreach/automations/')?'outreach.sequences.manage':permissionByPath[to.path];
+  const permission=to.path.startsWith('/outreach/automations/')?'outreach.sequences.manage':to.path.startsWith('/knowledge/chat/')?'ai.copilot.use':permissionByPath[to.path];
   if(permission&&company.activeCompanyId&&!company.hasPermission(permission))return '/';
   if(module&&company.activeCompanyId&&!company.hasModule(module))return '/';
   return true;

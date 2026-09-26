@@ -1,1 +1,20 @@
-<script setup lang="ts">import {ref} from "vue";import AppShell from "@/components/zs/AppShell.vue";import PageHeader from "@/components/zs/PageHeader.vue";import Panel from "@/components/zs/Panel.vue";import StatCard from "@/components/zs/StatCard.vue";import AreaChart from "@/components/zs/AreaChart.vue";import {setPageMeta} from "@/lib/page-meta";setPageMeta("Predictive Analytics","Historical performance and clearly separated forecast scenarios.");const metric=ref('Revenue'),series=[{month:'Apr',historical:6.1,forecast:0},{month:'May',historical:5.8,forecast:0},{month:'Jun',historical:7.4,forecast:0},{month:'Jul',historical:8.9,forecast:0},{month:'Aug',historical:8.4,forecast:0},{month:'Sep',historical:9.6,forecast:9.6},{month:'Oct',historical:0,forecast:10.2},{month:'Nov',historical:0,forecast:10.8},{month:'Dec',historical:0,forecast:11.7}];</script><template><AppShell><PageHeader title="Predictive Analytics" description="Forecasts are estimates, never posted financial values"><template #actions><select v-model="metric" class="field w-40"><option>Revenue</option><option>Cash balance</option><option>Sales pipeline</option><option>Headcount</option></select></template></PageHeader><div class="mb-4 grid gap-3 sm:grid-cols-3"><StatCard label="Next-month forecast" value="PKR 10.2M" tone="brand"/><StatCard label="Confidence range" value="PKR 9.4–11.0M" tone="warning"/><StatCard label="Forecast confidence" value="82%" tone="success"/></div><Panel title="Revenue outlook" description="Historical in teal · forecast in green"><div class="p-4"><AreaChart :data="series" x-key="month" :series="[{key:'historical',color:'var(--chart-1)',id:'prediction-history'},{key:'forecast',color:'var(--chart-2)',id:'prediction-forecast'}]" :height="300"/></div><div class="grid gap-3 border-t border-line p-4 sm:grid-cols-3"><div><p class="label-caps">Receivables</p><p class="mt-1 text-xs text-content-secondary">Uses open invoice due dates and observed collection patterns.</p></div><div><p class="label-caps">Pipeline</p><p class="mt-1 text-xs text-content-secondary">Weights CRM opportunities by stage and recent engagement.</p></div><div><p class="label-caps">Assumptions</p><p class="mt-1 text-xs text-content-secondary">No major churn; 31-day average collection cycle.</p></div></div></Panel></AppShell></template>
+<script setup lang="ts">
+import { BrainCircuit, ShieldCheck } from "lucide-vue-next";
+
+import AppShell from "@/components/zs/AppShell.vue";
+import PageHeader from "@/components/zs/PageHeader.vue";
+import Panel from "@/components/zs/Panel.vue";
+import { setPageMeta } from "@/lib/page-meta";
+
+setPageMeta("Predictive Analytics", "Predictive financial models are outside the Stage 12 boundary.");
+</script>
+
+<template>
+  <AppShell>
+    <PageHeader title="Predictive Analytics" description="No forecast is displayed without an authoritative model and verified source data" />
+    <div class="grid gap-4 lg:grid-cols-2">
+      <Panel title="No predictive model configured"><div class="p-8 text-center"><BrainCircuit class="mx-auto size-10 text-content-brand"/><h2 class="mt-4 text-lg font-semibold text-content">Predictive modelling is not enabled</h2><p class="mt-2 text-sm text-content-secondary">Stage 12 provides authorized retrieval, read-only business tools and citation-backed answers. It does not introduce probabilistic forecasting or automatic business decisions.</p></div></Panel>
+      <Panel title="Financial boundary"><div class="flex gap-2 p-5 text-xs text-content-secondary"><ShieldCheck class="size-4 shrink-0 text-success"/>No forecast value is presented as posted, authoritative or available for automatic accounting action.</div></Panel>
+    </div>
+  </AppShell>
+</template>

@@ -1,1 +1,20 @@
-<script setup lang="ts">import {ref} from "vue";import {ClipboardCheck,FileText} from "lucide-vue-next";import AppShell from "@/components/zs/AppShell.vue";import PageHeader from "@/components/zs/PageHeader.vue";import Panel from "@/components/zs/Panel.vue";import Tabs from "@/components/zs/Tabs.vue";import ZButton from "@/components/zs/ZButton.vue";import {showToast} from "@/composables/useToast";import {setPageMeta} from "@/lib/page-meta";setPageMeta("Meeting Assistant","Prepare agendas and review generated minutes before sharing.");const tab=ref('Upcoming'),agenda=ref(`1. Review Q3 pipeline\n2. Confirm proposal owners\n3. Resolve stalled opportunities`),minutes=ref('The team reviewed PKR 42.8M in open pipeline. Descon moved to negotiation. Packages Mall requires a revised implementation timeline.'),actions=ref([{text:'Send revised timeline to Packages Mall',owner:'Sana Iqbal',due:'24 Sep'},{text:'Review Descon commercial terms',owner:'Kamran Sheikh',due:'23 Sep'}]);</script><template><AppShell><PageHeader title="Meeting Assistant" description="Editable briefs, minutes and action ownership — nothing is shared automatically"/><Panel><Tabs v-model="tab" :items="['Upcoming','Minutes & actions']"/><div v-if="tab==='Upcoming'" class="grid gap-5 p-5 lg:grid-cols-[20rem_1fr]"><div><p class="label-caps">Selected meeting</p><div class="mt-2 rounded-md bg-surface-sunken p-4"><p class="text-sm font-semibold text-content">CRM pipeline review</p><p class="mt-1 text-xs text-content-muted">Wednesday · 09:30 · 6 attendees</p><p class="mt-4 text-xs text-content-secondary">Brief: Open pipeline is PKR 42.8M. Three high-scoring leads have no activity in five days.</p></div></div><label><span class="label-caps">Proposed agenda</span><textarea v-model="agenda" class="field mt-2 min-h-56 w-full"></textarea><ZButton class="mt-3" @click="showToast('Agenda approved','Ready to share when the calendar API is connected.','info')"><ClipboardCheck class="size-4"/>Approve agenda</ZButton></label></div><div v-else class="grid gap-5 p-5 lg:grid-cols-2"><label><span class="label-caps">Generated minutes</span><textarea v-model="minutes" class="field mt-2 min-h-56 w-full"></textarea></label><div><p class="label-caps">Action items</p><div v-for="a in actions" :key="a.text" class="mt-2 rounded-md border border-line p-3"><input v-model="a.text" class="field w-full"/><div class="mt-2 grid grid-cols-2 gap-2"><input v-model="a.owner" class="field"/><input v-model="a.due" class="field"/></div></div><ZButton class="mt-3" @click="showToast('Minutes approved','No notifications were sent from this frontend preview.','info')"><FileText class="size-4"/>Approve minutes</ZButton></div></div></Panel></AppShell></template>
+<script setup lang="ts">
+import { FileText, ShieldCheck } from "lucide-vue-next";
+
+import AppShell from "@/components/zs/AppShell.vue";
+import PageHeader from "@/components/zs/PageHeader.vue";
+import Panel from "@/components/zs/Panel.vue";
+import { setPageMeta } from "@/lib/page-meta";
+
+setPageMeta("Meeting Assistant", "Meeting capture requires an authoritative provider connection.");
+</script>
+
+<template>
+  <AppShell>
+    <PageHeader title="Meeting Assistant" description="Meeting content is unavailable until an approved source is connected" />
+    <div class="grid gap-4 lg:grid-cols-2">
+      <Panel title="Meeting source required"><div class="p-8 text-center"><FileText class="mx-auto size-10 text-content-brand"/><h2 class="mt-4 text-lg font-semibold text-content">No meeting transcript or calendar provider is connected</h2><p class="mt-2 text-sm text-content-secondary">ZavSync will not invent agendas, minutes, attendees or action items without authoritative source data.</p></div></Panel>
+      <Panel title="Safety boundary"><div class="flex gap-2 p-5 text-xs text-content-secondary"><ShieldCheck class="size-4 shrink-0 text-success"/>This screen cannot send notifications, create tasks, deliver outreach, or change calendars.</div></Panel>
+    </div>
+  </AppShell>
+</template>
