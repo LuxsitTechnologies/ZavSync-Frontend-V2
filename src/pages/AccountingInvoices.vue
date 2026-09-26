@@ -14,8 +14,8 @@ import MoneyInput from "@/components/accounting/MoneyInput.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { invoicesRepository } from "@/services/accounting/invoices.repository";
 import { useCompanyStore } from "@/stores/company";
-import { formatMoney } from "@/lib/money";
-import { labelize, shortDate } from "@/lib/format";
+import { formatMoney, parsePercentageInput, parseQuantityInput } from "@/lib/money";
+import { labelize, localDateInput, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import type { InvoiceDetail, InvoiceInput, InvoiceLineInput, Money, ReceivableStatus } from "@/types/accounting";
 
@@ -48,7 +48,7 @@ const cards = computed(() => [{ label: "Invoiced", value: totals.value.total }, 
 
 const panelOpen = ref(false);
 const editingId = ref<string | null>(null);
-const form = reactive({ customerId: "", invoiceDate: new Date().toISOString().slice(0, 10), dueDate: "", currency: "PKR", notes: "", terms: "", lines: [] as EditableLine[] });
+const form = reactive({ customerId: "", invoiceDate: localDateInput(), dueDate: "", currency: "PKR", notes: "", terms: "", lines: [] as EditableLine[] });
 const saveMutation = useMutation(async (submitToFbr: boolean) => {
   const input = formInput();
   const invoice = editingId.value
@@ -64,7 +64,7 @@ function newLine(): EditableLine {
 function resetForm() {
   editingId.value = null;
   form.customerId = "";
-  form.invoiceDate = new Date().toISOString().slice(0, 10);
+  form.invoiceDate = localDateInput();
   form.dueDate = form.invoiceDate;
   form.currency = "PKR";
   form.notes = "";
@@ -91,16 +91,6 @@ async function openEdit(invoice: InvoiceDetail) {
   panelOpen.value = true;
 }
 
-function decimalToScaled(raw: string, decimals: number): number | null {
-  const match = raw.trim().match(new RegExp(`^(\\d+)(?:\\.(\\d{0,${decimals}}))?$`));
-  if (!match) return null;
-  const factor = 10 ** decimals;
-  const whole = Number(match[1]);
-  const fraction = Number((match[2] ?? "").padEnd(decimals, "0"));
-  const result = whole * factor + fraction;
-  return Number.isSafeInteger(result) ? result : null;
-}
-
 function scaledToDecimal(value: number, decimals: number): string {
   const factor = 10 ** decimals;
   return `${Math.floor(value / factor)}.${String(value % factor).padStart(decimals, "0")}`;
@@ -108,28 +98,14 @@ function scaledToDecimal(value: number, decimals: number): string {
 
 function formInput(): InvoiceInput {
   const lines: InvoiceLineInput[] = form.lines.map((line, index) => {
-    const quantity = decimalToScaled(line.quantity, 3);
-    const taxRate = decimalToScaled(line.taxRate, 2);
+    const quantity = parseQuantityInput(line.quantity);
+    const taxRate = parsePercentageInput(line.taxRate);
     if (quantity === null || quantity <= 0) throw new Error(`Line ${index + 1} has an invalid quantity.`);
     if (taxRate === null || taxRate > 10000) throw new Error(`Line ${index + 1} has an invalid tax rate.`);
     return { description: line.description, quantity_milli: quantity, unit: line.unit, unit_price: line.unitPrice, discount: line.discount, tax_rate_bps: taxRate, other_tax_rate_bps: 0, advance_tax_rate_bps: 0, withholding_tax_rate_bps: 0, sales_type: line.salesType };
   });
   return { customer_id: form.customerId, invoice_date: form.invoiceDate, due_date: form.dueDate, currency: form.currency, notes: form.notes || null, terms: form.terms || null, lines };
 }
-
-function lineTotal(line: EditableLine): Money {
-  const quantity = decimalToScaled(line.quantity, 3) ?? 0;
-  const taxRate = decimalToScaled(line.taxRate, 2) ?? 0;
-  const product = line.unitPrice * quantity;
-  if (!Number.isSafeInteger(product)) return 0;
-  const subtotal = Math.floor((product + 500) / 1000);
-  const taxable = Math.max(0, subtotal - line.discount);
-  const taxProduct = taxable * taxRate;
-  if (!Number.isSafeInteger(taxProduct)) return 0;
-  return taxable + Math.floor((taxProduct + 5000) / 10000);
-}
-
-const previewTotal = computed(() => form.lines.reduce((sum, line) => sum + lineTotal(line), 0));
 
 async function save(submitToFbr = false) {
   const result = await saveMutation.run(submitToFbr);
@@ -190,12 +166,11 @@ function printRegister() {
             <label class="block"><span class="label-caps">Description</span><input v-model="line.description" class="field mt-1.5" /></label>
             <div class="grid gap-3 sm:grid-cols-3"><label><span class="label-caps">Quantity</span><input v-model="line.quantity" inputmode="decimal" class="field num mt-1.5" /></label><label><span class="label-caps">Unit</span><input v-model="line.unit" class="field mt-1.5" /></label><label><span class="label-caps">Sales type</span><input v-model="line.salesType" class="field mt-1.5" /></label></div>
             <div class="grid gap-3 sm:grid-cols-3"><MoneyInput v-model="line.unitPrice" label="Unit price" /><MoneyInput v-model="line.discount" label="Discount" /><label><span class="label-caps">Sales tax %</span><input v-model="line.taxRate" inputmode="decimal" class="field num mt-1.5 text-right" /></label></div>
-            <p class="text-right text-xs text-content-secondary">Preview line total: <span class="num font-semibold text-content">{{ formatMoney(lineTotal(line)) }}</span></p>
           </div>
           <ZButton variant="outline" @click="form.lines.push(newLine())"><Plus class="size-4" /> Add line</ZButton>
         </div>
         <div class="grid gap-3 sm:grid-cols-2"><label><span class="label-caps">Notes</span><textarea v-model="form.notes" class="field mt-1.5 min-h-20" /></label><label><span class="label-caps">Terms</span><textarea v-model="form.terms" class="field mt-1.5 min-h-20" /></label></div>
-        <div class="rounded-md bg-surface-sunken p-3 text-right"><p class="label-caps">Frontend preview</p><p class="num mt-1 text-lg font-semibold text-content">{{ formatMoney(previewTotal) }}</p><p class="text-2xs text-content-muted">The backend recalculates every amount before saving.</p></div>
+        <div class="rounded-md bg-surface-sunken p-3"><p class="text-xs text-content-secondary">Authoritative line totals, taxes and invoice totals are calculated by the backend when the draft is saved.</p></div>
         <ValidationMessage :message="saveMutation.error.value?.message ?? null" />
       </div>
       <template #footer><ZButton variant="outline" :disabled="saveMutation.saving.value" @click="save(false)">{{ saveMutation.saving.value ? "Saving…" : "Save draft" }}</ZButton><ZButton :disabled="saveMutation.saving.value" @click="save(true)">Save to FBR</ZButton></template>

@@ -17,12 +17,13 @@ import { payablesRepository } from "@/services/accounting/payables.repository";
 import { useCompanyStore } from "@/stores/company";
 import { formatMoney, sumBy } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
+import { localDateInput } from "@/lib/format";
 import { AGING_BUCKETS } from "@/types/accounting";
 
 setPageMeta("Payables Aging", "Outstanding supplier bills grouped by how overdue they are.");
 
 const company = useCompanyStore();
-const asOf = ref(new Date().toISOString().slice(0, 10));
+const asOf = ref(localDateInput());
 
 const { data, loading, error, isEmpty, refresh } = useAsyncData(
   () => payablesRepository.aging(company.activeCompanyId, asOf.value),
@@ -37,9 +38,9 @@ const total = computed(() => sumBy(rows.value, (r) => r.total));
   <AppShell>
     <PageHeader title="Payables Aging" description="Outstanding supplier balances by aging bucket.">
       <template #actions>
-        <RouterLink to="/accounting/payables"><ZButton variant="outline">Bills</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/suppliers"><ZButton variant="outline">Suppliers</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/statements"><ZButton variant="outline">Statements</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables"><ZButton as="span" variant="outline">Bills</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/suppliers"><ZButton as="span" variant="outline">Suppliers</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/statements"><ZButton as="span" variant="outline">Statements</ZButton></RouterLink>
       </template>
     </PageHeader>
 

@@ -25,9 +25,10 @@ import AccountSelect from "@/components/accounting/AccountSelect.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { payablesRepository, type BillQuery } from "@/services/accounting/payables.repository";
 import { useCompanyStore } from "@/stores/company";
-import { formatMoney, formatMoneyOrDash, sumBy } from "@/lib/money";
-import { shortDate } from "@/lib/format";
+import { formatMoney, formatMoneyOrDash, parsePercentageInput, parseQuantityInput, sumBy } from "@/lib/money";
+import { localDateInput, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
+import { showToast } from "@/composables/useToast";
 import type { BillStatus, Money, PaymentInput, Supplier, SupplierBill } from "@/types/accounting";
 
 setPageMeta("Accounts Payable", "Supplier bill register with due-date tracking and payment capture.");
@@ -144,8 +145,8 @@ function openCreateBill() {
   due.setDate(due.getDate() + 30);
   billSupplierId.value = suppliers.value[0]?.id ?? "";
   supplierReference.value = "";
-  billDate.value = today.toISOString().slice(0, 10);
-  dueDate.value = due.toISOString().slice(0, 10);
+  billDate.value = localDateInput(today);
+  dueDate.value = localDateInput(due);
   billDescription.value = "";
   quantity.value = "1";
   unitPrice.value = 0;
@@ -158,6 +159,13 @@ function openCreateBill() {
 
 async function createBill() {
   if (!expenseAccountId.value) return;
+  const quantityMilli = parseQuantityInput(quantity.value);
+  const taxRateBps = parsePercentageInput(taxRate.value);
+  const withholdingRateBps = parsePercentageInput(withholdingRate.value);
+  if (quantityMilli === null || quantityMilli <= 0 || taxRateBps === null || withholdingRateBps === null) {
+    showToast("Invalid bill values", "Use up to three decimals for quantity and two decimals for rates.", "danger");
+    return;
+  }
   const result = await createMutation.run(company.activeCompanyId, {
     supplier_id: billSupplierId.value,
     supplier_invoice_number: supplierReference.value,
@@ -168,12 +176,12 @@ async function createBill() {
     lines: [{
       description: billDescription.value,
       procurement_type: "service",
-      quantity_milli: Math.round(Number(quantity.value) * 1000),
+      quantity_milli: quantityMilli,
       unit: "unit",
       unit_price: unitPrice.value,
       discount: 0,
-      tax_rate_bps: Math.round(Number(taxRate.value) * 100),
-      withholding_rate_bps: Math.round(Number(withholdingRate.value) * 100),
+      tax_rate_bps: taxRateBps,
+      withholding_rate_bps: withholdingRateBps,
       expense_account_id: expenseAccountId.value,
     }],
   });
@@ -193,9 +201,9 @@ async function postBill(bill: SupplierBill) {
   <AppShell>
     <PageHeader title="Accounts Payable" description="Supplier bills, due dates and payment capture.">
       <template #actions>
-        <RouterLink to="/accounting/payables/suppliers"><ZButton variant="outline">Suppliers</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/aging"><ZButton variant="outline">Aging</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/statements"><ZButton variant="outline">Statements</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/suppliers"><ZButton as="span" variant="outline">Suppliers</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/aging"><ZButton as="span" variant="outline">Aging</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/statements"><ZButton as="span" variant="outline">Statements</ZButton></RouterLink>
         <ZButton @click="openCreateBill"><Plus class="size-4" /> New bill</ZButton>
       </template>
     </PageHeader>

@@ -16,6 +16,7 @@ import SidePanel from "@/components/zs/SidePanel.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { formatMoney, parseMoneyInput, toMoneyInput } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
+import { localDateInput } from "@/lib/format";
 import { payrollRepository } from "@/services/payroll/payroll.repository";
 import { useCompanyStore } from "@/stores/company";
 import type { PayrollEntry, Payslip } from "@/types/payroll";
@@ -67,9 +68,9 @@ async function saveAdjustment() {
 }
 
 const payOpen = ref(false);
-const payment = ref({ financial_account_id: "", payment_date: new Date().toISOString().slice(0, 10), amount: "", reference: "" });
+const payment = ref({ financial_account_id: "", payment_date: localDateInput(), amount: "", reference: "" });
 const payMutation = useMutation((entryId: string, amount: number) => payrollRepository.payEmployee(company.activeCompanyId, entryId, { ...payment.value, amount }));
-function openPay(entry: PayrollEntry) { targetEntry.value = entry; payment.value = { financial_account_id: "", payment_date: new Date().toISOString().slice(0, 10), amount: toMoneyInput(entry.outstanding_amount), reference: "" }; payMutation.reset(); payOpen.value = true; }
+function openPay(entry: PayrollEntry) { targetEntry.value = entry; payment.value = { financial_account_id: "", payment_date: localDateInput(), amount: toMoneyInput(entry.outstanding_amount), reference: "" }; payMutation.reset(); payOpen.value = true; }
 async function savePayment() {
   if (!targetEntry.value) return;
   const amount = parseMoneyInput(payment.value.amount);

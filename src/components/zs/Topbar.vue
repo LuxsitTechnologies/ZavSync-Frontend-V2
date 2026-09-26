@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { RouterLink, useRoute,useRouter } from "vue-router";
-import { ChevronRight, Menu, Moon, Search, Sun } from "lucide-vue-next";
+import { ChevronRight, LogOut, Menu, Moon, Sun } from "lucide-vue-next";
 
 import { breadcrumbFor,moduleForPath } from "@/lib/nav";
 import { useCompanyStore } from "@/stores/company";
 import { initials } from "@/lib/format";
 import NotificationCenter from "./NotificationCenter.vue";
 import {showToast} from "@/composables/useToast";
+import { authRepository } from "@/services/auth.repository";
 
 defineEmits<{ openNav: [] }>();
 
@@ -23,6 +24,16 @@ function toggleTheme() {
   document.documentElement.classList.toggle("dark", dark.value);
 }
 async function changeCompany(id:string){try{await companyStore.setCompany(id);const module=moduleForPath(route.path);if(module&&!companyStore.hasModule(module))await router.push('/')}catch(error){showToast('Company switch failed',error instanceof Error?error.message:'Could not switch company.','danger')}}
+async function logout() {
+  try {
+    await authRepository.logout();
+  } catch {
+    showToast("Session closed locally", "The server could not be reached, so this browser session was cleared.", "info");
+  } finally {
+    companyStore.clear();
+    await router.replace("/login");
+  }
+}
 </script>
 
 <template>
@@ -49,22 +60,11 @@ async function changeCompany(id:string){try{await companyStore.setCompany(id);co
     </nav>
 
     <div class="ml-auto flex items-center gap-2">
-      <div class="relative hidden md:block">
-        <Search
-          class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-content-muted"
-        />
-        <input
-          type="search"
-          placeholder="Search employees, invoices…"
-          class="field w-64 pl-8"
-          aria-label="Global search"
-        />
-      </div>
-
       <select
         :value="companyStore.activeCompanyId"
         class="field w-44"
         aria-label="Active company"
+        :disabled="companyStore.switching"
         @change="changeCompany(($event.target as HTMLSelectElement).value)"
       >
         <option v-for="c in companyStore.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
@@ -82,11 +82,20 @@ async function changeCompany(id:string){try{await companyStore.setCompany(id);co
 
       <NotificationCenter/>
 
+      <button
+        type="button"
+        class="grid size-8 place-items-center rounded-md text-content-secondary hover:bg-surface-hover"
+        aria-label="Sign out"
+        @click="logout"
+      >
+        <LogOut class="size-4" />
+      </button>
+
       <div class="flex items-center gap-2 border-l border-line pl-3">
         <span
           class="grid size-7 place-items-center rounded-full bg-primary-subtle text-2xs font-semibold text-primary-subtle-fg"
         >
-          {{ initials(currentUser.name) }}
+          {{ initials(currentUser.name || currentUser.email) }}
         </span>
         <div class="hidden leading-tight lg:block">
           <p class="text-xs font-semibold text-content">{{ currentUser.name }}</p>

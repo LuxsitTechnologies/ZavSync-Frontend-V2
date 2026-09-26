@@ -34,6 +34,7 @@ export function useAsyncData<T>(
     const current = ++token;
     loading.value = true;
     error.value = null;
+    data.value = null;
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(
         () => reject(new ApiError("The server took too long to respond. Please retry.", "network")),
@@ -63,7 +64,7 @@ export function useAsyncData<T>(
   });
 
   if (options.watch?.length) {
-    watch(options.watch, () => void refresh());
+    watch(options.watch, () => void refresh(), { flush: "sync" });
   }
   if (options.immediate !== false) void refresh();
 

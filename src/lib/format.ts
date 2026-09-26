@@ -18,11 +18,17 @@ export function compactMoney(value: number, currency = "PKR"): string {
 }
 
 export function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(iso);
+  return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
+}
+
+/** Local calendar date for date-only form fields; avoids UTC day shifts. */
+export function localDateInput(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 export function initials(name: string): string {

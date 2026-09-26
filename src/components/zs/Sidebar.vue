@@ -43,8 +43,8 @@ const navigation=computed(()=>navigationForModules(company.activeModules,company
 
     <div class="border-t border-sidebar-border p-3">
       <div class="rounded-md bg-surface-sunken p-3">
-        <p class="text-xs font-semibold text-content">ZavSync preview</p>
-        <p class="mt-1 text-xs text-content-muted">Secure company workspace · permissions and modules enforced.</p>
+        <p class="text-xs font-semibold text-content">Company workspace</p>
+        <p class="mt-1 text-xs text-content-muted">Permissions and subscribed modules are enforced.</p>
       </div>
     </div>
   </aside>

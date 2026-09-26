@@ -15,7 +15,7 @@ import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { periodsRepository } from "@/services/accounting/periods.repository";
 import { useCompanyStore } from "@/stores/company";
-import { shortDate } from "@/lib/format";
+import { localDateInput, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import type { AccountingPeriod } from "@/types/accounting";
 import type { PeriodReadiness } from "@/types/planning";
@@ -34,7 +34,7 @@ const history = useAsyncData(() => periodsRepository.history(company.activeCompa
 const openCount = computed(() => periods.value.filter((p) => p.status === "open").length);
 const closedCount = computed(() => periods.value.filter((p) => p.status === "closed").length);
 const currentPeriod = computed(() => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateInput();
   return periods.value.find((p) => today >= p.start_date && today <= p.end_date) ?? null;
 });
 

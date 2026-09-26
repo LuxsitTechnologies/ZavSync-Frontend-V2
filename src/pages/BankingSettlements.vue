@@ -18,6 +18,7 @@ import { useCompanyStore } from "@/stores/company";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
 import { showToast } from "@/composables/useToast";
 import { setPageMeta } from "@/lib/page-meta";
+import { localDateInput } from "@/lib/format";
 import type { Settlement } from "@/types/operations";
 
 setPageMeta("Payment Settlements", "Map merchant gross receipts, fees and net deposits.");
@@ -26,7 +27,7 @@ const state = useAsyncData(() => operationsRepository.settlements(company.active
 const bankState = useAsyncData(() => operationsRepository.bankAccounts(company.activeCompanyId), { watch: [() => company.activeCompanyId] });
 const accountState = useAsyncData(() => accountsRepository.selectable(company.activeCompanyId), { watch: [() => company.activeCompanyId] });
 const rows = computed(() => state.data.value ?? []);
-const open = ref(false), provider = ref("JazzCash"), reference = ref(""), date = ref(new Date().toISOString().slice(0, 10)), gross = ref(""), fees = ref(""), adjustments = ref("0"), destination = ref(""), clearing = ref(""), feeAccount = ref(""), saving = ref(false);
+const open = ref(false), provider = ref("JazzCash"), reference = ref(""), date = ref(localDateInput()), gross = ref(""), fees = ref(""), adjustments = ref("0"), destination = ref(""), clearing = ref(""), feeAccount = ref(""), saving = ref(false);
 const net = computed(() => (parseMoneyInput(gross.value) ?? 0) - (parseMoneyInput(fees.value) ?? 0) + (parseMoneyInput(adjustments.value, { allowNegative: true }) ?? 0));
 const assetAccounts = computed(() => (accountState.data.value ?? []).filter((account) => account.type === "asset" && account.is_active));
 const feeAccounts = computed(() => (accountState.data.value ?? []).filter((account) => (account.type === "expense" || account.type === "revenue") && account.is_active));

@@ -12,8 +12,9 @@ import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { showToast } from "@/composables/useToast";
-import { formatMoney, toMinor } from "@/lib/money";
+import { formatMoney, parseMoneyInput } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
+import { localDateInput } from "@/lib/format";
 import { planningRepository } from "@/services/accounting/planning.repository";
 import { useCompanyStore } from "@/stores/company";
 import type { BudgetActualRow } from "@/types/planning";
@@ -63,9 +64,9 @@ const allocationColumns:Column[]=[{key:"account_name",header:"Account"},{key:"pe
 const forecastColumns:Column[]=[{key:"account_name",header:"Account"},{key:"actual_completed",header:"Actual completed",align:"right",class:"num"},{key:"remaining_forecast",header:"Remaining forecast",align:"right",class:"num"},{key:"full_year_projection",header:"Full-year projection",align:"right",class:"num"}];
 
 watch(selectedYear, () => { const match=state.data.value?.budgets.find((x)=>x.fiscal_year_id===selectedYear.value); selectedBudget.value=match?.id??""; });
-async function createBudget(){const year=activeYear.value;if(!year||!accountId.value)return;const result=await createBudgetMutation.run(company.activeCompanyId,{fiscal_year_id:year.id,name:budgetName.value,currency:year.currency,lines:[{account_id:accountId.value,annual_amount:toMinor(Number(annualAmount.value)),distribution:"equal"}]});if(result){showToast("Budget created","Annual amount was allocated deterministically across fiscal periods.","success");selectedBudget.value=result.id;await state.refresh();}}
+async function createBudget(){const year=activeYear.value;if(!year||!accountId.value)return;const amount=parseMoneyInput(annualAmount.value);if(amount===null){showToast("Invalid annual amount","Enter a valid amount with no more than two decimal places.","danger");return}const result=await createBudgetMutation.run(company.activeCompanyId,{fiscal_year_id:year.id,name:budgetName.value,currency:year.currency,lines:[{account_id:accountId.value,annual_amount:amount,distribution:"equal"}]});if(result){showToast("Budget created","Annual amount was allocated deterministically across fiscal periods.","success");selectedBudget.value=result.id;await state.refresh();}}
 async function budgetAction(action:"submit"|"approve"|"activate"|"revise"){if(!selectedBudget.value)return;const result=await budgetActionMutation.run(company.activeCompanyId,selectedBudget.value,action);if(result){selectedBudget.value=result.id;showToast("Budget updated",`Budget is now ${result.status}.`,"success");await state.refresh();await report.refresh();}}
-async function createForecast(){const year=activeYear.value;if(!year||!selectedBudget.value)return;const result=await forecastMutation.run(company.activeCompanyId,{fiscal_year_id:year.id,name:forecastName.value,currency:year.currency,based_on_budget_id:selectedBudget.value,actuals_through:new Date().toISOString().slice(0,10)});if(result){selectedForecast.value=result.id;showToast("Forecast created","The active budget was copied as a planning baseline.","success");await state.refresh();}}
+async function createForecast(){const year=activeYear.value;if(!year||!selectedBudget.value)return;const result=await forecastMutation.run(company.activeCompanyId,{fiscal_year_id:year.id,name:forecastName.value,currency:year.currency,based_on_budget_id:selectedBudget.value,actuals_through:localDateInput()});if(result){selectedForecast.value=result.id;showToast("Forecast created","The active budget was copied as a planning baseline.","success");await state.refresh();}}
 async function activateForecast(){if(!selectedForecast.value)return;const result=await activateForecastMutation.run(company.activeCompanyId,selectedForecast.value);if(result){showToast("Forecast activated","Prior versions remain available in history.","success");await state.refresh();await projection.refresh();}}
 </script>
 

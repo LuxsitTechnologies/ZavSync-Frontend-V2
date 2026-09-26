@@ -78,9 +78,9 @@ const scoreParts = (signal: OperationalPrioritySignal) => Object.entries(signal.
               <ZButton v-if="signal.status==='OPEN'&&company.hasPermission('intelligence.manage')" @click="decide(signal,'ACKNOWLEDGE')"><Check class="size-4"/>Acknowledge</ZButton>
               <ZButton v-if="['OPEN','ACKNOWLEDGED'].includes(signal.status)&&company.hasPermission('intelligence.manage')" variant="outline" @click="decide(signal,'RESOLVE')">Resolve</ZButton>
               <ZButton v-if="['OPEN','ACKNOWLEDGED'].includes(signal.status)&&company.hasPermission('intelligence.manage')" variant="ghost" @click="decide(signal,'DISMISS')"><X class="size-4"/>Dismiss</ZButton>
-              <RouterLink :to="{path:'/knowledge/chat',query:{context:`Priority: ${signal.title}`}}"><ZButton variant="outline"><Sparkles class="size-4"/>Ask Copilot</ZButton></RouterLink>
-              <RouterLink :to="{path:'/knowledge/chat',query:{context:`Prepare a draft action proposal for priority ${signal.id}: ${signal.title}`}}"><ZButton variant="outline">Prepare action</ZButton></RouterLink>
-              <RouterLink v-if="signal.related_url" :to="signal.related_url"><ZButton variant="ghost"><ExternalLink class="size-4"/>Related record</ZButton></RouterLink>
+              <RouterLink :to="{path:'/knowledge/chat',query:{context:`Priority: ${signal.title}`}}"><ZButton as="span" variant="outline"><Sparkles class="size-4"/>Ask Copilot</ZButton></RouterLink>
+              <RouterLink :to="{path:'/knowledge/chat',query:{context:`Prepare a draft action proposal for priority ${signal.id}: ${signal.title}`}}"><ZButton as="span" variant="outline">Prepare action</ZButton></RouterLink>
+              <RouterLink v-if="signal.related_url" :to="signal.related_url"><ZButton as="span" variant="ghost"><ExternalLink class="size-4"/>Related record</ZButton></RouterLink>
             </div>
           </div>
         </Panel>

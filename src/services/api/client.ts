@@ -1,9 +1,9 @@
 /**
  * ZavSync API client.
  *
- * Feature screens talk to ZavSync through domain repositories. Production
- * repositories use apiRequest(); legacy preview adapters remain isolated to
- * modules that have not yet received backend implementations.
+ * Feature screens talk to ZavSync through domain repositories. The backend is
+ * always authoritative; a missing or unreachable API is an error, never a
+ * signal to substitute browser-side data.
  */
 
 export type ApiErrorKind = "validation" | "permission" | "not_found" | "conflict" | "server" | "network";
@@ -38,18 +38,12 @@ export function validationError(message: string, fields: Record<string, string> 
   return new ApiError(message, "validation", fields);
 }
 
-const BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined)?.replace(/\/$/, "") ?? "";
-
-export function isApiConfigured(): boolean {
-  return BASE_URL.length > 0;
-}
-
-/** Where preview data comes from, so screens can label it honestly. */
-export const dataSource: "api" | "preview" = isApiConfigured() ? "api" : "preview";
+const BASE_URL =
+  (import.meta.env["VITE_API_BASE_URL"] as string | undefined)?.replace(/\/$/, "") ?? "/api/v1";
 
 export interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-  /** Active company — sent as a header AND a query param; backend enforces scope. */
+  /** Active company. The backend resolves and authorizes this header. */
   companyId?: string;
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown | FormData;
@@ -64,10 +58,19 @@ function csrfToken(): string | undefined {
 }
 
 export async function ensureCsrfCookie(): Promise<void> {
-  if (!isApiConfigured()) return;
   const origin = new URL(BASE_URL, window.location.origin).origin;
-  const response = await fetch(`${origin}/sanctum/csrf-cookie`, { credentials: "include", headers: { Accept: "application/json" } });
-  if (!response.ok) throw new ApiError("Could not initialize the secure sign-in session.", "network", {}, response.status);
+  const response = await fetch(`${origin}/sanctum/csrf-cookie`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new ApiError(
+      "Could not initialize the secure sign-in session.",
+      "network",
+      {},
+      response.status,
+    );
+  }
 }
 
 function kindFor(status: number): ApiErrorKind {
@@ -79,12 +82,7 @@ function kindFor(status: number): ApiErrorKind {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions): Promise<T> {
-  if (!isApiConfigured()) {
-    throw new ApiError("No accounting API is configured for this build.", "network");
-  }
-
-  const url = new URL(`${BASE_URL}${path}`);
-  if (options.companyId) url.searchParams.set("company_id", options.companyId);
+  const url = new URL(`${BASE_URL}${path}`, window.location.origin);
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== null && value !== undefined && value !== "") url.searchParams.set(key, String(value));
   }
@@ -125,22 +123,44 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
     } catch {
       /* keep the default message */
     }
-    throw new ApiError(message, kindFor(response.status), fields, response.status, errorCode, response.headers.get("X-Request-Id")??undefined);
+    const requestId = response.headers.get("X-Request-Id") ?? undefined;
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("zavsync:unauthenticated"));
+    }
+    throw new ApiError(message, kindFor(response.status), fields, response.status, errorCode, requestId);
   }
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
-export async function apiDownload(path:string,companyId:string,filename:string):Promise<void>{
-  if(!isApiConfigured())throw new ApiError("No ZavSync API is configured for this build.","network");
-  const url=new URL(`${BASE_URL}${path}`);url.searchParams.set("company_id",companyId);
-  const response=await fetch(url.toString(),{credentials:"include",headers:{Accept:"application/octet-stream","X-Company-Id":companyId,...(csrfToken()?{"X-XSRF-TOKEN":csrfToken() as string}:{})}});
-  if(!response.ok)throw new ApiError("The document could not be downloaded.",kindFor(response.status),{},response.status,undefined,response.headers.get("X-Request-Id")??undefined);
-  const link=document.createElement("a");link.href=URL.createObjectURL(await response.blob());link.download=filename;link.click();URL.revokeObjectURL(link.href);
-}
-
-/** Simulated latency for the preview adapters so loading states are real. */
-export function previewDelay<T>(value: T, ms = 220): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(structuredClone(value)), ms));
+export async function apiDownload(path: string, companyId: string, filename: string): Promise<void> {
+  const url = new URL(`${BASE_URL}${path}`, window.location.origin);
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    headers: {
+      Accept: "application/octet-stream",
+      "X-Company-Id": companyId,
+      ...(csrfToken() ? { "X-XSRF-TOKEN": csrfToken() as string } : {}),
+    },
+  });
+  if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("zavsync:unauthenticated"));
+    }
+    throw new ApiError(
+      "The document could not be downloaded.",
+      kindFor(response.status),
+      {},
+      response.status,
+      undefined,
+      response.headers.get("X-Request-Id") ?? undefined,
+    );
+  }
+  const objectUrl = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
 }

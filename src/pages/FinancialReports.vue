@@ -16,6 +16,7 @@ import { useAsyncData } from "@/composables/useAsyncData";
 import { useCompanyStore } from "@/stores/company";
 import { reportsRepository, type ReportRow } from "@/services/accounting/reports.repository";
 import { setPageMeta } from "@/lib/page-meta";
+import { localDateInput } from "@/lib/format";
 
 setPageMeta("Financial Reports", "Trial balance, profitability, financial position and cash flow for the active company.");
 
@@ -28,7 +29,7 @@ const tab = ref<ReportTab>("Profit & Loss");
 const period = ref("Year to date");
 const comparison = ref<Comparison>("Prior period");
 
-function iso(date: Date): string { return date.toISOString().slice(0, 10); }
+function iso(date: Date): string { return localDateInput(date); }
 function rangeFor(value: string): { from: string; to: string } {
   const today = new Date();
   const start = new Date(today);
@@ -146,7 +147,7 @@ const columns: Column[] = [
         <select v-model="period" class="field w-44"><option>Year to date</option><option>This quarter</option><option>This month</option></select>
         <select v-model="comparison" class="field w-44"><option>Prior period</option><option>Prior year</option><option>No comparison</option></select>
       </div>
-      <div v-if="tab === 'Cash Flow'" class="p-10 text-center text-sm text-content-muted">Cash-flow reporting belongs to the banking stage and is not simulated with accounting mock values.</div>
+      <div v-if="tab === 'Cash Flow'" class="p-10 text-center text-sm text-content-muted">Cash-flow reporting is available from the banking workspace, where it is sourced from authoritative banking data.</div>
       <AsyncSection v-else :loading="state.loading.value" :error="state.error.value" :empty="rows.length === 0" empty-title="No accounting activity" empty-message="No posted journal activity exists for this report period." @retry="state.refresh">
         <div class="grid xl:grid-cols-[1fr_22rem]">
           <DataTable :columns="columns" :rows="rows" :min-width="680">

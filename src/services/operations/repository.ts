@@ -1,10 +1,6 @@
-import { apiRequest,isApiConfigured,previewDelay,validationError } from "@/services/api/client";
-import { expenses } from "./mock-db";
-import type { BankAccount, BankTransaction, CashForecast, ExpenseClaim, Settlement } from "@/types/operations";
-const scoped=<T extends {company_id:string}>(rows:T[],id:string)=>rows.filter(r=>r.company_id===id);
-async function list<T extends {company_id:string}>(companyId:string,path:string,rows:T[]){return isApiConfigured()?apiRequest<T[]>(path,{companyId}):previewDelay(scoped(rows,companyId));}
+import { apiRequest } from "@/services/api/client";
+import type { BankAccount, BankTransaction, CashForecast, Settlement } from "@/types/operations";
 export const operationsRepository={
- expenses:(id:string)=>list<ExpenseClaim>(id,"/expenses",expenses),
  async bankAccounts(companyId:string){const rows=await apiRequest<Array<{id:string;name:string;type:"bank"|"cash";bank_name:string|null;masked_account_number:string|null;currency:string;gl_account_id:string;book_balance:number;statement_balance:number|null;is_default:boolean;is_active:boolean}>>("/banking/accounts",{companyId});return rows.map((x):BankAccount=>({id:x.id,company_id:companyId,name:x.name,institution:x.bank_name??(x.type==="cash"?"Cash account":"Bank"),masked_number:x.masked_account_number??"—",type:x.type,currency:x.currency,balance:x.book_balance,available:x.book_balance,statement_balance:x.statement_balance,gl_account_id:x.gl_account_id,is_default:x.is_default,status:x.is_active?"active":"inactive"}))},
  createBankAccount(companyId:string,input:{name:string;type:"bank"|"cash";bank_name:string|null;currency:string;gl_account_id:string;is_default:boolean}){return apiRequest("/banking/accounts",{method:"POST",companyId,body:{...input,account_title:null,masked_account_number:null,iban:null,opening_balance:null,is_active:true,notes:null}})},
  updateBankAccount(companyId:string,id:string,input:{name:string;type:"bank"|"cash";bank_name:string|null;currency:string;gl_account_id:string;is_default:boolean;is_active:boolean}){return apiRequest(`/banking/accounts/${id}`,{method:"PATCH",companyId,body:{...input,account_title:null,masked_account_number:null,iban:null,opening_balance:null,notes:null}})},
@@ -18,6 +14,4 @@ export const operationsRepository={
  createSettlement(companyId:string,input:{provider:string;settlement_reference:string;settlement_date:string;gross_amount:number;fee_amount:number;adjustment_amount:number;net_amount:number;destination_financial_account_id:string;clearing_account_id:string;fee_account_id:string}){return apiRequest("/banking/settlements",{method:"POST",companyId,idempotencyKey:crypto.randomUUID(),body:{...input,currency:"PKR",post:true,allocations:[]}})},
  cashForecast:(companyId:string,horizon:7|30|60|90)=>apiRequest<CashForecast>("/banking/cash-forecast",{companyId,query:{horizon}}),
  bankGl:(companyId:string,financialAccountId:string)=>apiRequest<{statement_balance:number|null;book_balance:number;unmatched_credits:number;unmatched_debits:number;difference:number|null;status:"balanced"|"unbalanced"}>(`/banking/accounts/${financialAccountId}/bank-gl`,{companyId}),
- async updateStatus<T extends {id:string;company_id:string;status:string}>(companyId:string,path:string,rows:T[],recordId:string,status:T["status"]){if(isApiConfigured())return apiRequest<T>(`${path}/${recordId}`,{method:"PATCH",companyId,body:{status}});const row=rows.find(x=>x.id===recordId&&x.company_id===companyId);if(!row)throw validationError("This record is unavailable in the active company.");row.status=status;return previewDelay(row);},
- updateExpenseStatus(companyId:string,id:string,status:ExpenseClaim["status"]){return this.updateStatus(companyId,"/expenses",expenses,id,status)},
 };

@@ -12,7 +12,7 @@ import AsyncSection from "@/components/zs/AsyncSection.vue";
 import ConfirmDialog from "@/components/zs/ConfirmDialog.vue";
 import SidePanel from "@/components/zs/SidePanel.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
-import { shortDate } from "@/lib/format";
+import { localDateInput, shortDate } from "@/lib/format";
 import { formatMoney, formatMoneyOrDash, parseMoneyInput, toMoneyInput } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
 import { accountMappingsRepository } from "@/services/accounting/account-mappings.repository";
@@ -105,12 +105,12 @@ async function confirmPost(): Promise<void> {
 
 const payOpen = ref(false);
 const payBatch = ref<PayrollBatch | null>(null);
-const payment = ref({ financial_account_id: "", payment_date: new Date().toISOString().slice(0, 10), amount: "", reference: "" });
+const payment = ref({ financial_account_id: "", payment_date: localDateInput(), amount: "", reference: "" });
 const payMutation = useMutation((id: string, amount: number) => payrollRepository.payBatch(company.activeCompanyId, id, { ...payment.value, amount }));
 
 function openPayment(batch: PayrollBatch): void {
   payBatch.value = batch;
-  payment.value = { financial_account_id: "", payment_date: new Date().toISOString().slice(0, 10), amount: toMoneyInput(liabilityOutstanding(batch.id, "NET_PAY")), reference: "" };
+  payment.value = { financial_account_id: "", payment_date: localDateInput(), amount: toMoneyInput(liabilityOutstanding(batch.id, "NET_PAY")), reference: "" };
   payMutation.reset();
   payOpen.value = true;
 }
@@ -128,7 +128,7 @@ async function savePayment(): Promise<void> {
 type SettleableLiability = Exclude<PayrollLiabilityRow["liability_type"], "NET_PAY">;
 const settleOpen = ref(false);
 const settleBatch = ref<PayrollBatch | null>(null);
-const settlement = ref<{ liability_type: SettleableLiability | ""; financial_account_id: string; payment_date: string; amount: string; reference: string }>({ liability_type: "", financial_account_id: "", payment_date: new Date().toISOString().slice(0, 10), amount: "", reference: "" });
+const settlement = ref<{ liability_type: SettleableLiability | ""; financial_account_id: string; payment_date: string; amount: string; reference: string }>({ liability_type: "", financial_account_id: "", payment_date: localDateInput(), amount: "", reference: "" });
 const settlementMutation = useMutation((batchId: string, liabilityType: SettleableLiability, amount: number) => payrollRepository.settleLiability(company.activeCompanyId, { payroll_batch_id: batchId, liability_type: liabilityType, financial_account_id: settlement.value.financial_account_id, payment_date: settlement.value.payment_date, amount, reference: settlement.value.reference }));
 const settleableTypes = computed(() => {
   if (!settleBatch.value) return [] as SettleableLiability[];
@@ -144,7 +144,7 @@ function openSettlement(batch: PayrollBatch): void {
   settleBatch.value = batch;
   settlementMutation.reset();
   const types = [...new Set(liabilitiesFor(batch.id).filter((row) => row.liability_type !== "NET_PAY" && row.outstanding_amount > 0).map((row) => row.liability_type as SettleableLiability))];
-  settlement.value = { liability_type: "", financial_account_id: "", payment_date: new Date().toISOString().slice(0, 10), amount: "", reference: "" };
+  settlement.value = { liability_type: "", financial_account_id: "", payment_date: localDateInput(), amount: "", reference: "" };
   selectSettlementType(types[0] ?? "");
   settleOpen.value = true;
 }
@@ -177,7 +177,7 @@ const reverseReason = ref("");
 const reverseMutation = useMutation((id: string, date: string, reason: string) => payrollRepository.reverse(company.activeCompanyId, id, date, reason));
 function openReverse(batch: PayrollBatch): void {
   reverseBatch.value = batch;
-  reverseDate.value = new Date().toISOString().slice(0, 10);
+  reverseDate.value = localDateInput();
   reverseReason.value = "";
   reverseMutation.reset();
   reverseOpen.value = true;

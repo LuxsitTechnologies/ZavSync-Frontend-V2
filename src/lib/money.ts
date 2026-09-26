@@ -9,8 +9,19 @@ import type { Money } from "@/types/accounting";
 
 export const MINOR_UNITS = 100;
 
-export function toMinor(major: number): Money {
-  return Math.round(major * MINOR_UNITS);
+function parseScaledInput(raw: string, decimals: number, allowNegative = false): number | null {
+  const cleaned = raw.replace(/[\s,]/g, "").replace(/^\+/, "");
+  const negative = cleaned.startsWith("-");
+  if (negative && !allowNegative) return null;
+  const unsigned = negative ? cleaned.slice(1) : cleaned;
+  if (!new RegExp(`^(?:\\d+(?:\\.\\d{0,${decimals}})?|\\.\\d{1,${decimals}})$`).test(unsigned)) {
+    return null;
+  }
+  const [whole, fraction = ""] = unsigned.split(".");
+  const factor = 10 ** decimals;
+  const scaled = Number(whole || "0") * factor + Number(fraction.padEnd(decimals, "0") || "0");
+  if (!Number.isSafeInteger(scaled)) return null;
+  return negative ? -scaled : scaled;
 }
 
 export function toMajor(minor: Money): number {
@@ -29,11 +40,6 @@ export function sumBy<T>(rows: T[], pick: (row: T) => Money): Money {
   return rows.reduce((sum, row) => sum + Math.trunc(pick(row)), 0);
 }
 
-/** Multiply a money amount by a quantity/rate, rounding half-up to minor units. */
-export function multiplyMoney(amount: Money, factor: number): Money {
-  return Math.round(Math.trunc(amount) * factor);
-}
-
 export function isZero(value: Money): boolean {
   return Math.trunc(value) === 0;
 }
@@ -47,15 +53,17 @@ export function isNegative(value: Money): boolean {
  * Returns null when the input is not a valid non-negative amount.
  */
 export function parseMoneyInput(raw: string, { allowNegative = false } = {}): Money | null {
-  const cleaned = raw.replace(/[\s,]/g, "").replace(/^\+/, "");
-  if (cleaned === "" || cleaned === "-") return null;
-  if (!/^-?\d*(\.\d{0,2})?$/.test(cleaned)) return null;
-  const negative = cleaned.startsWith("-");
-  if (negative && !allowNegative) return null;
-  const [whole, fraction = ""] = cleaned.replace("-", "").split(".");
-  const minor = Number(whole || "0") * MINOR_UNITS + Number(fraction.padEnd(2, "0") || "0");
-  if (!Number.isFinite(minor)) return null;
-  return negative ? -minor : minor;
+  return parseScaledInput(raw, 2, allowNegative);
+}
+
+/** Parse a decimal quantity into authoritative integer thousandths. */
+export function parseQuantityInput(raw: string): number | null {
+  return parseScaledInput(raw, 3);
+}
+
+/** Parse a displayed percentage into integer basis points. */
+export function parsePercentageInput(raw: string): number | null {
+  return parseScaledInput(raw, 2);
 }
 
 /** Plain decimal string for inputs — no currency symbol, no grouping. */

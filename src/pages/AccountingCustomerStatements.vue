@@ -17,7 +17,7 @@ import { useAsyncData } from "@/composables/useAsyncData";
 import { receivablesRepository } from "@/services/accounting/receivables.repository";
 import { useCompanyStore } from "@/stores/company";
 import { formatMoney, formatMoneyOrDash } from "@/lib/money";
-import { shortDate } from "@/lib/format";
+import { localDateInput, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import type { StatementLine } from "@/types/accounting";
 
@@ -31,7 +31,7 @@ const { data: customersData } = useAsyncData(() => receivablesRepository.custome
 const customers = computed(() => customersData.value ?? []);
 
 const customerId = ref<string>("");
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateInput();
 const from = ref(`${today.slice(0, 4)}-01-01`);
 const to = ref(today);
 

@@ -14,7 +14,7 @@ import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { invoicesRepository } from "@/services/accounting/invoices.repository";
 import { useCompanyStore } from "@/stores/company";
 import { formatMoney, formatQuantity } from "@/lib/money";
-import { shortDate } from "@/lib/format";
+import { localDateInput, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 
 setPageMeta("Invoice Review", "Authoritative invoice, FBR, payment and accounting status.");
@@ -28,7 +28,7 @@ const invoice = computed(() => state.data.value);
 const postMutation = useMutation(() => invoicesRepository.post(company.activeCompanyId, invoiceId.value));
 const fbrMutation = useMutation(() => invoicesRepository.submitFbr(company.activeCompanyId, invoiceId.value));
 const deleteMutation = useMutation(() => invoicesRepository.remove(company.activeCompanyId, invoiceId.value));
-const voidMutation = useMutation((reason: string) => invoicesRepository.void(company.activeCompanyId, invoiceId.value, new Date().toISOString().slice(0, 10), reason));
+const voidMutation = useMutation((reason: string) => invoicesRepository.void(company.activeCompanyId, invoiceId.value, localDateInput(), reason));
 const actionError = computed(() => postMutation.error.value ?? fbrMutation.error.value ?? deleteMutation.error.value ?? voidMutation.error.value);
 
 async function postInvoice() {

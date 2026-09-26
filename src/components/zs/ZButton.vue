@@ -4,8 +4,13 @@ import { computed } from "vue";
 import { cn } from "@/lib/utils";
 
 const props = withDefaults(
-  defineProps<{ variant?: "primary" | "ghost" | "outline"; class?: string; type?: "button" | "submit" }>(),
-  { variant: "primary", class: "", type: "button" },
+  defineProps<{
+    as?: "button" | "span";
+    variant?: "primary" | "ghost" | "outline";
+    class?: string;
+    type?: "button" | "submit";
+  }>(),
+  { as: "button", variant: "primary", class: "", type: "button" },
 );
 
 const VARIANTS: Record<string, string> = {
@@ -24,7 +29,7 @@ const classes = computed(() =>
 </script>
 
 <template>
-  <button :type="props.type" :class="classes">
+  <component :is="props.as" :type="props.as === 'button' ? props.type : undefined" :class="classes">
     <slot />
-  </button>
+  </component>
 </template>

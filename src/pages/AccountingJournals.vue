@@ -93,7 +93,7 @@ const columns: Column[] = [
     <PageHeader title="Journals" description="Central posting register — every journal, from any module, in one ledger.">
       <template #actions>
         <RouterLink to="/accounting/journals/new">
-          <ZButton><Plus class="size-4" /> New manual journal</ZButton>
+          <ZButton as="span"><Plus class="size-4" /> New manual journal</ZButton>
         </RouterLink>
       </template>
     </PageHeader>

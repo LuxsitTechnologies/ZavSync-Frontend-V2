@@ -18,7 +18,7 @@ import { useAsyncData } from "@/composables/useAsyncData";
 import { payablesRepository } from "@/services/accounting/payables.repository";
 import { useCompanyStore } from "@/stores/company";
 import { formatMoney } from "@/lib/money";
-import { shortDate } from "@/lib/format";
+import { localDateInput, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import type { StatementLine, Supplier } from "@/types/accounting";
 
@@ -27,7 +27,7 @@ setPageMeta("Supplier Statements", "Running-balance statement of account for a s
 const company = useCompanyStore();
 
 const supplierId = ref<string>("");
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateInput();
 const from = ref(`${today.slice(0, 4)}-01-01`);
 const to = ref(today);
 
@@ -74,9 +74,9 @@ function exportPdf() {
   <AppShell>
     <PageHeader title="Supplier Statements" description="Opening balance, movements and closing balance for a supplier.">
       <template #actions>
-        <RouterLink to="/accounting/payables"><ZButton variant="outline">Bills</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/suppliers"><ZButton variant="outline">Suppliers</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/aging"><ZButton variant="outline">Aging</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables"><ZButton as="span" variant="outline">Bills</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/suppliers"><ZButton as="span" variant="outline">Suppliers</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/aging"><ZButton as="span" variant="outline">Aging</ZButton></RouterLink>
       </template>
     </PageHeader>
 

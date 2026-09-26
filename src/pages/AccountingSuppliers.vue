@@ -134,9 +134,9 @@ async function submitForm() {
   <AppShell>
     <PageHeader title="Suppliers" description="Supplier master data, payment terms and default account mappings.">
       <template #actions>
-        <RouterLink to="/accounting/payables"><ZButton variant="outline">Bills</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/aging"><ZButton variant="outline">Aging</ZButton></RouterLink>
-        <RouterLink to="/accounting/payables/statements"><ZButton variant="outline">Statements</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables"><ZButton as="span" variant="outline">Bills</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/aging"><ZButton as="span" variant="outline">Aging</ZButton></RouterLink>
+        <RouterLink to="/accounting/payables/statements"><ZButton as="span" variant="outline">Statements</ZButton></RouterLink>
         <ZButton @click="openCreate"><Plus class="size-4" /> New supplier</ZButton>
       </template>
     </PageHeader>

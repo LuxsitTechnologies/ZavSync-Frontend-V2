@@ -12,6 +12,7 @@ import SidePanel from "@/components/zs/SidePanel.vue";
 import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import { formatMoney } from "@/lib/money";
+import { localDateInput } from "@/lib/format";
 import type { Money, PaymentInput, PaymentMethod } from "@/types/accounting";
 
 const props = withDefaults(
@@ -40,7 +41,7 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
 ];
 
 const amount = ref<Money>(props.outstanding);
-const paymentDate = ref(new Date().toISOString().slice(0, 10));
+const paymentDate = ref(localDateInput());
 const method = ref<PaymentMethod>("bank_transfer");
 const bankAccountId = ref<string | null>(null);
 const reference = ref("");
@@ -51,7 +52,7 @@ watch(
   (open) => {
     if (!open) return;
     amount.value = props.outstanding;
-    paymentDate.value = new Date().toISOString().slice(0, 10);
+    paymentDate.value = localDateInput();
     method.value = "bank_transfer";
     reference.value = "";
     note.value = "";
@@ -105,7 +106,7 @@ function submit() {
 
       <div class="flex gap-2">
         <ZButton variant="outline" @click="amount = outstanding">Full amount</ZButton>
-        <ZButton variant="ghost" @click="amount = Math.round(outstanding / 2)">Half</ZButton>
+        <ZButton variant="ghost" @click="amount = Math.floor((outstanding + 1) / 2)">Half</ZButton>
       </div>
 
       <MoneyInput

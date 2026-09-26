@@ -25,7 +25,7 @@ import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { receivablesRepository, type ReceivableQuery } from "@/services/accounting/receivables.repository";
 import { useCompanyStore } from "@/stores/company";
 import { formatMoney, sumBy } from "@/lib/money";
-import { shortDate } from "@/lib/format";
+import { localDateInput, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import type { PaymentInput, ReceivableInvoice, ReceivableStatus } from "@/types/accounting";
 
@@ -73,7 +73,7 @@ const customers = computed(() => customersData.value ?? []);
 
 /* -------------------- Summary cards (display aggregation only) -------------------- */
 
-const THIS_MONTH_PREFIX = new Date().toISOString().slice(0, 7);
+const THIS_MONTH_PREFIX = localDateInput().slice(0, 7);
 
 const stats = computed(() => {
   const rows = invoices.value;
@@ -128,10 +128,10 @@ async function submitPayment(input: PaymentInput) {
     <PageHeader title="Accounts Receivable" description="Invoice register, outstanding balances and customer receipts.">
       <template #actions>
         <RouterLink to="/accounting/receivables/aging">
-          <ZButton variant="outline">Aging report</ZButton>
+          <ZButton as="span" variant="outline">Aging report</ZButton>
         </RouterLink>
         <RouterLink to="/accounting/receivables/statements">
-          <ZButton variant="outline">Customer statements</ZButton>
+          <ZButton as="span" variant="outline">Customer statements</ZButton>
         </RouterLink>
       </template>
     </PageHeader>

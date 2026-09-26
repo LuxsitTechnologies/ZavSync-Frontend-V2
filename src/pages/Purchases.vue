@@ -21,8 +21,10 @@ import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { procurementRepository } from "@/services/accounting/procurement.repository";
 import { payablesRepository } from "@/services/accounting/payables.repository";
 import { useCompanyStore } from "@/stores/company";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, parseQuantityInput } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
+import { localDateInput } from "@/lib/format";
+import { showToast } from "@/composables/useToast";
 import type { Money, Supplier } from "@/types/accounting";
 import type { PurchaseOrder } from "@/types/operations";
 
@@ -50,14 +52,19 @@ const columns: Column[] = [
 ];
 
 async function create() {
+  const quantityMilli = parseQuantityInput(quantity.value);
+  if (quantityMilli === null || quantityMilli <= 0) {
+    showToast("Invalid quantity", "Enter a positive quantity with no more than three decimal places.", "danger");
+    return;
+  }
   const result = await createMutation.run(company.activeCompanyId, {
     supplier_id: supplierId.value,
-    order_date: new Date().toISOString().slice(0, 10),
+    order_date: localDateInput(),
     currency: "PKR",
     lines: [{
       description: description.value,
       procurement_type: "service",
-      quantity_milli: Math.round(Number(quantity.value) * 1000),
+      quantity_milli: quantityMilli,
       unit: "unit",
       unit_price: unitPrice.value,
       discount: 0,

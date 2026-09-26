@@ -13,7 +13,7 @@ const active = computed(() => props.item.to === route.path);
   <span
     v-if="!item.to"
     class="nav-item cursor-not-allowed opacity-55"
-    title="Module not built in this preview"
+    title="This capability is unavailable"
   >
     <component :is="item.icon" v-if="item.icon" class="size-4 shrink-0" :stroke-width="1.75" />
     <span class="truncate">{{ item.label }}</span>

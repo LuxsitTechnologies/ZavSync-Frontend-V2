@@ -24,7 +24,7 @@ const company = useCompanyStore();
 const router = useRouter();
 
 function newLine(): JournalLineInput {
-  return { id: `line-${Math.random().toString(36).slice(2, 9)}`, account_id: null, description: "", debit: 0, credit: 0 };
+  return { id: `line-${crypto.randomUUID()}`, account_id: null, description: "", debit: 0, credit: 0 };
 }
 
 const postingDate = ref("2026-09-21");

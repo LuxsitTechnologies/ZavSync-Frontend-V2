@@ -25,7 +25,7 @@ const totals = computed(() => journalTotals(props.lines));
 
 function newLine(): JournalLineInput {
   return {
-    id: `line-${Math.random().toString(36).slice(2, 9)}`,
+    id: `line-${crypto.randomUUID()}`,
     account_id: null,
     description: "",
     debit: 0,

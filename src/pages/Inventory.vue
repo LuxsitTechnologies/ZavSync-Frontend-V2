@@ -17,8 +17,9 @@ import ValidationMessage from "@/components/zs/ValidationMessage.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { showToast } from "@/composables/useToast";
-import { formatMoney, formatQuantity } from "@/lib/money";
+import { formatMoney, formatQuantity, parseQuantityInput } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
+import { localDateInput } from "@/lib/format";
 import { inventoryRepository } from "@/services/accounting/inventory.repository";
 import { useCompanyStore } from "@/stores/company";
 import type { InventoryItem, InventoryItemInput, Warehouse, WarehouseInput } from "@/types/accounting";
@@ -74,13 +75,13 @@ const columns: Column[] = [
   { key: "status", header: "Status" }, { key: "actions", header: "", align: "right" },
 ];
 
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDateInput(); }
 function displayQuantity(milli: number) { return formatQuantity(milli / 1000); }
 function milliInput(milli: number) { return `${Math.trunc(milli / 1000)}.${String(milli % 1000).padStart(3, "0")}`.replace(/\.0+$/, ""); }
 function parseQuantityMilli(raw: string): number {
-  const match = raw.trim().match(/^(\d+)(?:\.(\d{0,3}))?$/);
-  if (!match) return 0;
-  return Number(match[1]) * 1000 + Number((match[2] ?? "").padEnd(3, "0"));
+  const quantity = parseQuantityInput(raw);
+  if (quantity === null) throw new Error("Enter a valid quantity with no more than three decimal places.");
+  return quantity;
 }
 function itemFor(row: { item_id: string }) { return (itemsState.data.value ?? []).find((item) => item.id === row.item_id); }
 
@@ -96,7 +97,6 @@ function openEditItem(item: InventoryItem | undefined) {
   itemMutation.reset(); panel.value = "item";
 }
 async function saveItem() {
-  if (!parseQuantityMilli(reorderLevelText.value) && reorderLevelText.value.trim() !== "0") return;
   const saved = await itemMutation.run(); if (!saved) return;
   showToast(editingItemId.value ? "Item updated" : "Item created"); panel.value = null;
   await Promise.all([itemsState.refresh(), valuationState.refresh(), lowState.refresh()]);

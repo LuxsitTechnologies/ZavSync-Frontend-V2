@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
-import {moduleForPath} from "@/lib/nav";
+import { moduleForPath, permissionForPath } from "@/lib/nav";
 import {useCompanyStore} from "@/stores/company";
 
 const routes: RouteRecordRaw[] = [
@@ -118,6 +118,7 @@ const routes: RouteRecordRaw[] = [
   { path: "/login", component: () => import("@/pages/Login.vue") },
   { path: "/forgot-password", component: () => import("@/pages/ForgotPassword.vue") },
   { path: "/set-password", component: () => import("@/pages/SetPassword.vue") },
+  { path: "/accept-invitation", component: () => import("@/pages/SetPassword.vue") },
 
   { path: "/:pathMatch(.*)*", component: () => import("@/pages/NotFound.vue") },
 ];
@@ -128,22 +129,21 @@ export const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 });
 
-router.beforeEach((to)=>{
-  if(to.path==='/login'||to.path==='/forgot-password'||to.path==='/set-password')return true;
-  const company=useCompanyStore(),module=moduleForPath(to.path);
-  if(to.path==='/system-health'&&!company.isPlatformAdmin)return '/';
-  const permissionByPath:Record<string,string>={
-    '/users':'platform.users.view','/settings':'platform.settings.view','/roles':'platform.roles.view',
-    '/audit-log':'platform.audit.view','/security':'platform.security.view','/system-health':'platform.jobs.view',
-    '/ai':'ai.copilot.use','/ai/priorities':'intelligence.view','/ai/briefing':'intelligence.briefings.view',
-    '/ai/actions':'ai.actions.review','/ai/operations':'intelligence.observability.view','/copilot':'ai.actions.review',
-    '/ai/calendar':'intelligence.calendar.manage','/ai/meetings':'intelligence.calendar.manage','/ai/analytics':'intelligence.anomalies.view',
-    '/knowledge/documents':'ai.knowledge.view','/knowledge/chat':'ai.copilot.use','/knowledge/security':'ai.providers.view',
-    '/outreach/integrations':'outreach.providers.manage','/outreach/compose':'outreach.templates.manage',
-    '/outreach/automations':'outreach.sequences.manage','/outreach/tracking':'outreach.reports.view',
-  };
-  const permission=to.path.startsWith('/outreach/automations/')?'outreach.sequences.manage':to.path.startsWith('/knowledge/chat/')?'ai.copilot.use':permissionByPath[to.path];
-  if(permission&&company.activeCompanyId&&!company.hasPermission(permission))return '/';
-  if(module&&company.activeCompanyId&&!company.hasModule(module))return '/';
+router.beforeEach((to) => {
+  const publicPaths = new Set(["/login", "/forgot-password", "/set-password", "/accept-invitation"]);
+  const company = useCompanyStore();
+  if (publicPaths.has(to.path)) {
+    return company.authenticated && to.path === "/login" ? "/" : true;
+  }
+  if (!company.authenticated) {
+    return { path: "/login", query: { redirect: to.fullPath } };
+  }
+  if (!company.activeCompanyId) return to.path === "/" ? true : "/";
+
+  const module = moduleForPath(to.path);
+  const permission = permissionForPath(to.path);
+  if (to.path === "/system-health" && !company.isPlatformAdmin) return "/";
+  if (permission && !company.hasPermission(permission)) return "/";
+  if (module && !company.hasModule(module)) return "/";
   return true;
 });

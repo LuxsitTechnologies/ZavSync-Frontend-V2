@@ -1,5 +1,6 @@
 /** Stage 4 purchase-order, approval, receipt and bill-conversion API contracts. */
 import { apiRequest } from "@/services/api/client";
+import { localDateInput } from "@/lib/format";
 import type { SupplierBill, SupplierBillInput } from "@/types/accounting";
 import type { PurchaseOrder, PurchaseOrderInput, PurchaseReceipt } from "@/types/operations";
 
@@ -45,7 +46,7 @@ export const procurementRepository = {
         quantity_received_milli: line.quantity_milli - line.received_quantity_milli,
       }))
       .filter((line) => line.quantity_received_milli > 0);
-    const input = { receipt_date: new Date().toISOString().slice(0, 10), warehouse_id: warehouseId || undefined, lines };
+    const input = { receipt_date: localDateInput(), warehouse_id: warehouseId || undefined, lines };
     return apiRequest(`/purchases/orders/${order.id}/receipts`, {
       companyId,
       method: "POST",
@@ -55,7 +56,7 @@ export const procurementRepository = {
   },
 
   convertToBill(companyId: string, order: PurchaseOrder): Promise<SupplierBill> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateInput();
     const due = new Date();
     due.setDate(due.getDate() + 30);
     const input: SupplierBillInput = {
@@ -64,7 +65,7 @@ export const procurementRepository = {
       supplier_invoice_number: `PO-${order.number}-${today}`,
       bill_date: today,
       posting_date: today,
-      due_date: due.toISOString().slice(0, 10),
+      due_date: localDateInput(due),
       currency: "PKR",
       lines: order.lines
         .map((line) => ({

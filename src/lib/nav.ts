@@ -83,10 +83,6 @@ export const navigation: NavGroup[] = [
         icon: Users,
         children: [
           { label: "Employees", to: "/hrm/employees", icon: Users },
-          { label: "Attendance", to: "/hrm/attendance", icon: CalendarCheck },
-          { label: "Leave", to: "/hrm/leave", icon: CalendarOff, badge: "4" },
-          { label: "Teams", to: "/hrm/teams", icon: UsersRound },
-          { label: "Rotas", to: "/hrm/rotas", icon: CalendarRange },
         ],
       },
     ],
@@ -109,7 +105,6 @@ export const navigation: NavGroup[] = [
           { label: "Inventory Ledger", to: "/accounting/inventory-ledger", icon: Scale, module:"inventory" },
           { label: "Periods", to: "/accounting/periods", icon: Lock, module:"accounting" },
           { label: "Accounting Setup", to: "/accounting/setup", icon: Settings2, module:"accounting" },
-          { label: "Services", to: "/accounting/services", icon: Wrench, module:"accounting" },
           { label: "Financial Reports", to: "/accounting/reports", icon: BarChart3, module:"accounting" },
           { label: "Cash Flow", to: "/accounting/cash-flow", icon: ChartNoAxesCombined, module:"banking" },
           { label: "Budgeting", to: "/accounting/budgets", icon: CandlestickChart, module:"budgeting" },
@@ -128,7 +123,6 @@ export const navigation: NavGroup[] = [
           { label: "Accounting Posting", to: "/payroll/posting", icon: Landmark },
         ],
       },
-      { label: "Expenses", to: "/expenses", icon: Receipt },
     ],
   },
   {
@@ -149,7 +143,6 @@ export const navigation: NavGroup[] = [
           { label: "Activities", to: "/crm/activities", icon: Activity },
           { label: "Tasks", to: "/crm/tasks", icon: ListTodo },
           { label: "Lead Capture", to: "/crm/capture", icon: Upload },
-          { label: "Capture Forms", to: "/crm/forms", icon: FormInput },
           { label: "Lead Scoring", to: "/crm/scoring", icon: Gauge },
         ],
       },
@@ -211,12 +204,51 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
   const filter=(items:NavItem[]):NavItem[]=>items.flatMap(item=>{
     if(item.module&&!modules.includes(item.module))return [];
     if(item.platformAdmin&&!isPlatformAdmin)return [];
-    if(item.permission&&!permissions.includes('*')&&!permissions.includes(item.permission))return [];
+    const permission = item.permission ?? (item.to ? permissionForPath(item.to) : null);
+    if(permission&&!permissions.includes('*')&&!permissions.includes(permission))return [];
     const children=item.children?filter(item.children):undefined;
     if(item.children&&!children?.length)return [];
     return [{...item,children}];
   });
   return navigation.map(group=>({...group,items:filter(group.items)})).filter(group=>group.items.length>0);
+}
+
+/** Minimum read permission required to enter each production area. */
+export function permissionForPath(path: string): string | null {
+  if (path.startsWith("/hrm") || path.startsWith("/payroll")) return "payroll.view";
+  if (path.startsWith("/accounting/payables/suppliers")) return "suppliers.view";
+  if (path.startsWith("/accounting/payables")) return "payables.view";
+  if (path === "/accounting/inventory-ledger" || path === "/inventory") return "inventory.view";
+  if (path.startsWith("/purchases")) return "purchase_orders.view";
+  if (path.startsWith("/banking/settlements")) return "banking.settlements";
+  if (path.startsWith("/banking")) return "banking.view";
+  if (path === "/accounting/cash-flow") return "banking.cashflow";
+  if (path === "/accounting/budgets") return "budget.view";
+  if (path === "/accounting/year-end") return "accounting.close.view";
+  if (path.startsWith("/accounting")) return "accounting.view";
+  if (path === "/crm/capture") return "crm.import";
+  if (path.startsWith("/crm")) return "crm.view";
+  if (path.startsWith("/outreach/integrations")) return "outreach.providers.manage";
+  if (path.startsWith("/outreach/compose")) return "outreach.templates.manage";
+  if (path.startsWith("/outreach/automations")) return "outreach.sequences.manage";
+  if (path.startsWith("/outreach/tracking")) return "outreach.reports.view";
+  if (path === "/ai") return "ai.copilot.use";
+  if (path.startsWith("/ai/priorities")) return "intelligence.view";
+  if (path.startsWith("/ai/briefing")) return "intelligence.briefings.view";
+  if (path.startsWith("/ai/actions") || path === "/copilot") return "ai.actions.review";
+  if (path.startsWith("/ai/operations")) return "intelligence.observability.view";
+  if (path.startsWith("/ai/calendar") || path.startsWith("/ai/meetings")) return "intelligence.calendar.manage";
+  if (path.startsWith("/ai/analytics")) return "intelligence.anomalies.view";
+  if (path.startsWith("/knowledge/documents")) return "ai.knowledge.view";
+  if (path.startsWith("/knowledge/chat")) return "ai.copilot.use";
+  if (path.startsWith("/knowledge/security")) return "ai.providers.view";
+  if (path === "/users") return "platform.users.view";
+  if (path === "/settings") return "platform.settings.view";
+  if (path === "/roles") return "platform.roles.view";
+  if (path === "/audit-log") return "platform.audit.view";
+  if (path === "/security") return "platform.security.view";
+  if (path === "/system-health") return "platform.jobs.view";
+  return null;
 }
 
 export function moduleForPath(path:string):string|null{
