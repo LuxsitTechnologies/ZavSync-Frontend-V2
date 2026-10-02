@@ -315,6 +315,7 @@ export function permissionForPath(path: string): string | null {
   if (path.startsWith("/knowledge/documents")) return "ai.knowledge.view";
   if (path.startsWith("/knowledge/chat")) return "ai.copilot.use";
   if (path.startsWith("/knowledge/security")) return "ai.providers.view";
+  if (/^\/users\/[^/]+\/employee-link$/.test(path)) return "employee.links.manage";
   if (path === "/users") return "platform.users.view";
   if (path === "/settings") return "platform.settings.view";
   if (path === "/roles") return "platform.roles.view";

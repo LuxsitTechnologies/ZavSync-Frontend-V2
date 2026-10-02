@@ -91,7 +91,7 @@ async function logout() {
         <LogOut class="size-4" />
       </button>
 
-      <div class="flex items-center gap-2 border-l border-line pl-3">
+      <RouterLink to="/profile" aria-label="Your profile" class="flex items-center gap-2 border-l border-line pl-3">
         <span
           class="grid size-7 place-items-center rounded-full bg-primary-subtle text-2xs font-semibold text-primary-subtle-fg"
         >
@@ -101,7 +101,7 @@ async function logout() {
           <p class="text-xs font-semibold text-content">{{ currentUser.name }}</p>
           <p class="text-2xs text-content-muted">{{ currentUser.role }}</p>
         </div>
-      </div>
+      </RouterLink>
     </div>
   </header>
 </template>

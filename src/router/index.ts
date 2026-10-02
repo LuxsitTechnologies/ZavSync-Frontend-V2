@@ -112,6 +112,8 @@ const routes: RouteRecordRaw[] = [
   { path: "/copilot", component: () => import("@/pages/Copilot.vue") },
   { path: "/settings/navigation", component: () => import("@/pages/NavigationSettings.vue") },
   { path: "/settings", component: () => import("@/pages/Settings.vue") },
+  { path: "/profile", component: () => import("@/pages/UserProfile.vue") },
+  { path: "/users/:membership/employee-link", component: () => import("@/pages/EmployeeLinkSettings.vue") },
   { path: "/users", component: () => import("@/pages/Users.vue") },
   { path: "/roles", component: () => import("@/pages/Roles.vue") },
   { path: "/audit-log", component: () => import("@/pages/AuditLog.vue") },
@@ -142,6 +144,7 @@ router.beforeEach((to) => {
   if (!company.authenticated) {
     return { path: "/login", query: { redirect: to.fullPath } };
   }
+  if (to.path === "/profile") return true;
   if (!company.activeCompanyId) return to.path === "/" ? true : "/";
 
   // The dedicated module renders explicit permission/entitlement states.
