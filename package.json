@@ -8,7 +8,10 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "typecheck": "vue-tsc --noEmit && tsc --project tsconfig.tests.json",
+    "test:fbr": "playwright test --config playwright.fbr.config.ts",
+    "test:fbr:unit": "playwright test --config playwright.fbr.config.ts --grep \"exact conversion|navigation separates|static Accounting|repository firewall\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

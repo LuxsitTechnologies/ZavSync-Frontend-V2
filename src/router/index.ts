@@ -12,6 +12,9 @@ const routes: RouteRecordRaw[] = [
   { path: "/hrm/teams", component: () => import("@/pages/HrmTeams.vue") },
   { path: "/hrm/rotas", component: () => import("@/pages/HrmRotas.vue") },
 
+  // Dedicated FBR Invoicing
+  ...["/fbr-invoicing", "/fbr-invoicing/new", "/fbr-invoicing/configuration", "/fbr-invoicing/migrations", "/fbr-invoicing/migrations/:run", "/fbr-invoicing/:id/edit", "/fbr-invoicing/:id"].map(path => ({ path, component: () => import("@/pages/FbrInvoicing.vue") })),
+
   // Accounting
   { path: "/accounting/invoices", component: () => import("@/pages/AccountingInvoices.vue") },
   { path: "/accounting/invoices/:id", component: () => import("@/pages/AccountingInvoiceDetail.vue") },
@@ -139,6 +142,9 @@ router.beforeEach((to) => {
     return { path: "/login", query: { redirect: to.fullPath } };
   }
   if (!company.activeCompanyId) return to.path === "/" ? true : "/";
+
+  // The dedicated module renders explicit permission/entitlement states.
+  if (to.path.startsWith("/fbr-invoicing")) return true;
 
   const module = moduleForPath(to.path);
   const permission = permissionForPath(to.path);

@@ -91,6 +91,15 @@ export const navigation: NavGroup[] = [
     label: "Finance",
     items: [
       {
+        label: "FBR Invoicing",
+        icon: ReceiptText, module: "invoicing",
+        children: [
+          { label: "Invoice register", to: "/fbr-invoicing", icon: FileText },
+          { label: "FBR configuration", to: "/fbr-invoicing/configuration", icon: Settings2 },
+          { label: "Migration administration", to: "/fbr-invoicing/migrations", icon: History },
+        ],
+      },
+      {
         label: "Accounting",
         icon: Calculator,
         children: [
@@ -215,6 +224,10 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
 
 /** Minimum read permission required to enter each production area. */
 export function permissionForPath(path: string): string | null {
+  if (path === "/fbr-invoicing/configuration") return "fbr.configuration.view";
+  if (path.startsWith("/fbr-invoicing/migrations")) return "migration.view";
+  if (path === "/fbr-invoicing/new" || (path.startsWith("/fbr-invoicing/") && path.endsWith("/edit"))) return "pakistan_fbr.manage";
+  if (path.startsWith("/fbr-invoicing")) return "pakistan_fbr.view";
   if (path.startsWith("/hrm") || path.startsWith("/payroll")) return "payroll.view";
   if (path.startsWith("/accounting/payables/suppliers")) return "suppliers.view";
   if (path.startsWith("/accounting/payables")) return "payables.view";
@@ -252,6 +265,7 @@ export function permissionForPath(path: string): string | null {
 }
 
 export function moduleForPath(path:string):string|null{
+  if(path.startsWith("/fbr-invoicing"))return "invoicing";
   if(path.startsWith('/payroll')||path.startsWith('/hrm'))return 'payroll';
   if(path.startsWith('/crm'))return 'crm';
   if(path.startsWith('/purchases'))return 'procurement';
