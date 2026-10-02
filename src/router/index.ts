@@ -5,6 +5,11 @@ import {useCompanyStore} from "@/stores/company";
 const routes: RouteRecordRaw[] = [
   { path: "/", name: "dashboard", component: () => import("@/pages/Dashboard.vue") },
 
+  // Employee self-service is part of this authenticated V2 application.
+  { path: "/employee", component: () => import("@/pages/employee/EmployeeDashboard.vue") },
+  { path: "/employee/profile", component: () => import("@/pages/employee/EmployeeProfile.vue") },
+  { path: "/employee/notifications", component: () => import("@/pages/employee/EmployeeNotifications.vue") },
+
   // HRM
   { path: "/hrm/employees", component: () => import("@/pages/HrmEmployees.vue") },
   { path: "/hrm/attendance", component: () => import("@/pages/HrmAttendance.vue") },

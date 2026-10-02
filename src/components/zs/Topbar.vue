@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { RouterLink, useRoute,useRouter } from "vue-router";
-import { ChevronRight, LogOut, Menu, Moon, Sun } from "lucide-vue-next";
+import { ChevronRight, LogOut, Menu, Moon, Sun, UserRound } from "lucide-vue-next";
 
 import { breadcrumbFor,moduleForPath } from "@/lib/nav";
 import { useCompanyStore } from "@/stores/company";
@@ -81,6 +81,8 @@ async function logout() {
       </button>
 
       <NotificationCenter/>
+
+      <RouterLink v-if="companyStore.activeCompanyId && companyStore.hasPermission('employee.self.view')" to="/employee" class="grid size-8 place-items-center rounded-md text-content-secondary hover:bg-surface-hover" aria-label="Employee Portal" title="Employee Portal"><UserRound class="size-4" /></RouterLink>
 
       <button
         type="button"
