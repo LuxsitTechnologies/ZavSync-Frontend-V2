@@ -130,6 +130,8 @@ export interface PayrollEntry {
   paid_amount: Money;
   outstanding_amount: Money;
   payment_status: "UNPAID" | "PARTIALLY_PAID" | "PAID";
+  released_at: string | null;
+  released_by: number | null;
   profile_snapshot: Record<string, unknown>;
   statutory_rule_snapshot: Array<Record<string, unknown>>;
   lines?: PayrollEntryLine[];

@@ -14,7 +14,7 @@ const route = useRoute();
 const menuButton = ref<HTMLButtonElement | null>(null);
 const dark = ref(document.documentElement.classList.contains("dark"));
 const name = computed(() => portal.employee?.employee?.full_name ?? company.currentUser.name);
-const breadcrumb = computed(() => route.path === "/employee/profile" ? "My Profile" : route.path === "/employee/notifications" ? "Notifications" : "Dashboard");
+const breadcrumb = computed(() => route.path === "/employee/profile" ? "My Profile" : route.path === "/employee/notifications" ? "Notifications" : route.path.startsWith("/employee/payroll/") ? "Payslip" : route.path === "/employee/payroll" ? "My Payroll" : "Dashboard");
 const unread = computed(() => portal.inbox?.unread_count ?? 0);
 const switchError = ref("");
 

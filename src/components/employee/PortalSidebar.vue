@@ -21,7 +21,7 @@ const groups = [
   { label: "Time & Pay", items: [
     { label: "Attendance", icon: CalendarCheck },
     { label: "Leaves", icon: CalendarOff },
-    { label: "My Payroll", icon: Wallet },
+    { label: "My Payroll", to: "/employee/payroll", icon: Wallet, permission: "employee.payroll.view" },
   ] },
   { label: "Work", items: [{ label: "My Tasks", icon: ListChecks }] },
   { label: "Resources", items: [{ label: "Documents", icon: FolderOpen }] },
@@ -38,12 +38,12 @@ const groups = [
       <div v-for="group in groups" :key="group.label" class="space-y-0.5">
         <p class="label-caps px-2.5 pb-1.5 text-sidebar-label">{{ group.label }}</p>
         <template v-for="item in group.items" :key="item.label">
-          <RouterLink v-if="'to' in item" :to="item.to!" class="nav-item" active-class="bg-sidebar-accent text-sidebar-accent-foreground" @click="$emit('navigate')">
+          <RouterLink v-if="'to' in item && (!('permission' in item) || (company.hasPermission(item.permission!) && company.hasModule('payroll')))" :to="item.to!" class="nav-item" active-class="bg-sidebar-accent text-sidebar-accent-foreground" @click="$emit('navigate')">
             <component :is="item.icon" class="size-4 shrink-0" :stroke-width="1.75" />
             <span class="truncate">{{ item.label }}</span>
             <span v-if="item.label === 'Notifications' && unread" class="zs-badge badge-brand ml-auto">{{ unread }}</span>
           </RouterLink>
-          <span v-else class="nav-item opacity-55" :aria-label="`${item.label} — unavailable`" :title="`${item.label} is not available yet`">
+          <span v-else-if="!('permission' in item)" class="nav-item opacity-55" :aria-label="`${item.label} — unavailable`" :title="`${item.label} is not available yet`">
             <component :is="item.icon" class="size-4 shrink-0" :stroke-width="1.75" />
             <span class="truncate">{{ item.label }}</span><span class="ml-auto text-2xs">Soon</span>
           </span>

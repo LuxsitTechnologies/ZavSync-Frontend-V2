@@ -17,7 +17,8 @@
     "test:identity": "playwright test --config playwright.identity.config.ts",
     "test:identity:unit": "playwright test --config playwright.identity.config.ts tests/identity/unit.spec.ts",
     "test:employee-portal": "playwright test --config playwright.employee-portal.config.ts",
-    "test:employee-portal:unit": "playwright test --config playwright.employee-portal.config.ts tests/employee-portal/unit.spec.ts"
+    "test:employee-portal:unit": "playwright test --config playwright.employee-portal.config.ts tests/employee-portal/unit.spec.ts",
+    "test:employee-payroll": "playwright test --config playwright.employee-payroll.config.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

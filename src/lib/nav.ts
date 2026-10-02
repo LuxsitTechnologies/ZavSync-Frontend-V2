@@ -284,6 +284,7 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
 
 /** Minimum read permission required to enter each production area. */
 export function permissionForPath(path: string): string | null {
+  if (path === "/employee/payroll" || path.startsWith("/employee/payroll/")) return "employee.payroll.view";
   if (path === "/fbr-invoicing/configuration") return "fbr.configuration.view";
   if (path.startsWith("/fbr-invoicing/migrations")) return "migration.view";
   if (path === "/fbr-invoicing/new" || (path.startsWith("/fbr-invoicing/") && path.endsWith("/edit"))) return "pakistan_fbr.manage";
@@ -326,6 +327,7 @@ export function permissionForPath(path: string): string | null {
 }
 
 export function moduleForPath(path:string):string|null{
+  if(path==='/employee/payroll'||path.startsWith('/employee/payroll/'))return 'payroll';
   if(path.startsWith("/fbr-invoicing"))return "invoicing";
   if(path.startsWith('/payroll')||path.startsWith('/hrm'))return 'payroll';
   if(path.startsWith('/crm'))return 'crm';

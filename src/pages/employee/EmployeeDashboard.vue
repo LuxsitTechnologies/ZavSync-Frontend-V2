@@ -21,7 +21,6 @@ const unavailable = [
   { label: "Today's Attendance", icon: CalendarCheck, description: "Attendance is not connected yet." },
   { label: "Working Hours", icon: CalendarCheck, description: "Working-hours data is not available yet." },
   { label: "Leave Balance", icon: CalendarOff, description: "Leave balances are not available yet." },
-  { label: "Recent Payslip", icon: Wallet, description: "Employee payslips are not available yet." },
   { label: "Pending Tasks", icon: ListChecks, description: "Employee tasks are not available yet." },
   { label: "Documents", icon: FolderOpen, description: "Employee documents are not available yet." },
 ] as const;
@@ -52,7 +51,7 @@ const unavailable = [
       <StatCard label="Attendance" value="Unavailable" hint="Future self-service" />
       <StatCard label="Hours" value="Unavailable" hint="Future self-service" />
       <StatCard label="Leave" value="Unavailable" hint="Future self-service" />
-      <StatCard label="Pay" value="Unavailable" hint="Future self-service" />
+      <StatCard label="Pay" :value="company.hasPermission('employee.payroll.view') && company.hasModule('payroll') ? 'View' : 'Unavailable'" :hint="company.hasPermission('employee.payroll.view') && company.hasModule('payroll') ? 'Released payslips in My Payroll' : 'Self-service not granted'" />
       <StatCard label="Tasks" value="Unavailable" hint="Future self-service" />
       <StatCard label="Notifications" :value="portal.inbox ? String(portal.inbox.unread_count) : '—'" :hint="portal.inbox ? 'Unread in this company' : 'No verified count available'" tone="brand" />
     </div>
@@ -71,7 +70,7 @@ const unavailable = [
         <div class="space-y-3 p-4"><div v-for="item in unavailable.slice(0, 2)" :key="item.label" class="flex gap-3 rounded-md bg-surface-sunken p-3"><component :is="item.icon" class="size-4 shrink-0 text-content-muted" /><div><p class="text-sm font-medium text-content">{{ item.label }}</p><p class="text-xs text-content-muted">{{ item.description }}</p></div></div></div>
       </Panel>
       <Panel title="Work & resources" description="Additional portal modules will be connected in later stages" class="xl:col-span-1">
-        <div class="space-y-3 p-4"><div v-for="item in unavailable.slice(2)" :key="item.label" class="flex gap-3 rounded-md bg-surface-sunken p-3"><component :is="item.icon" class="size-4 shrink-0 text-content-muted" /><div><p class="text-sm font-medium text-content">{{ item.label }}</p><p class="text-xs text-content-muted">{{ item.description }}</p></div></div></div>
+        <div class="space-y-3 p-4"><RouterLink v-if="company.hasPermission('employee.payroll.view') && company.hasModule('payroll')" to="/employee/payroll" class="flex gap-3 rounded-md bg-surface-sunken p-3 hover:bg-surface-hover"><Wallet class="size-4 shrink-0 text-content-brand" /><div><p class="text-sm font-medium text-content">My Payroll</p><p class="text-xs text-content-muted">View payslips released to you.</p></div></RouterLink><div v-for="item in unavailable.slice(2)" :key="item.label" class="flex gap-3 rounded-md bg-surface-sunken p-3"><component :is="item.icon" class="size-4 shrink-0 text-content-muted" /><div><p class="text-sm font-medium text-content">{{ item.label }}</p><p class="text-xs text-content-muted">{{ item.description }}</p></div></div></div>
       </Panel>
     </div>
   </PortalShell>

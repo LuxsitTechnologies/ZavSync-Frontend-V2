@@ -22,8 +22,9 @@ test("portal routes are separate from administration and remain authentication g
 test("portal production code has no seeded runtime authority, payroll or HR-directory calls", () => {
   for (const file of portalFiles) {
     const code = readFileSync(file, "utf8");
-    expect(code, file).not.toMatch(/employee-data|mock-data|services\/mock|mock-modules|\/payroll|\/hrm\/employees|employee-link-options|localStorage|sessionStorage|v-html|console\./);
-    expect(code, file).not.toMatch(/bank_reference|base_salary|tax_identifier|private_hr_notes|mockAuthCode|backupCodes/);
+    expect(code, file).not.toMatch(/employee-data|mock-data|services\/mock|mock-modules|\/payroll\/batches|\/payroll\/entries|\/hrm\/employees|employee-link-options|localStorage|sessionStorage|v-html|console\./);
+    expect(code, file).not.toMatch(/bank_reference|tax_identifier|private_hr_notes|mockAuthCode|backupCodes/);
+    if (!file.endsWith("EmployeePayroll.vue") && !file.endsWith("EmployeePayslip.vue")) expect(code, file).not.toContain("base_salary");
   }
 });
 

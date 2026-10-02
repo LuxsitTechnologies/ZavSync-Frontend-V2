@@ -13,11 +13,13 @@ import Toolbar from "@/components/zs/Toolbar.vue";
 import StatusBadge from "@/components/zs/StatusBadge.vue";
 import AsyncSection from "@/components/zs/AsyncSection.vue";
 import SidePanel from "@/components/zs/SidePanel.vue";
+import ConfirmDialog from "@/components/zs/ConfirmDialog.vue";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { formatMoney, parseMoneyInput, toMoneyInput } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
 import { localDateInput } from "@/lib/format";
 import { payrollRepository } from "@/services/payroll/payroll.repository";
+import { payrollReleaseRepository } from "@/services/employeePayroll.repository";
 import { useCompanyStore } from "@/stores/company";
 import type { PayrollEntry, Payslip } from "@/types/payroll";
 
@@ -43,8 +45,30 @@ const rows = computed(() => (entryState.data.value ?? []).filter((entry) => {
 const columns: Column[] = [
   { key: "emp", header: "Employee" }, { key: "basic", header: "Basic", align: "right", class: "num" }, { key: "allow", header: "Earnings", align: "right", class: "num" },
   { key: "ded", header: "Deductions", align: "right", class: "num" }, { key: "tax", header: "Income tax", align: "right", class: "num" }, { key: "net", header: "Net pay", align: "right", class: "num font-medium" },
-  { key: "status", header: "Status" }, { key: "actions", header: "", align: "right" },
+  { key: "status", header: "Status" }, { key: "visibility", header: "Employee visibility" }, { key: "actions", header: "", align: "right" },
 ];
+
+const releaseTarget = ref<PayrollEntry | null>(null);
+const releaseOpen = ref(false);
+const releaseMutation = useMutation((companyId: string, entryId: string) => payrollReleaseRepository.release(companyId, entryId));
+watch(() => [company.switching, company.contextVersion] as const, () => { releaseOpen.value = false; releaseTarget.value = null; releaseMutation.reset(); }, { flush: "sync" });
+function openRelease(entry: PayrollEntry): void {
+  if (!company.hasPermission("payroll.release") || !selectedBatch.value || !["POSTED", "PARTIALLY_PAID", "PAID"].includes(selectedBatch.value.status) || entry.released_at || releaseMutation.saving.value) return;
+  releaseMutation.reset();
+  releaseTarget.value = entry;
+  releaseOpen.value = true;
+}
+async function confirmRelease(): Promise<void> {
+  if (!releaseOpen.value || !releaseTarget.value || releaseMutation.saving.value || !company.hasPermission("payroll.release")) return;
+  const entryId = releaseTarget.value.id;
+  const companyId = company.activeCompanyId;
+  const version = company.contextVersion;
+  const released = await releaseMutation.run(companyId, entryId);
+  if (!released || company.switching || company.activeCompanyId !== companyId || company.contextVersion !== version) return;
+  if (entryState.data.value) entryState.data.value = entryState.data.value.map(entry => entry.id === released.entry_id ? { ...entry, released_at: released.released_at, released_by: released.released_by } : entry);
+  releaseOpen.value = false;
+  releaseTarget.value = null;
+}
 
 const payslipOpen = ref(false);
 const payslip = ref<Payslip | null>(null);
@@ -114,11 +138,15 @@ async function recalculate() { if (!selectedBatch.value) return; if (await recal
           <template #tax="{ row }: { row: PayrollEntry }">{{ formatMoney(row.tax_amount) }}</template>
           <template #net="{ row }: { row: PayrollEntry }">{{ formatMoney(row.net_pay) }}</template>
           <template #status="{ row }: { row: PayrollEntry }"><StatusBadge :status="row.payment_status.toLowerCase()" /></template>
-          <template #actions="{ row }: { row: PayrollEntry }"><div class="flex justify-end gap-1"><ZButton variant="ghost" @click="openPayslip(row)">Payslip</ZButton><ZButton v-if="selectedBatch && ['DRAFT','CALCULATED'].includes(selectedBatch.status)" variant="ghost" @click="openAdjust(row)">Adjust</ZButton><ZButton v-if="selectedBatch && ['POSTED','PARTIALLY_PAID'].includes(selectedBatch.status) && row.outstanding_amount > 0" variant="outline" @click="openPay(row)">Pay</ZButton></div></template>
+          <template #visibility="{ row }: { row: PayrollEntry }"><span :class="row.released_at ? 'zs-badge badge-success' : 'zs-badge badge-neutral'">{{ row.released_at ? 'Released to employee' : 'Not released' }}</span></template>
+          <template #actions="{ row }: { row: PayrollEntry }"><div class="flex justify-end gap-1"><ZButton variant="ghost" @click="openPayslip(row)">Payslip</ZButton><ZButton v-if="selectedBatch && ['DRAFT','CALCULATED'].includes(selectedBatch.status)" variant="ghost" @click="openAdjust(row)">Adjust</ZButton><ZButton v-if="selectedBatch && ['POSTED','PARTIALLY_PAID'].includes(selectedBatch.status) && row.outstanding_amount > 0" variant="outline" @click="openPay(row)">Pay</ZButton><ZButton v-if="company.hasPermission('payroll.release') && selectedBatch && ['POSTED','PARTIALLY_PAID','PAID'].includes(selectedBatch.status) && !row.released_at" variant="outline" :disabled="releaseMutation.saving.value" @click="openRelease(row)">Release to employee</ZButton></div></template>
           <template #footer><span>{{ rows.length }} payslips</span><span v-if="recalculateMutation.error.value" class="text-danger">{{ recalculateMutation.error.value.message }}</span></template>
         </DataTable>
       </AsyncSection>
     </Panel>
+
+    <ConfirmDialog :open="releaseOpen" title="Release payslip to employee" :message="`Make ${releaseTarget?.employee_name ?? 'this employee'}'s posted payslip visible in self-service? This does not post or pay payroll.`" confirm-label="Release payslip" :busy="releaseMutation.saving.value" @confirm="confirmRelease" @cancel="releaseOpen = false" />
+    <p v-if="releaseMutation.error.value" class="mt-3 text-sm text-danger" role="alert">{{ releaseMutation.error.value.message }}</p>
 
     <SidePanel :open="payslipOpen" title="Payslip" :description="payslip ? `${payslip.employee.full_name} · ${payslip.payroll_period.name}` : undefined" width="lg" @close="payslipOpen = false">
       <div v-if="payslip" class="space-y-5"><div class="grid gap-3 sm:grid-cols-3"><StatCard label="Gross" :value="formatMoney(payslip.gross_earnings)"/><StatCard label="Deductions & tax" :value="formatMoney(payslip.employee_deductions + payslip.employee_contributions + payslip.tax_amount)"/><StatCard label="Net pay" :value="formatMoney(payslip.net_pay)" tone="success"/></div><div class="divide-y divide-line rounded-md border border-line"><div v-for="line in payslip.lines ?? []" :key="line.id" class="flex items-center justify-between px-3 py-2 text-sm"><span>{{ line.component_name }}</span><span class="num">{{ formatMoney(line.amount) }}</span></div></div><p class="text-xs text-content-muted">Generated from the stored payroll and statutory snapshots; later master-data changes do not alter this payslip.</p></div>
