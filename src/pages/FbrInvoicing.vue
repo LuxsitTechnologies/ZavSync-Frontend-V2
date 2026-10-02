@@ -21,9 +21,9 @@ const screen = computed(() => route.path.endsWith("/configuration") ? FbrConfigu
   <AppShell>
     <PageHeader title="FBR Invoicing" description="Dedicated FBR documents, drafts and submission evidence." />
     <nav class="mb-4 flex flex-wrap gap-4 text-sm text-content-brand" aria-label="FBR Invoicing">
-      <RouterLink v-if="company.hasPermission('pakistan_fbr.view')" to="/fbr-invoicing">Invoice register</RouterLink>
-      <RouterLink v-if="company.hasPermission('fbr.configuration.view')" to="/fbr-invoicing/configuration">FBR configuration</RouterLink>
-      <RouterLink v-if="company.hasPermission('migration.view')" to="/fbr-invoicing/migrations">Migration administration</RouterLink>
+      <RouterLink v-if="company.hasPermission('pakistan_fbr.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.invoicing'))" to="/fbr-invoicing">Invoice register</RouterLink>
+      <RouterLink v-if="company.hasPermission('fbr.configuration.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.configuration'))" to="/fbr-invoicing/configuration">FBR configuration</RouterLink>
+      <RouterLink v-if="company.hasPermission('migration.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.migrations'))" to="/fbr-invoicing/migrations">Migration administration</RouterLink>
     </nav>
     <p v-if="company.switching" role="status">Switching company…</p>
     <div v-else-if="!allowed" class="panel p-6" role="alert">FBR Invoicing requires the invoicing entitlement and permission for this view in the selected company.</div>

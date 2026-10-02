@@ -1,3 +1,4 @@
+import type { EffectiveNavigation } from "@/types/navigation";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 
@@ -15,6 +16,7 @@ export interface CompanyOption {
   roles?: string[];
   permissions?: string[];
   modules?: string[];
+  effective_navigation?: EffectiveNavigation;
 }
 
 export const useCompanyStore = defineStore("company", () => {
@@ -33,6 +35,12 @@ export const useCompanyStore = defineStore("company", () => {
   const activeCompany = computed(() => companies.value.find((company) => company.id === activeCompanyId.value));
   const activePermissions = computed(() => activeCompany.value?.permissions ?? []);
   const activeModules = computed(() => activeCompany.value?.modules ?? []);
+  const effectiveNavigation = computed(() => switching.value ? { catalog: [], items: [], visible_keys: [] } : activeCompany.value?.effective_navigation);
+  function updateNavigation(companyId: string, version: number, navigation: EffectiveNavigation) {
+    if (switching.value || activeCompanyId.value !== companyId || contextVersion.value !== version) return;
+    const target = companies.value.find(item => item.id === companyId);
+    if (target) target.effective_navigation = navigation;
+  }
   const isPlatformAdmin = computed(() => currentUser.value.is_platform_admin === true);
   const authenticated = computed(() => currentUser.value.id !== undefined);
 
@@ -88,6 +96,8 @@ export const useCompanyStore = defineStore("company", () => {
     activeCompany,
     activePermissions,
     activeModules,
+    effectiveNavigation,
+    updateNavigation,
     authenticated,
     initialized,
     switching,

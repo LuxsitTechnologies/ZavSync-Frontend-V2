@@ -11,7 +11,9 @@
     "test:e2e:headed": "playwright test --headed",
     "typecheck": "vue-tsc --noEmit && tsc --project tsconfig.tests.json",
     "test:fbr": "playwright test --config playwright.fbr.config.ts",
-    "test:fbr:unit": "playwright test --config playwright.fbr.config.ts --grep \"exact conversion|navigation separates|static Accounting|repository firewall\""
+    "test:fbr:unit": "playwright test --config playwright.fbr.config.ts --grep \"exact conversion|navigation separates|static Accounting|repository firewall\"",
+    "test:navigation": "playwright test --config playwright.navigation.config.ts",
+    "test:navigation:unit": "playwright test --config playwright.navigation.config.ts tests/navigation/unit.spec.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

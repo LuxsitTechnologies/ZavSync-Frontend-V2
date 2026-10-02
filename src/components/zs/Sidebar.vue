@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 withDefaults(defineProps<{ class?: string }>(), { class: "" });
 const company=useCompanyStore();
-const navigation=computed(()=>navigationForModules(company.activeModules,company.isPlatformAdmin,company.activePermissions));
+const navigation=computed(()=>company.switching ? [] : navigationForModules(company.activeModules,company.isPlatformAdmin,company.activePermissions,company.effectiveNavigation));
 </script>
 
 <template>

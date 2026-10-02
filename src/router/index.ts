@@ -110,6 +110,7 @@ const routes: RouteRecordRaw[] = [
   { path: "/knowledge/chat", component: () => import("@/pages/KnowledgeChatIndex.vue") },
   { path: "/knowledge/chat/:threadId", component: () => import("@/pages/KnowledgeChat.vue") },
   { path: "/copilot", component: () => import("@/pages/Copilot.vue") },
+  { path: "/settings/navigation", component: () => import("@/pages/NavigationSettings.vue") },
   { path: "/settings", component: () => import("@/pages/Settings.vue") },
   { path: "/users", component: () => import("@/pages/Users.vue") },
   { path: "/roles", component: () => import("@/pages/Roles.vue") },

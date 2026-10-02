@@ -1,3 +1,4 @@
+import type { EffectiveNavigation } from "@/types/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -200,6 +201,7 @@ export const navigation: NavGroup[] = [
     label: "Administration",
     items: [
       { label: "Users & Invitations", to: "/users", icon: Users, permission: "platform.users.view" },
+      { label: "Navigation visibility", to: "/settings/navigation", icon: Settings2 },
       { label: "Settings", to: "/settings", icon: Settings, permission: "platform.settings.view" },
       { label: "Roles & Permissions", to: "/roles", icon: ShieldCheck, permission: "platform.roles.view" },
       { label: "Audit Log", to: "/audit-log", icon: History, permission: "platform.audit.view" },
@@ -209,8 +211,66 @@ export const navigation: NavGroup[] = [
   },
 ];
 
-export function navigationForModules(modules:string[],isPlatformAdmin=false,permissions:string[]=[]):NavGroup[]{
+/** Exact presentation identities from the certified backend; routes/icons stay local. */
+export const presentationKeyForRoute: Record<string, string> = {
+  "/hrm/employees": "hrm.employees",
+  "/fbr-invoicing": "fbr.invoicing",
+  "/fbr-invoicing/configuration": "fbr.configuration",
+  "/fbr-invoicing/migrations": "fbr.migrations",
+  "/accounting/invoices": "accounting.invoices",
+  "/accounting/chart-of-accounts": "accounting.chart",
+  "/accounting/general-ledger": "accounting.ledger",
+  "/accounting/journals": "accounting.journals",
+  "/accounting/periods": "accounting.periods",
+  "/accounting/setup": "accounting.setup",
+  "/accounting/reports": "accounting.reports",
+  "/accounting/customers": "receivables.customers",
+  "/accounting/receivables": "receivables.register",
+  "/accounting/payables": "payables.register",
+  "/accounting/inventory-ledger": "inventory.ledger",
+  "/accounting/cash-flow": "banking.cashflow",
+  "/accounting/budgets": "budgeting.workspace",
+  "/accounting/year-end": "budgeting.year_end",
+  "/payroll": "payroll.dashboard",
+  "/payroll/batches": "payroll.batches",
+  "/payroll/runs": "payroll.runs",
+  "/payroll/allowances": "payroll.allowances",
+  "/payroll/deductions": "payroll.deductions",
+  "/payroll/posting": "payroll.posting",
+  "/inventory": "inventory.workspace",
+  "/purchases": "procurement.purchases",
+  "/crm": "crm.dashboard",
+  "/crm/companies": "crm.companies",
+  "/crm/contacts": "crm.contacts",
+  "/crm/leads": "crm.leads",
+  "/crm/pipeline": "crm.pipeline",
+  "/crm/deals": "crm.deals",
+  "/crm/activities": "crm.activities",
+  "/crm/tasks": "crm.tasks",
+  "/crm/capture": "crm.capture",
+  "/crm/scoring": "crm.scoring",
+  "/ai": "ai.copilot",
+  "/ai/priorities": "ai.priorities",
+  "/ai/briefing": "ai.briefing",
+  "/ai/analytics": "ai.analytics",
+  "/ai/operations": "ai.operations",
+  "/ai/actions": "ai.actions",
+  "/ai/calendar": "ai.calendar",
+  "/ai/meetings": "ai.meetings",
+  "/copilot": "ai.execution",
+  "/knowledge/documents": "ai.knowledge_documents",
+  "/knowledge/chat": "ai.knowledge_chat",
+  "/knowledge/security": "ai.knowledge_governance",
+  "/outreach/integrations": "outreach.providers",
+  "/outreach/compose": "outreach.templates",
+  "/outreach/automations": "outreach.sequences",
+  "/outreach/tracking": "outreach.tracking",
+};
+
+export function navigationForModules(modules:string[],isPlatformAdmin=false,permissions:string[]=[],effective?:EffectiveNavigation):NavGroup[]{
   const filter=(items:NavItem[]):NavItem[]=>items.flatMap(item=>{
+    const key = item.to ? presentationKeyForRoute[item.to] : undefined;
+    if (effective && key && !effective.visible_keys.includes(key)) return [];
     if(item.module&&!modules.includes(item.module))return [];
     if(item.platformAdmin&&!isPlatformAdmin)return [];
     const permission = item.permission ?? (item.to ? permissionForPath(item.to) : null);

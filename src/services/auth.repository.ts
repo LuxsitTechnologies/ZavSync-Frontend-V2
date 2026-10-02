@@ -1,3 +1,4 @@
+import type { EffectiveNavigation } from "@/types/navigation";
 import { apiRequest, ensureCsrfCookie } from "@/services/api/client";
 
 export interface AuthCompany {
@@ -8,6 +9,7 @@ export interface AuthCompany {
   roles: string[];
   permissions: string[];
   modules: string[];
+  effective_navigation?: EffectiveNavigation;
 }
 
 export interface AuthPayload {
