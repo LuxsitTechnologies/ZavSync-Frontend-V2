@@ -2,6 +2,8 @@
 import { computed } from "vue";
 
 import PortalShell from "@/components/employee/PortalShell.vue";
+import EmployeeAddress from "@/components/portal-final/EmployeeAddress.vue";
+import PortalDomain from "@/components/portal-final/PortalDomain.vue";
 import ProfileContent from "@/components/identity/ProfileContent.vue";
 import PageHeader from "@/components/zs/PageHeader.vue";
 import Panel from "@/components/zs/Panel.vue";
@@ -28,10 +30,11 @@ const identity = computed(() => portal.employee?.employee);
           <p class="text-sm text-content-secondary">{{ identity?.designation ?? company.activeCompany?.name ?? 'Account profile' }}</p>
           <p v-if="identity" class="num mt-1 text-xs text-content-muted">Employee ID: {{ identity.employee_code }}</p>
           <StatusBadge v-if="identity" :status="identity.status" class="mt-3" />
-          <p class="mt-3 text-xs text-content-muted">Employee details are read-only. Account name and password are managed separately below.</p>
+          <p class="mt-3 text-xs text-content-muted">HR-owned details are read-only. Your address and emergency contacts are managed below; account name and password stay separate.</p>
         </div>
       </Panel>
       <div class="xl:col-span-2"><p v-if="company.switching" class="panel p-5" role="status">Switching company…</p><ProfileContent v-else :key="`${company.currentUser.id}:${company.contextVersion}`" /></div>
     </div>
+    <div v-if="!company.switching" :key="company.contextVersion" class="mt-5 space-y-5"><EmployeeAddress /><PortalDomain domain="contacts" :active-employee="!!identity && !['resigned','terminated'].includes(identity.status.toLowerCase())" /></div>
   </PortalShell>
 </template>

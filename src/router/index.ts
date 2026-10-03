@@ -6,6 +6,24 @@ const routes: RouteRecordRaw[] = [
   { path: "/", name: "dashboard", component: () => import("@/pages/Dashboard.vue") },
 
   // Employee self-service is part of this authenticated V2 application.
+  { path: "/employee/documents", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/employee/announcements", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/employee/directory", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/employee/teams", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/employee/schedule", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/employee/shift-swaps", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/employee/assets", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/employee/expenses", component: () => import("@/pages/employee/EmployeeResources.vue") },
+  { path: "/hrm/employee-documents", component: () => import("@/pages/HrmPortalResources.vue") },
+  { path: "/hrm/announcements", component: () => import("@/pages/HrmPortalResources.vue") },
+  { path: "/hrm/teams", component: () => import("@/pages/HrmTeams.vue") },
+  { path: "/hrm/shifts", component: () => import("@/pages/HrmPortalResources.vue") },
+  { path: "/hrm/rotas", component: () => import("@/pages/HrmRotas.vue") },
+  { path: "/hrm/shift-swaps", component: () => import("@/pages/HrmPortalResources.vue") },
+  { path: "/hrm/asset-requests", component: () => import("@/pages/HrmPortalResources.vue") },
+  { path: "/hrm/expenses", component: () => import("@/pages/HrmPortalResources.vue") },
+  { path: "/hrm/expense-categories", component: () => import("@/pages/HrmPortalResources.vue") },
+  { path: "/employee/requests", component: () => import("@/pages/employee/EmployeeRequests.vue") },
   { path: "/employee/tasks", component: () => import("@/pages/employee/EmployeeWork.vue") },
   { path: "/employee/tickets", component: () => import("@/pages/employee/EmployeeWork.vue") },
   { path: "/hrm/tasks", component: () => import("@/pages/HrmWork.vue") },
@@ -23,8 +41,6 @@ const routes: RouteRecordRaw[] = [
   { path: "/hrm/employees", component: () => import("@/pages/HrmEmployees.vue") },
   { path: "/hrm/attendance", component: () => import("@/pages/HrmAttendance.vue") },
   { path: "/hrm/leave", component: () => import("@/pages/HrmLeave.vue") },
-  { path: "/hrm/teams", component: () => import("@/pages/HrmTeams.vue") },
-  { path: "/hrm/rotas", component: () => import("@/pages/HrmRotas.vue") },
 
   // Dedicated FBR Invoicing
   ...["/fbr-invoicing", "/fbr-invoicing/new", "/fbr-invoicing/configuration", "/fbr-invoicing/migrations", "/fbr-invoicing/migrations/:run", "/fbr-invoicing/:id/edit", "/fbr-invoicing/:id"].map(path => ({ path, component: () => import("@/pages/FbrInvoicing.vue") })),
@@ -82,7 +98,7 @@ const routes: RouteRecordRaw[] = [
   { path: "/payroll/posting", component: () => import("@/pages/PayrollPosting.vue") },
 
   // Operations
-  { path: "/expenses", component: () => import("@/pages/Expenses.vue") },
+  { path: "/expenses", redirect: "/hrm/expenses" },
   { path: "/inventory", component: () => import("@/pages/Inventory.vue") },
   { path: "/purchases", component: () => import("@/pages/Purchases.vue") },
   { path: "/purchases/:id", component: () => import("@/pages/PurchaseDetail.vue") },

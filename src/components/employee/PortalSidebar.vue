@@ -16,16 +16,26 @@ const unread = computed(() => portal.inbox?.unread_count ?? 0);
 const groups = [
   { label: "Overview", items: [
     { label: "Dashboard", to: "/employee", icon: LayoutDashboard },
-    { label: "My Profile", to: "/employee/profile", icon: UserRound },
+    { label: "Requests", to: "/employee/requests", icon: ListChecks },
+    { label: "My Profile", to: "/employee/profile", icon: UserRound, permission: "employee.self.view", navigation: "employee.profile" },
   ] },
   { label: "Time & Pay", items: [
     { label: "Attendance", to: "/employee/attendance", icon: CalendarCheck, permission: "employee.attendance.view" },
     { label: "Leaves", to: "/employee/leaves", icon: CalendarOff, permission: "employee.leave.view" },
-    { label: "Calendar", to: "/employee/calendar", icon: CalendarCheck, permission: "employee.leave.view" },
+    { label: "Calendar", to: "/employee/calendar", icon: CalendarCheck },
     { label: "My Payroll", to: "/employee/payroll", icon: Wallet, permission: "employee.payroll.view" },
   ] },
   { label: "Work", items: [{ label: "My Tasks", to: "/employee/tasks", icon: ListChecks, permission: "employee.tasks.view", navigation: "employee.tasks" }, { label: "My Tickets", to: "/employee/tickets", icon: ListChecks, permission: "employee.tickets.view", navigation: "employee.tickets" }] },
-  { label: "Resources", items: [{ label: "Documents", icon: FolderOpen }] },
+  { label: "Resources", items: [
+    { label: "Documents", to: "/employee/documents", icon: FolderOpen, permission: "employee.documents.view", navigation: "employee.documents" },
+    { label: "Announcements", to: "/employee/announcements", icon: FolderOpen, permission: "employee.announcements.view", navigation: "employee.announcements" },
+    { label: "Directory", to: "/employee/directory", icon: FolderOpen, permission: "employee.directory.view", navigation: "employee.directory" },
+    { label: "My Team", to: "/employee/teams", icon: FolderOpen, permission: "employee.teams.view", navigation: "employee.teams" },
+    { label: "Published schedule", to: "/employee/schedule", icon: FolderOpen, permission: "employee.schedule.view", navigation: "employee.schedule" },
+    { label: "Shift swaps", to: "/employee/shift-swaps", icon: FolderOpen, permission: "employee.schedule.view", navigation: "employee.shift_swaps" },
+    { label: "Equipment requests", to: "/employee/assets", icon: FolderOpen, permission: "employee.assets.view", navigation: "employee.assets" },
+    { label: "Expense claims", to: "/employee/expenses", icon: FolderOpen, permission: "employee.expenses.view", navigation: "employee.expenses" }
+  ] },
   { label: "Account", items: [{ label: "Notifications", to: "/employee/notifications", icon: Bell }] },
 ] as const;
 </script>
@@ -44,10 +54,7 @@ const groups = [
             <span class="truncate">{{ item.label }}</span>
             <span v-if="item.label === 'Notifications' && unread" class="zs-badge badge-brand ml-auto">{{ unread }}</span>
           </RouterLink>
-          <span v-else-if="!('permission' in item)" class="nav-item opacity-55" :aria-label="`${item.label} — unavailable`" :title="`${item.label} is not available yet`">
-            <component :is="item.icon" class="size-4 shrink-0" :stroke-width="1.75" />
-            <span class="truncate">{{ item.label }}</span><span class="ml-auto text-2xs">Soon</span>
-          </span>
+
         </template>
       </div>
     </nav>

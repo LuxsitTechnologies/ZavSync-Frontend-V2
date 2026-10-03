@@ -85,6 +85,7 @@ load();
       <template #actions><ZButton v-if="canApply" :disabled="context.busy.mutation" @click="showApply = !showApply">Apply for leave</ZButton></template>
     </PageHeader>
     <p v-if="company.switching" class="panel p-4" role="status">Switching company…</p>
+    <LeaveCalendar v-else-if="!canRead && route.path.endsWith('/calendar') && company.hasModule('payroll') && company.hasPermission('employee.schedule.view')" :holidays="[]" :requests="[]" :initial-month="today().slice(0,7)" />
     <p v-else-if="!canRead" class="panel p-4">Leave self-service is unavailable in this company.</p>
     <template v-else>
       <p v-if="context.errors.summary?.errorCode === 'EMPLOYEE_IDENTITY_NOT_LINKED'" class="panel p-4" role="status">No employee profile is linked to this company membership. Contact your administrator.</p>

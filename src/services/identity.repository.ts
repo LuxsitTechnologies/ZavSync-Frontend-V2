@@ -6,6 +6,7 @@ export const identityRepository = {
   saveName: (name: string, signal?: AbortSignal) => apiRequest<AccountProfile>("/auth/profile", { method: "PATCH", body: { name }, signal }),
   password: (body: PasswordChange, signal?: AbortSignal) => apiRequest<AccountProfile>("/auth/change-password", { method: "POST", body, signal }),
   employee: (companyId: string, signal?: AbortSignal) => apiRequest<EmployeeSelf>("/employee/me", { companyId, signal }),
+  saveAddress: (companyId: string, address: string | null, version: number, signal: AbortSignal) => apiRequest<EmployeeSelf>("/employee/me", {companyId, method: "PATCH", body: {address, version}, signal}),
   link: (companyId: string, membership: string, signal?: AbortSignal) => apiRequest<EmployeeLink>(linkPath(membership), { companyId, signal }),
   setLink: (companyId: string, membership: string, employee_id: string, signal?: AbortSignal) => apiRequest<EmployeeLink>(linkPath(membership), { companyId, method: "PUT", body: { employee_id }, signal }),
   unlink: (companyId: string, membership: string, signal?: AbortSignal) => apiRequest<EmployeeLink>(linkPath(membership), { companyId, method: "DELETE", signal }),

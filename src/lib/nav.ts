@@ -83,6 +83,15 @@ export const navigation: NavGroup[] = [
         label: "HRM", module:"payroll",
         icon: Users,
         children: [
+          { label: "Employee documents", to: "/hrm/employee-documents", icon: Users, permission: "employee.documents.admin.view" },
+          { label: "Announcements", to: "/hrm/announcements", icon: Users, permission: "announcements.view" },
+          { label: "Teams", to: "/hrm/teams", icon: Users, permission: "teams.view" },
+          { label: "Shifts", to: "/hrm/shifts", icon: Users, permission: "schedules.view" },
+          { label: "Rotas", to: "/hrm/rotas", icon: Users, permission: "schedules.view" },
+          { label: "Shift swaps", to: "/hrm/shift-swaps", icon: Users, permission: "schedules.view" },
+          { label: "Equipment requests", to: "/hrm/asset-requests", icon: Users, permission: "assets.view" },
+          { label: "Expense claims", to: "/hrm/expenses", icon: Users, permission: "expenses.view" },
+          { label: "Expense categories", to: "/hrm/expense-categories", icon: Users, permission: "expenses.categories.manage" },
           { label: "Employees", to: "/hrm/employees", icon: Users },
           { label: "Attendance", to: "/hrm/attendance", icon: CalendarCheck, permission: "attendance.view" },
           { label: "Tasks", to: "/hrm/tasks", icon: Users, permission: "tasks.view" },
@@ -217,6 +226,15 @@ export const navigation: NavGroup[] = [
 
 /** Exact presentation identities from the certified backend; routes/icons stay local. */
 export const presentationKeyForRoute: Record<string, string> = {
+  "/hrm/employee-documents": "hrm.employee_documents",
+  "/hrm/announcements": "hrm.announcements",
+  "/hrm/teams": "hrm.teams",
+  "/hrm/shifts": "hrm.shifts",
+  "/hrm/rotas": "hrm.rotas",
+  "/hrm/shift-swaps": "hrm.shift_swaps",
+  "/hrm/asset-requests": "hrm.asset_requests",
+  "/hrm/expenses": "hrm.expenses",
+  "/hrm/expense-categories": "hrm.expense_categories",
   "/hrm/employees": "hrm.employees",
   "/hrm/attendance": "hrm.attendance",
   "/hrm/leave": "hrm.leave",
@@ -292,6 +310,23 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
 
 /** Minimum read permission required to enter each production area. */
 export function permissionForPath(path: string): string | null {
+  if (path === "/hrm/employee-documents") return "employee.documents.admin.view";
+  if (path === "/hrm/announcements") return "announcements.view";
+  if (path === "/hrm/teams") return "teams.view";
+  if (path === "/hrm/shifts") return "schedules.view";
+  if (path === "/hrm/rotas") return "schedules.view";
+  if (path === "/hrm/shift-swaps") return "schedules.view";
+  if (path === "/hrm/asset-requests") return "assets.view";
+  if (path === "/hrm/expenses") return "expenses.view";
+  if (path === "/hrm/expense-categories") return "expenses.categories.manage";
+  if (path === "/employee/documents") return "employee.documents.view";
+  if (path === "/employee/announcements") return "employee.announcements.view";
+  if (path === "/employee/directory") return "employee.directory.view";
+  if (path === "/employee/teams") return "employee.teams.view";
+  if (path === "/employee/schedule") return "employee.schedule.view";
+  if (path === "/employee/shift-swaps") return "employee.schedule.view";
+  if (path === "/employee/assets") return "employee.assets.view";
+  if (path === "/employee/expenses") return "employee.expenses.view";
   if (path === "/employee/tasks") return "employee.tasks.view";
   if (path === "/employee/tickets") return "employee.tickets.view";
   if (path === "/hrm/tasks") return "tasks.view";
@@ -342,6 +377,7 @@ export function permissionForPath(path: string): string | null {
 }
 
 export function moduleForPath(path:string):string|null{
+  if (["/employee/documents", "/employee/announcements", "/employee/directory", "/employee/teams", "/employee/schedule", "/employee/shift-swaps", "/employee/assets", "/employee/expenses"].includes(path)) return "payroll";
   if(path==='/employee/tasks'||path==='/employee/tickets')return 'payroll';
   if(path==='/employee/attendance')return 'payroll';
   if(path==='/employee/payroll'||path.startsWith('/employee/payroll/'))return 'payroll';

@@ -3,8 +3,9 @@ export interface EmployeeIdentity {
   id: string; employee_code: string; full_name: string; email: string | null; phone: string | null;
   department: string | null; designation: string | null; employment_type: string; status: string;
   joining_date: string | null; leaving_date: string | null; location: string | null;
+  address?: string | null; self_profile_version?: number;
 }
-export interface EmployeeSelf { linked: boolean; employee: EmployeeIdentity | null; self_editable: false }
+export interface EmployeeSelf { linked: boolean; employee: EmployeeIdentity | null; self_editable: boolean }
 export interface EmployeeLink { membership_id: number; employee_id: string | null; linked: boolean }
 export interface EmployeeOption { id: string; employee_code: string; full_name: string; status: string; linked: boolean; available: boolean }
 export interface EmployeeOptions { data: EmployeeOption[]; meta: { current_page: number; last_page: number; total: number } }

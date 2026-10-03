@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import PortalPreviews from "@/components/portal-final/PortalPreviews.vue";
 import WorkDashboard from "@/components/work/WorkDashboard.vue";
 import { computed, watch } from "vue";
 import { RouterLink } from "vue-router";
-import { Bell, CalendarCheck, FolderOpen, Wallet } from "lucide-vue-next";
+import { CalendarCheck, Wallet } from "lucide-vue-next";
 
 import LeaveDashboard from "@/components/leave/LeaveDashboard.vue";
 import PortalShell from "@/components/employee/PortalShell.vue";
@@ -30,9 +31,7 @@ const workedValue = computed(() => {
 watch(() => [company.switching, company.activeCompanyId, company.contextVersion, attendance.canView] as const, () => {
   if (!company.switching && company.activeCompanyId && attendance.canView) void attendance.loadStatus();
 }, { immediate: true, flush: "sync" });
-const unavailable = [
-  { label: "Documents", icon: FolderOpen, description: "Employee documents are not available yet." },
-] as const;
+
 </script>
 
 <template>
@@ -67,6 +66,7 @@ const unavailable = [
 
     <LeaveDashboard />
     <WorkDashboard />
+    <PortalPreviews />
     <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
       <Panel title="Notifications" description="Company-scoped messages addressed to you" class="xl:col-span-1">
         <template #actions><RouterLink to="/employee/notifications" class="text-xs font-medium text-content-brand hover:underline">View all</RouterLink></template>
@@ -86,8 +86,8 @@ const unavailable = [
 
         </div>
       </Panel>
-      <Panel title="Work & resources" description="Additional portal modules will be connected in later stages" class="xl:col-span-1">
-        <div class="space-y-3 p-4"><RouterLink v-if="company.hasPermission('employee.payroll.view') && company.hasModule('payroll')" to="/employee/payroll" class="flex gap-3 rounded-md bg-surface-sunken p-3 hover:bg-surface-hover"><Wallet class="size-4 shrink-0 text-content-brand" /><div><p class="text-sm font-medium text-content">My Payroll</p><p class="text-xs text-content-muted">View payslips released to you.</p></div></RouterLink><div v-for="item in unavailable" :key="item.label" class="flex gap-3 rounded-md bg-surface-sunken p-3"><component :is="item.icon" class="size-4 shrink-0 text-content-muted" /><div><p class="text-sm font-medium text-content">{{ item.label }}</p><p class="text-xs text-content-muted">{{ item.description }}</p></div></div></div>
+      <Panel title="Work & resources" description="Authorized resources for your current company" class="xl:col-span-1">
+        <div class="space-y-3 p-4"><RouterLink v-if="company.hasPermission('employee.payroll.view') && company.hasModule('payroll')" to="/employee/payroll" class="flex gap-3 rounded-md bg-surface-sunken p-3 hover:bg-surface-hover"><Wallet class="size-4 shrink-0 text-content-brand" /><div><p class="text-sm font-medium text-content">My Payroll</p><p class="text-xs text-content-muted">View payslips released to you.</p></div></RouterLink></div>
       </Panel>
     </div>
   </PortalShell>

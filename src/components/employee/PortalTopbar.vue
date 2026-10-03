@@ -14,7 +14,8 @@ const route = useRoute();
 const menuButton = ref<HTMLButtonElement | null>(null);
 const dark = ref(document.documentElement.classList.contains("dark"));
 const name = computed(() => portal.employee?.employee?.full_name ?? company.currentUser.name);
-const breadcrumb = computed(() => route.path === "/employee/tasks" ? "My Tasks" : route.path === "/employee/tickets" ? "My Tickets" : route.path === "/employee/leaves" ? "Leaves" : route.path === "/employee/calendar" ? "Calendar" : route.path === "/employee/profile" ? "My Profile" : route.path === "/employee/notifications" ? "Notifications" : route.path.startsWith("/employee/payroll/") ? "Payslip" : route.path === "/employee/payroll" ? "My Payroll" : "Dashboard");
+const resources: Record<string,string> = {"/employee/requests": "Requests", "/employee/documents": "Documents", "/employee/announcements": "Announcements", "/employee/directory": "Directory", "/employee/teams": "My Team", "/employee/schedule": "Published schedule", "/employee/shift-swaps": "Shift swaps", "/employee/assets": "Equipment requests", "/employee/expenses": "Expense claims"};
+const breadcrumb = computed(() => resources[route.path] ?? (route.path === "/employee/tasks" ? "My Tasks" : route.path === "/employee/tickets" ? "My Tickets" : route.path === "/employee/leaves" ? "Leaves" : route.path === "/employee/calendar" ? "Calendar" : route.path === "/employee/profile" ? "My Profile" : route.path === "/employee/notifications" ? "Notifications" : route.path.startsWith("/employee/payroll/") ? "Payslip" : route.path === "/employee/payroll" ? "My Payroll" : "Dashboard"));
 const unread = computed(() => portal.inbox?.unread_count ?? 0);
 const switchError = ref("");
 

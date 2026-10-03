@@ -100,6 +100,15 @@ async function setup(page: Page, options: SetupOptions = {}) {
   return { calls, states, corrections, releaseA, releaseAction, hold: () => { holdAction = true; } };
 }
 
+async function requestClosedHistoryCorrection(page: Page): Promise<void> {
+  // The header button only opens the Corrections tab; wait for the intended history row.
+  const history = page.getByRole("tabpanel", { name: "History", exact: true });
+  const row = history.getByRole("row").filter({ has: page.getByRole("cell", { name: "2026-10-02", exact: true }) });
+  await expect(row).toHaveCount(1);
+  await row.getByRole("button", { name: "Request correction", exact: true }).click();
+  await expect(page.getByRole("tabpanel", { name: "Corrections", exact: true }).getByRole("combobox", { name: "Closed session", exact: true })).toHaveValue("session-A");
+}
+
 test("linked status and server-authoritative clock/break lifecycle", async ({ page }) => {
   const { calls } = await setup(page);
   await page.goto("/employee/attendance");
@@ -176,17 +185,29 @@ test("overnight work date, pagination and calendar use server dates", async ({ p
 });
 
 test("correction validates then submits without changing effective evidence", async ({ page }) => {
-  const { calls, corrections } = await setup(page, { initialClosed: true, validationOnce: true });
+  const { calls, corrections, states } = await setup(page, { initialClosed: true, validationOnce: true });
+  const originalEvidence = structuredClone(states.get("A")!.effective);
   await page.goto("/employee/attendance");
   await page.getByRole("tab", { name: "History" }).click();
-  await page.getByRole("button", { name: "Request correction" }).last().click();
+  await requestClosedHistoryCorrection(page);
   await expect(page.getByLabel("Reason")).toBeVisible();
   await page.getByLabel("Reason").fill("My clock-out needs review.");
+  await page.getByLabel("Requested check-out (ISO timestamp with offset)", { exact: true }).fill("2026-10-03T02:00:00+00:00");
   await page.getByRole("button", { name: "Submit request" }).click();
   await expect(page.getByText("Invalid correction")).toBeVisible();
   await page.getByRole("button", { name: "Submit request" }).click();
   await expect(page.getByText("PENDING", { exact: false }).first()).toBeVisible();
   expect(corrections).toHaveLength(1);
+  expect(corrections[0].session_id).toBe("session-A");
+  expect(corrections[0].proposed.clock_out_at).toBe("2026-10-03T02:00:00+00:00");
+  expect(states.get("A")!.effective).toEqual(originalEvidence);
+  expect(calls.filter(call => call.method === "POST").every(call => call.path === "/api/v1/employee/attendance/session-A/corrections" && call.company === "A")).toBe(true);
+  await expect(page.getByText("8h 00m", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "History", exact: true }).click();
+  const unchangedRow = page.getByRole("tabpanel", { name: "History", exact: true }).getByRole("row").filter({ has: page.getByRole("cell", { name: "2026-10-02", exact: true }) });
+  await expect(unchangedRow.getByRole("cell", { name: "8h 00m", exact: true })).toBeVisible();
+  await expect(unchangedRow.getByRole("cell", { name: "03 Oct, 06:00", exact: true })).toBeVisible();
+
   expect(calls.filter(call => call.path.endsWith("/corrections") && call.method === "POST")).toHaveLength(2);
   expect(calls.filter(call => call.path.includes("/attendance/") && call.method === "POST").every(call => !!call.key)).toBe(true);
 });
@@ -197,7 +218,7 @@ for (const former of ["resigned", "terminated"] as const) test(`${former} employ
   await expect(page.getByText(/No clock action is available/)).toBeVisible();
   await page.getByRole("tab", { name: "History" }).click();
   await expect(page.getByText("2026-10-02").first()).toBeVisible();
-  await page.getByRole("button", { name: "Request correction" }).last().click();
+  await requestClosedHistoryCorrection(page);
   await expect(page.getByLabel("Reason")).toBeVisible();
 });
 
