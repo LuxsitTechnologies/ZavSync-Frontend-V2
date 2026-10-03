@@ -20,7 +20,8 @@ const groups = [
   ] },
   { label: "Time & Pay", items: [
     { label: "Attendance", to: "/employee/attendance", icon: CalendarCheck, permission: "employee.attendance.view" },
-    { label: "Leaves", icon: CalendarOff },
+    { label: "Leaves", to: "/employee/leaves", icon: CalendarOff, permission: "employee.leave.view" },
+    { label: "Calendar", to: "/employee/calendar", icon: CalendarCheck, permission: "employee.leave.view" },
     { label: "My Payroll", to: "/employee/payroll", icon: Wallet, permission: "employee.payroll.view" },
   ] },
   { label: "Work", items: [{ label: "My Tasks", icon: ListChecks }] },

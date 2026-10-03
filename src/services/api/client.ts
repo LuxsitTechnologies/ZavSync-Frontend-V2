@@ -134,9 +134,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
   return (await response.json()) as T;
 }
 
-export async function apiDownload(path: string, companyId: string, filename: string): Promise<void> {
+export async function apiDownload(path: string, companyId: string, filename: string, signal?: AbortSignal): Promise<void> {
   const url = new URL(`${BASE_URL}${path}`, window.location.origin);
   const response = await fetch(url.toString(), {
+    signal,
     credentials: "include",
     headers: {
       Accept: "application/octet-stream",
@@ -157,7 +158,9 @@ export async function apiDownload(path: string, companyId: string, filename: str
       response.headers.get("X-Request-Id") ?? undefined,
     );
   }
-  const objectUrl = URL.createObjectURL(await response.blob());
+  const blob = await response.blob();
+  if (signal?.aborted) return;
+  const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = objectUrl;
   link.download = filename;

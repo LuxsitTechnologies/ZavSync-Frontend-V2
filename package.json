@@ -19,7 +19,8 @@
     "test:employee-portal": "playwright test --config playwright.employee-portal.config.ts",
     "test:employee-portal:unit": "playwright test --config playwright.employee-portal.config.ts tests/employee-portal/unit.spec.ts",
     "test:employee-payroll": "playwright test --config playwright.employee-payroll.config.ts",
-    "test:employee-attendance": "playwright test --config playwright.employee-attendance.config.ts"
+    "test:employee-attendance": "playwright test --config playwright.employee-attendance.config.ts",
+    "test:employee-leave": "playwright test --config playwright.employee-leave.config.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

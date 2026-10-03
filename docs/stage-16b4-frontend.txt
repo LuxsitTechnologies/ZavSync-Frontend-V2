@@ -1,0 +1,156 @@
+STAGE 16B.4-FE — LEAVE AND HOLIDAYS
+Status: COMPLETE; EXTERNAL VERIFICATION ACCEPTED; PRODUCTION CUTOVER NOT APPROVED
+
+Authorities
+Frontend main baseline: 25c2bf1f81c5c8fd9e50d2b600ebcefdcff9e064
+Frozen backend main: e828d6c59267dd0f3d7645b669d726e760c3a6c5
+Design reference: 7b97c3704dc4460dbc7f11263f178fb7b818e67a
+V1 reference: 56932b69b73deb5f79e245be7fbbe31b2fbe017e
+Original backend audit at 035cb3f retained; Stage 16B.4.1 ownership delta reviewed.
+
+Presentation
+Adapted the reference Leaves.vue balance cards/history, LeaveApply.vue form,
+Calendar.vue seven-column event layout and holiday list, and Dashboard.vue
+leave/holiday summaries. Existing V2 PortalShell, Panel, Field, ZButton and
+ConfirmDialog are reused. No reference mock data was imported.
+Employee routes: /employee/leaves and /employee/calendar.
+Administration: /hrm/leave, using certified hrm.leave effective_navigation.
+Calendar labels approved leave separately from fixed company holidays. Approved
+leave with CANCELLATION_PENDING remains displayed with that qualification.
+Calendar dates are presentation only; no units or attendance classifications are
+calculated. All approved/cancellation-pending pages are read for completeness.
+Existing notifications remain the only inbox.
+
+Exact APIs (all prefixed /api/v1; X-Company-Id and existing session/CSRF client)
+Self:
+GET /employee/leave/summary?year
+GET /employee/leave/types
+GET /employee/leave/requests?page&status
+GET /employee/leave/requests/{leave}
+POST /employee/leave/requests (leave_type_id, start_date, end_date, day_portion,
+  reason; Idempotency-Key)
+POST /employee/leave/requests/{leave}/cancel
+GET /employee/leave/holidays
+GET, POST /employee/leave/requests/{leave}/attachments (multipart file for POST)
+GET /employee/leave/requests/{leave}/attachments/{document}
+Admin:
+GET /leave/requests?page&status&employee_id
+GET /leave/requests/{leave}
+POST /leave/requests/{leave}/approve
+POST /leave/requests/{leave}/reject
+POST /leave/requests/{leave}/approve-cancellation
+POST /leave/requests/{leave}/reject-cancellation
+  (reason required for rejections)
+GET, POST /leave/types (name, is_paid for creation)
+PATCH /leave/types/{type} (name or is_active; paid classification immutable)
+GET /leave/entitlements?employee_id&year
+POST /leave/entitlements (employee_id, leave_type_id, year, allocated_units)
+POST /leave/entitlements/{entitlement}/adjustments
+  (delta_units, reason; Idempotency-Key)
+GET, POST /leave/holidays (name, date, description for creation)
+PATCH /leave/holidays/{holiday} (name, date, description, is_active)
+GET /leave/requests/{leave}/attachments
+GET /leave/requests/{leave}/attachments/{document}
+
+Authority and permissions
+Existing payroll entitlement, not a new commercial module.
+Self read: employee.leave.view; request/upload: employee.leave.request;
+cancel: employee.leave.cancel. Existing portal employee/me supplies employment
+status under employee.self.view. If status cannot be verified, mutation controls
+are unavailable while independently authorized leave reads remain usable.
+Unlinked leave summary (409 EMPLOYEE_IDENTITY_NOT_LINKED) is explicit.
+Resigned/terminated linked employees retain authorized history/holiday reads;
+request, evidence upload and cancellation controls are absent.
+Admin read/types/entitlements/evidence: leave.view. Type/allocation/adjustment:
+leave.manage. Decisions: leave.approve. Holiday read/write: holiday.view/manage.
+Admin page entry requires leave.view; its holiday panel additionally uses the
+separate holiday permissions. Employee IDs are explicit administrative UUID
+inputs, not a fabricated directory or self-identity selector.
+Administrative decisions use is_own_request === false exclusively. Missing/null
+ownership fails closed. No employee/me or user/employee/event matching determines
+admin ownership. Backend self-approval enforcement remains final authority.
+
+Units and workflow
+allocated_units, adjustment_units, pending_units, approved_units, available_units
+are displayed directly from the server. Integer presentation: 2 units = 1 day;
+1 unit = 0.5 day. No client balance or requested-unit calculations.
+FULL_DAY supports calendar date ranges. FIRST_HALF/SECOND_HALF require one date.
+Server rejects past dates, overlap, insufficient balance and entitlement-year
+violations. No weekend/holiday exclusions. Unpaid leave has no financial effect.
+History uses server pagination and retains cancelled/rejected records.
+Pending cancellation requires confirmation and records returned server state.
+Approved future leave requests cancellation, followed by separate administrator
+decision. Started approved leave has no cancellation control. Rejection requires
+at least five characters. Conflict/uncertain decisions reload authoritative detail.
+
+Evidence and privacy
+Only private list/upload/download endpoints are used. Upload is available for
+active employees' pending requests. UI extensions match certified configuration;
+10 MiB is labelled the default, with configured server validation authoritative.
+No remove/replace evidence API is invented. No storage paths, public links,
+base64 persistence, HTML rendering, browser leave persistence, or fake notifications.
+Downloads accept AbortSignal and do not emit files after an aborted context.
+Sensitive forms/files/uncertain mutations clear on switch and component disposal.
+Async reads are fenced by company, contextVersion, generation, per-channel
+controller and component lifetime. Entitlement employee/year changes invalidate
+outstanding reads. No payroll employee API, financial mutation, attendance
+mutation, or other domain side effect is invoked by Leave.
+Create and adjustment keys/payloads are retained in memory for uncertain retries.
+No automatic retry of non-keyed decisions or uploads. Upload uncertainty prompts
+refresh before another upload; decisions reload current state.
+
+Accepted verification — 2026-10-03
+User-supplied normal macOS Terminal evidence, accepted for finalization:
+- Typecheck: PASS
+- Employee Leave/Holidays: 47/47 PASS (43 browser + 4 unit/static)
+- Employee Attendance regression: 22/22 PASS
+- Employee Payroll regression: 19/19 PASS
+- Employee Portal regression: 14/14 PASS
+- Stage 16C Identity regression: 21/21 PASS
+- Stage 16A Navigation regression: 16/16 PASS
+- Stage 15B FBR regression: 24/24 PASS
+- Production build: PASS
+- Complete real-backend frontend E2E: 17/17 PASS
+- Stage 16B.4.1 real Leave HTTP contract: PASS
+- git diff --check: PASS
+Verifier ended: ALL STAGE 16B.4-FE VERIFICATION GATES PASSED
+Both the focused correction rerun and complete verifier passed. These external
+results supersede the earlier failed run and sandbox browser-launch limitation.
+No comprehensive accessibility certification or unavailable lint gate is claimed.
+
+Final review
+Complete intended frontend changes reviewed against 25c2bf1. Only Stage 16B.4-FE
+source, tests, configuration and this documentation are included. No existing
+tests were removed or relaxed; no skipped cases or arbitrary waits were added.
+Mocks are confined to tests; production uses certified backend authority.
+Admin self-approval presentation uses only is_own_request, with absent values
+failing closed. No employee/me or identifier/name/email/event inference is used
+for administrative ownership. Attendance, Payroll, Accounting, banking and
+inventory firewalls remain intact. No generated reports/screenshots/traces,
+dist output, secrets, environment files or temporary artifacts are included.
+Backend is unchanged and clean at the frozen hash above.
+Exactly one local frontend commit is authorized above the baseline, titled:
+Stage 16B.4-FE: integrate employee leave and holidays
+No push, deployment, production or V1 production data access is authorized.
+The final commit hash and exact committed file list are recorded in the final
+report outside the repository, avoiding a self-referential commit hash here.
+
+Deliberately deferred
+Hourly or multi-date half-day leave; working-day/weekend deductions; recurring or
+national holidays; evidence deletion/replacement; directory discovery for leave
+administration; payroll deductions/posting; attendance classification; production
+migration and cutover. None is simulated by the frontend.
+
+Verified corrections
+The earlier normal-Terminal run reported 30 passes and 17 failures. Inspection
+of its screenshots, error contexts and traces confirmed populated forms and
+successful type responses. Fourteen employee form failures and one allocation
+failure arose from label wrappers including select option text. Explicit
+label-for/control-id associations now cover Leave type, Day portion and Paid
+leave type. Endpoints, permissions, fixtures and timeouts were not changed.
+
+Two cancellation assertions selected hidden filter options. They now target the
+visible request-row status badge, assert exact authoritative CANCELLED or
+CANCELLATION PENDING status, and assert the cancellation action is absent.
+No production lifecycle or status text was changed for these assertions.
+Both corrections passed the accepted focused and complete external verification.

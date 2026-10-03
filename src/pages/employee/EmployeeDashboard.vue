@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import { RouterLink } from "vue-router";
-import { Bell, CalendarCheck, CalendarOff, FolderOpen, ListChecks, Wallet } from "lucide-vue-next";
+import { Bell, CalendarCheck, FolderOpen, ListChecks, Wallet } from "lucide-vue-next";
 
+import LeaveDashboard from "@/components/leave/LeaveDashboard.vue";
 import PortalShell from "@/components/employee/PortalShell.vue";
 import PageHeader from "@/components/zs/PageHeader.vue";
 import Panel from "@/components/zs/Panel.vue";
@@ -29,7 +30,6 @@ watch(() => [company.switching, company.activeCompanyId, company.contextVersion,
   if (!company.switching && company.activeCompanyId && attendance.canView) void attendance.loadStatus();
 }, { immediate: true, flush: "sync" });
 const unavailable = [
-  { label: "Leave Balance", icon: CalendarOff, description: "Leave balances are not available yet." },
   { label: "Pending Tasks", icon: ListChecks, description: "Employee tasks are not available yet." },
   { label: "Documents", icon: FolderOpen, description: "Employee documents are not available yet." },
 ] as const;
@@ -59,12 +59,13 @@ const unavailable = [
     <div class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
       <StatCard label="Attendance" :value="attendanceValue" :hint="attendance.status ? `Work date ${attendance.status.work_date}` : 'No verified status available'" />
       <StatCard label="Hours" :value="workedValue" hint="Completed attendance session only" />
-      <StatCard label="Leave" value="Unavailable" hint="Future self-service" />
+      <StatCard label="Leave" :value="company.hasPermission('employee.leave.view') && company.hasModule('payroll') ? 'View' : 'Unavailable'" hint="Balances and requests below" />
       <StatCard label="Pay" :value="company.hasPermission('employee.payroll.view') && company.hasModule('payroll') ? 'View' : 'Unavailable'" :hint="company.hasPermission('employee.payroll.view') && company.hasModule('payroll') ? 'Released payslips in My Payroll' : 'Self-service not granted'" />
       <StatCard label="Tasks" value="Unavailable" hint="Future self-service" />
       <StatCard label="Notifications" :value="portal.inbox ? String(portal.inbox.unread_count) : '—'" :hint="portal.inbox ? 'Unread in this company' : 'No verified count available'" tone="brand" />
     </div>
 
+    <LeaveDashboard />
     <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
       <Panel title="Notifications" description="Company-scoped messages addressed to you" class="xl:col-span-1">
         <template #actions><RouterLink to="/employee/notifications" class="text-xs font-medium text-content-brand hover:underline">View all</RouterLink></template>
@@ -81,11 +82,11 @@ const unavailable = [
           <p v-else-if="attendance.loading.status" role="status" class="text-sm text-content-muted">Loading attendance…</p>
           <p v-else-if="attendance.errors.status" role="alert" class="text-sm text-danger">{{ attendance.errors.status.errorCode === 'EMPLOYEE_IDENTITY_NOT_LINKED' ? 'No employee identity is linked to this company membership.' : attendance.errors.status.message }}</p>
           <RouterLink v-else-if="attendance.status" to="/employee/attendance" class="flex gap-3 rounded-md bg-surface-sunken p-3 hover:bg-surface-hover"><CalendarCheck class="size-4 shrink-0 text-content-brand" /><div><p class="text-sm font-medium text-content">{{ attendanceValue }}</p><p class="text-xs text-content-muted">{{ attendance.status.work_date }} · {{ attendance.status.timezone }}</p></div></RouterLink>
-          <div v-for="item in unavailable.slice(0, 1)" :key="item.label" class="flex gap-3 rounded-md bg-surface-sunken p-3"><component :is="item.icon" class="size-4 shrink-0 text-content-muted" /><div><p class="text-sm font-medium text-content">{{ item.label }}</p><p class="text-xs text-content-muted">{{ item.description }}</p></div></div>
+
         </div>
       </Panel>
       <Panel title="Work & resources" description="Additional portal modules will be connected in later stages" class="xl:col-span-1">
-        <div class="space-y-3 p-4"><RouterLink v-if="company.hasPermission('employee.payroll.view') && company.hasModule('payroll')" to="/employee/payroll" class="flex gap-3 rounded-md bg-surface-sunken p-3 hover:bg-surface-hover"><Wallet class="size-4 shrink-0 text-content-brand" /><div><p class="text-sm font-medium text-content">My Payroll</p><p class="text-xs text-content-muted">View payslips released to you.</p></div></RouterLink><div v-for="item in unavailable.slice(1)" :key="item.label" class="flex gap-3 rounded-md bg-surface-sunken p-3"><component :is="item.icon" class="size-4 shrink-0 text-content-muted" /><div><p class="text-sm font-medium text-content">{{ item.label }}</p><p class="text-xs text-content-muted">{{ item.description }}</p></div></div></div>
+        <div class="space-y-3 p-4"><RouterLink v-if="company.hasPermission('employee.payroll.view') && company.hasModule('payroll')" to="/employee/payroll" class="flex gap-3 rounded-md bg-surface-sunken p-3 hover:bg-surface-hover"><Wallet class="size-4 shrink-0 text-content-brand" /><div><p class="text-sm font-medium text-content">My Payroll</p><p class="text-xs text-content-muted">View payslips released to you.</p></div></RouterLink><div v-for="item in unavailable" :key="item.label" class="flex gap-3 rounded-md bg-surface-sunken p-3"><component :is="item.icon" class="size-4 shrink-0 text-content-muted" /><div><p class="text-sm font-medium text-content">{{ item.label }}</p><p class="text-xs text-content-muted">{{ item.description }}</p></div></div></div>
       </Panel>
     </div>
   </PortalShell>

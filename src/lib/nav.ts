@@ -85,6 +85,7 @@ export const navigation: NavGroup[] = [
         children: [
           { label: "Employees", to: "/hrm/employees", icon: Users },
           { label: "Attendance", to: "/hrm/attendance", icon: CalendarCheck, permission: "attendance.view" },
+          { label: "Leave", to: "/hrm/leave", icon: CalendarCheck, permission: "leave.view" },
         ],
       },
     ],
@@ -216,6 +217,7 @@ export const navigation: NavGroup[] = [
 export const presentationKeyForRoute: Record<string, string> = {
   "/hrm/employees": "hrm.employees",
   "/hrm/attendance": "hrm.attendance",
+  "/hrm/leave": "hrm.leave",
   "/fbr-invoicing": "fbr.invoicing",
   "/fbr-invoicing/configuration": "fbr.configuration",
   "/fbr-invoicing/migrations": "fbr.migrations",
@@ -288,6 +290,7 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
 export function permissionForPath(path: string): string | null {
   if (path === "/employee/payroll" || path.startsWith("/employee/payroll/")) return "employee.payroll.view";
   if (path === "/employee/attendance") return "employee.attendance.view";
+  if (path === "/hrm/leave") return "leave.view";
   if (path === "/hrm/attendance") return "attendance.view";
   if (path === "/fbr-invoicing/configuration") return "fbr.configuration.view";
   if (path.startsWith("/fbr-invoicing/migrations")) return "migration.view";
