@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import WorkDashboard from "@/components/work/WorkDashboard.vue";
 import { computed, watch } from "vue";
 import { RouterLink } from "vue-router";
-import { Bell, CalendarCheck, FolderOpen, ListChecks, Wallet } from "lucide-vue-next";
+import { Bell, CalendarCheck, FolderOpen, Wallet } from "lucide-vue-next";
 
 import LeaveDashboard from "@/components/leave/LeaveDashboard.vue";
 import PortalShell from "@/components/employee/PortalShell.vue";
@@ -30,7 +31,6 @@ watch(() => [company.switching, company.activeCompanyId, company.contextVersion,
   if (!company.switching && company.activeCompanyId && attendance.canView) void attendance.loadStatus();
 }, { immediate: true, flush: "sync" });
 const unavailable = [
-  { label: "Pending Tasks", icon: ListChecks, description: "Employee tasks are not available yet." },
   { label: "Documents", icon: FolderOpen, description: "Employee documents are not available yet." },
 ] as const;
 </script>
@@ -61,11 +61,12 @@ const unavailable = [
       <StatCard label="Hours" :value="workedValue" hint="Completed attendance session only" />
       <StatCard label="Leave" :value="company.hasPermission('employee.leave.view') && company.hasModule('payroll') ? 'View' : 'Unavailable'" hint="Balances and requests below" />
       <StatCard label="Pay" :value="company.hasPermission('employee.payroll.view') && company.hasModule('payroll') ? 'View' : 'Unavailable'" :hint="company.hasPermission('employee.payroll.view') && company.hasModule('payroll') ? 'Released payslips in My Payroll' : 'Self-service not granted'" />
-      <StatCard label="Tasks" value="Unavailable" hint="Future self-service" />
+      <StatCard label="Tasks" :value="company.hasPermission('employee.tasks.view') && company.hasModule('payroll') ? 'View' : 'Unavailable'" hint="Verified work summary below" />
       <StatCard label="Notifications" :value="portal.inbox ? String(portal.inbox.unread_count) : '—'" :hint="portal.inbox ? 'Unread in this company' : 'No verified count available'" tone="brand" />
     </div>
 
     <LeaveDashboard />
+    <WorkDashboard />
     <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
       <Panel title="Notifications" description="Company-scoped messages addressed to you" class="xl:col-span-1">
         <template #actions><RouterLink to="/employee/notifications" class="text-xs font-medium text-content-brand hover:underline">View all</RouterLink></template>

@@ -6,6 +6,10 @@ const routes: RouteRecordRaw[] = [
   { path: "/", name: "dashboard", component: () => import("@/pages/Dashboard.vue") },
 
   // Employee self-service is part of this authenticated V2 application.
+  { path: "/employee/tasks", component: () => import("@/pages/employee/EmployeeWork.vue") },
+  { path: "/employee/tickets", component: () => import("@/pages/employee/EmployeeWork.vue") },
+  { path: "/hrm/tasks", component: () => import("@/pages/HrmWork.vue") },
+  { path: "/hrm/tickets", component: () => import("@/pages/HrmWork.vue") },
   { path: "/employee", component: () => import("@/pages/employee/EmployeeDashboard.vue") },
   { path: "/employee/profile", component: () => import("@/pages/employee/EmployeeProfile.vue") },
   { path: "/employee/notifications", component: () => import("@/pages/employee/EmployeeNotifications.vue") },

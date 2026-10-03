@@ -24,7 +24,7 @@ const groups = [
     { label: "Calendar", to: "/employee/calendar", icon: CalendarCheck, permission: "employee.leave.view" },
     { label: "My Payroll", to: "/employee/payroll", icon: Wallet, permission: "employee.payroll.view" },
   ] },
-  { label: "Work", items: [{ label: "My Tasks", icon: ListChecks }] },
+  { label: "Work", items: [{ label: "My Tasks", to: "/employee/tasks", icon: ListChecks, permission: "employee.tasks.view", navigation: "employee.tasks" }, { label: "My Tickets", to: "/employee/tickets", icon: ListChecks, permission: "employee.tickets.view", navigation: "employee.tickets" }] },
   { label: "Resources", items: [{ label: "Documents", icon: FolderOpen }] },
   { label: "Account", items: [{ label: "Notifications", to: "/employee/notifications", icon: Bell }] },
 ] as const;
@@ -39,7 +39,7 @@ const groups = [
       <div v-for="group in groups" :key="group.label" class="space-y-0.5">
         <p class="label-caps px-2.5 pb-1.5 text-sidebar-label">{{ group.label }}</p>
         <template v-for="item in group.items" :key="item.label">
-          <RouterLink v-if="'to' in item && (!('permission' in item) || (company.hasPermission(item.permission!) && company.hasModule('payroll')))" :to="item.to!" class="nav-item" active-class="bg-sidebar-accent text-sidebar-accent-foreground" @click="$emit('navigate')">
+          <RouterLink v-if="(!('navigation' in item) || company.activeCompany?.effective_navigation?.visible_keys.includes(item.navigation)) && 'to' in item && (!('permission' in item) || (company.hasPermission(item.permission!) && company.hasModule('payroll')))" :to="item.to!" class="nav-item" active-class="bg-sidebar-accent text-sidebar-accent-foreground" @click="$emit('navigate')">
             <component :is="item.icon" class="size-4 shrink-0" :stroke-width="1.75" />
             <span class="truncate">{{ item.label }}</span>
             <span v-if="item.label === 'Notifications' && unread" class="zs-badge badge-brand ml-auto">{{ unread }}</span>

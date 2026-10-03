@@ -85,6 +85,8 @@ export const navigation: NavGroup[] = [
         children: [
           { label: "Employees", to: "/hrm/employees", icon: Users },
           { label: "Attendance", to: "/hrm/attendance", icon: CalendarCheck, permission: "attendance.view" },
+          { label: "Tasks", to: "/hrm/tasks", icon: Users, permission: "tasks.view" },
+          { label: "Tickets", to: "/hrm/tickets", icon: Users, permission: "tickets.view" },
           { label: "Leave", to: "/hrm/leave", icon: CalendarCheck, permission: "leave.view" },
         ],
       },
@@ -218,6 +220,8 @@ export const presentationKeyForRoute: Record<string, string> = {
   "/hrm/employees": "hrm.employees",
   "/hrm/attendance": "hrm.attendance",
   "/hrm/leave": "hrm.leave",
+  "/hrm/tasks": "hrm.tasks",
+  "/hrm/tickets": "hrm.tickets",
   "/fbr-invoicing": "fbr.invoicing",
   "/fbr-invoicing/configuration": "fbr.configuration",
   "/fbr-invoicing/migrations": "fbr.migrations",
@@ -288,6 +292,10 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
 
 /** Minimum read permission required to enter each production area. */
 export function permissionForPath(path: string): string | null {
+  if (path === "/employee/tasks") return "employee.tasks.view";
+  if (path === "/employee/tickets") return "employee.tickets.view";
+  if (path === "/hrm/tasks") return "tasks.view";
+  if (path === "/hrm/tickets") return "tickets.view";
   if (path === "/employee/payroll" || path.startsWith("/employee/payroll/")) return "employee.payroll.view";
   if (path === "/employee/attendance") return "employee.attendance.view";
   if (path === "/hrm/leave") return "leave.view";
@@ -334,6 +342,7 @@ export function permissionForPath(path: string): string | null {
 }
 
 export function moduleForPath(path:string):string|null{
+  if(path==='/employee/tasks'||path==='/employee/tickets')return 'payroll';
   if(path==='/employee/attendance')return 'payroll';
   if(path==='/employee/payroll'||path.startsWith('/employee/payroll/'))return 'payroll';
   if(path.startsWith("/fbr-invoicing"))return "invoicing";

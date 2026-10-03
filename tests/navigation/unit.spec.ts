@@ -22,7 +22,7 @@ test('navigation unit: all mapped modules retain backend-default visible items',
   for (const route of Object.keys(presentationKeyForRoute)) expect(result).toContain(`"to":"${route}"`);
   expect(result).toContain('Dashboard');
   expect(presentationKeyForRoute['/hrm/leave']).toBe('hrm.leave');
-  expect(Object.values(presentationKeyForRoute)).toHaveLength(54);
+  expect(Object.values(presentationKeyForRoute)).toHaveLength(56);
 });
 test('navigation unit: switching hides old state and rejects stale updates', async () => {
   const { createServer } = await import("vite");

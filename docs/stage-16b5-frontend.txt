@@ -1,0 +1,161 @@
+STAGE 16B.5-FE — TASKS AND TICKETS
+Frontend baseline: 6c7bf4f47e2e19a385d6d4d713944e1f37aea103
+Frozen backend: bd1141213ff473b11cebf51c18341eb90258c0fa
+Design: 7b97c3704dc4460dbc7f11263f178fb7b818e67a
+Preflight: all four supplied repositories clean at exact requested commits.
+
+Certified API contract recorded before implementation
+All paths below use /api/v1, existing authenticated client and X-Company-Id.
+Employee roots /employee/tasks and /employee/tickets; admin roots /tasks and
+/tickets. GET root returns data + meta(total,current_page,last_page), accepts
+page, per_page(1..50), status. Admin additionally accepts assigned_employee_id
+(tasks) or employee_id(tickets). GET root/{id} returns authoritative detail.
+Employee task reads require employee.tasks.view; start/complete POST require
+employee.tasks.update; comments and attachment POST require employee.tasks.comment.
+Employee ticket reads require employee.tickets.view; creation POST requires
+employee.tickets.create; close/comments/attachment POST require employee.tickets.comment.
+Admin reads use tasks.view / tickets.view. Task creation needs tasks.manage AND
+tasks.assign; PATCH content uses tasks.manage, POST assign uses tasks.assign.
+Admin task transitions/comments/uploads use tasks.manage; ticket actions/comments/
+uploads use tickets.manage. Platform admin does not bypass these permissions.
+Every work API explicitly enforces the payroll commercial entitlement.
+Navigation identities: employee.tasks, employee.tickets, hrm.tasks, hrm.tickets.
+Presentation hiding does not revoke API/direct-route permission. CRM stays separate.
+
+Task creation fields: assigned_employee_id UUID,title(3..255),description nullable
+(max10000),priority LOW/NORMAL/HIGH,due_date YYYY-MM-DD. Ticket creation fields:
+subject(3..255),description(3..10000),category nullable(max120),priority.
+Task PATCH: version>=1 plus title/description/priority/due_date; assign:
+version + assigned_employee_id. All transitions POST {version}.
+Task: start ASSIGNED->IN_PROGRESS; complete IN_PROGRESS->COMPLETED; admin reopen
+COMPLETED->ASSIGNED; admin cancel ASSIGNED/IN_PROGRESS->CANCELLED. Content and
+assignment changes require ASSIGNED/IN_PROGRESS. Employee cannot reopen/cancel/assign.
+Ticket: admin start OPEN->IN_PROGRESS; resolve IN_PROGRESS->RESOLVED; close
+OPEN/IN_PROGRESS/RESOLVED->CLOSED (employee or admin); admin reopen CLOSED/RESOLVED->OPEN.
+Version conflicts: 409 WORK_VERSION_STALE; lifecycle conflicts also 409.
+
+Task responses: id,title,description,priority,due_date,status,completed_at,version,
+assigned_employee_id(admin only, otherwise null),creator_name,assignee_name,created_at.
+Labels come only from certified company-scoped backend presentation, including
+Unavailable user / Unavailable employee. Never infer labels from identity APIs.
+Ticket responses: id,subject,description,category,priority,status,version,
+employee_id(admin only, otherwise null),created_at.
+GET/POST {root}/{id}/comments: data array for list, single object for mutation;
+body 1..5000. Fields id,body,author,created_at; append-only, visible to employee.
+Task comments allowed ASSIGNED/IN_PROGRESS; tickets OPEN/IN_PROGRESS/RESOLVED.
+Creation and comments require Idempotency-Key (8..200); same payload replay returns
+same record, changed payload returns 409 WORK_IDEMPOTENCY_CONFLICT.
+
+Both domains and both audiences support GET/POST {root}/{id}/attachments and
+GET {root}/{id}/attachments/{document}. Multipart file + Idempotency-Key required.
+Uploads permitted in commentable states, same-file replay safe. Default maximum
+10MiB, configured server validation authoritative; pdf/png/jpg/jpeg/doc/docx/xls/
+xlsx/csv/txt. Metadata id,original_filename,mime_type,size_bytes,checksum_sha256,
+created_at. Private download only; no delete/replace or generic document shortcut.
+Unlinked employee:409 EMPLOYEE_IDENTITY_NOT_LINKED. Former resigned/terminated
+employee: historical reads retained; all writes forbidden EMPLOYEE_WORK_INACTIVE.
+Existing certified portal identity determines presentation of employee controls;
+if identity cannot be verified, controls fail closed. No admin identity inference.
+
+Implementation
+Routes: /employee/tasks, /employee/tickets, /hrm/tasks, /hrm/tickets.
+PortalShell and AppShell retain the existing application/session/company context.
+Adapted the Tasks reference card grid, status/priority chips, filters and detail
+presentation. Requests is visual reference only. Existing Panel, Field, ZButton
+and ConfirmDialog are reused. Unsupported progress/projects/overdue/local records
+were removed from the design adaptation rather than presented as real features.
+Employee and administrative repositories use distinct endpoint roots. Admin task
+create requires manage+assign, edit/lifecycle require manage, reassignment requires
+assign. Tickets use explicit actions, with no administrative creation invented.
+Administrative UUID input is explicit; no directory discovery or identity matching.
+Employee identity is used only to fail closed on former/unverified mutation access,
+never to populate task labels or determine administrative authority.
+
+Lists display server pagination, exact status filters and meta.total. Dashboard
+uses only self list APIs: ASSIGNED task total and OPEN ticket total, plus at most
+three items from the first returned page, explicitly labelled as a partial preview.
+No calculated overdue state, progress percentage or cross-domain aggregate exists.
+Safe server labels are displayed verbatim; absent contract fields show Label
+unavailable and do not trigger enrichment queries.
+
+Create/comment/file attempts retain original key and immutable content/File in
+memory following network/server uncertainty. Inputs and duplicate submission are
+locked. Definitive failures release the attempt; versioned content/assignment/
+lifecycle failures reload authoritative detail with an honest uncertain-outcome
+notice. No optimistic authoritative success or automatic transition retry.
+Comments are text-only and append-only. Files use authorized list/upload/download,
+server metadata and extension hints; configured server size/type validation wins.
+No browser persistence, public file URL, delete, replacement or generic-file API.
+
+useWorkContext follows the established channel/AbortController pattern, fences
+company ID + contextVersion + generation + controller identity + component lifetime,
+and runs success/failure callbacks only in the current context. Switching clears
+lists, detail, comments, files, forms, uncertain keys and notices synchronously.
+Unmount aborts all channels; downloads check abort before emitting an object URL.
+Route-kind changes remount the surface. Late mutations do not reload old data into
+a new company. Domain repositories call only the certified work endpoints.
+No Payroll/Attendance/Leave/Accounting/Banking/Inventory/CRM mutation is introduced.
+
+Final verification — accepted external normal-Terminal evidence
+The user accepted successful completion of the complete prepared verifier:
+ALL STAGE 16B.5-FE VERIFICATION GATES PASSED
+Artifact, whitespace and secret-pattern review: PASS.
+This supersedes the earlier sandbox limitation and the 67-pass/4-fail focused run.
+
+Accepted gates:
+- Typecheck: PASS.
+- Focused Stage 16B.5-FE: 71/71 PASS (67 browser + 4 unit/static).
+- Stage 16B.4 Leave regression: PASS.
+- Stage 16B.3 Attendance regression: PASS.
+- Stage 16B.2 Payroll regression: PASS.
+- Stage 16B.1 Portal regression: PASS.
+- Stage 16C Identity regression: PASS.
+- Stage 16A Navigation regression: PASS.
+- Stage 15B FBR regression: PASS.
+- Production build: PASS.
+- Complete frontend E2E against disposable local backend: PASS.
+- git diff --check, artifact and secret-pattern review: PASS.
+Earlier local evidence also includes six passing real HTTP contracts (Work,
+Leave, Attendance, Identity, Navigation and FBR) against the archived frozen
+backend with synthetic SQLite data. No production database was used.
+Responsive/keyboard/dialog checks are covered by the accepted focused suite;
+no comprehensive accessibility certification is claimed.
+
+Verified browser corrections
+All four prior failure screenshots, error contexts and traces were inspected.
+The HRM test's global Tasks locator matched the authorized current-page breadcrumb
+href=/hrm/tasks, not a sidebar or CRM item. The corrected assertion checks the
+specific sidebar href while preserving authorized direct access and breadcrumb.
+The 403/404/500 interceptors previously missed ?page=1, so the general fixture
+returned HTTP 200. Pathname + GET matching now injects each error and asserts the
+actual status, visible safe alert, no successful/empty data, a fresh HTTP 200
+retry, restored authoritative record and removed alert. Both corrections remain
+intact. No production behavior, permission, fixture or backend contract was
+changed to accommodate these test corrections.
+
+Final review and local commit
+Complete intended diff reviewed against the frontend baseline. Scope is limited
+to 24 Stage 16B.5-FE source, test, configuration and documentation files.
+No tests were weakened, removed or skipped; no arbitrary waits/timeouts added.
+The existing navigation mapping count increased from 54 to 56 for two admin
+mappings; employee navigation uses its two separately certified identities.
+No generated reports, screenshots, traces, test-results, dist, temporary files,
+secrets or .env files are included. Privacy, domain-firewall and static checks
+preserve separate employee/admin authority, certified labels, private files,
+company fencing and Stage 16A presentation semantics. CRM remains independent.
+Exactly one local frontend commit is approved above the recorded baseline:
+Stage 16B.5-FE: integrate employee tasks and tickets
+Final hash and exact committed file list are recorded in the external final report.
+
+Deliberate deferrals
+Task projects/progress/overdue inference, employee reopen/cancel, ticket assignment,
+internal notes/SLA/escalation/email, comment editing/deletion, file deletion/
+replacement, employee directory discovery, due-soon aggregates, historical
+migration and production cutover. None is simulated by the frontend.
+Backend remains unchanged and clean at its frozen hash. No production or V1
+production data access, provider calls, push or deployment occurred.
+
+FRONTEND — STAGE 16B.5-FE TASKS & TICKETS: COMPLETE
+BACKEND — FROZEN AT bd1141213ff473b11cebf51c18341eb90258c0fa
+V1 TASK/TICKET PRODUCTION MIGRATION: NOT EXECUTED
+PRODUCTION CUTOVER: NOT APPROVED
