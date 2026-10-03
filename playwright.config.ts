@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { randomBytes } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 
 const backendDirectory = process.env["ZAVSYNC_BACKEND_DIR"];
@@ -7,13 +8,21 @@ if (!backendDirectory) {
 }
 
 const identityFixture = "'" + resolve("tests/support/identity-fixture.php").replaceAll("'", "'\"'\"'") + "'";
+const attendanceFixture = "'" + resolve("tests/support/attendance-fixture.php").replaceAll("'", "'\"'\"'") + "'";
+const databasePath = process.env["ZAVSYNC_E2E_DB"] ?? "/tmp/zavsync-stage14-e2e.sqlite";
+if (!/^\/tmp\/zavsync-(?:stage14-e2e\.sqlite|attendance-e2e-[A-Za-z0-9._-]+)$/.test(databasePath)) {
+  throw new Error("ZAVSYNC_E2E_DB must name a disposable ZavSync test database under /tmp.");
+}
+const testKey = `base64:${randomBytes(32).toString("base64")}`;
 
 const backendEnvironment = [
   "APP_ENV=testing",
+  `APP_KEY=${testKey}`,
   "APP_URL=http://127.0.0.1:8001",
   "FRONTEND_URL=http://127.0.0.1:8080",
   "DB_CONNECTION=sqlite",
-  "DB_DATABASE=/tmp/zavsync-stage14-e2e.sqlite",
+  `DB_DATABASE=${databasePath}`,
+  `ZAVSYNC_E2E_DB=${databasePath}`,
   "CACHE_STORE=array",
   "SESSION_DRIVER=file",
   "QUEUE_CONNECTION=sync",
@@ -42,7 +51,7 @@ export default defineConfig({
     {
       name: "Laravel API",
       cwd: backendDirectory,
-      command: `touch /tmp/zavsync-stage14-e2e.sqlite && ${backendEnvironment} php artisan migrate:fresh --seed --no-interaction && ${backendEnvironment} php ${identityFixture} && ${backendEnvironment} php artisan serve --host=127.0.0.1 --port=8001`,
+      command: `touch '${databasePath}' && ${backendEnvironment} php artisan migrate:fresh --seed --no-interaction && ${backendEnvironment} php ${identityFixture} && ${backendEnvironment} php ${attendanceFixture} && ${backendEnvironment} php artisan serve --host=127.0.0.1 --port=8001`,
       url: "http://127.0.0.1:8001/up",
       timeout: 180_000,
       reuseExistingServer: false,

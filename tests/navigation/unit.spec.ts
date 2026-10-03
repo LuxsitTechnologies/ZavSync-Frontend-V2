@@ -21,7 +21,7 @@ test('navigation unit: all mapped modules retain backend-default visible items',
   const result = JSON.stringify(navigationForModules(['invoicing','accounting','receivables','payables','inventory','procurement','banking','budgeting','payroll','crm','outreach','ai'], false, ['*'], nav(Object.values(presentationKeyForRoute))));
   for (const route of Object.keys(presentationKeyForRoute)) expect(result).toContain(`"to":"${route}"`);
   expect(result).toContain('Dashboard');
-  expect(Object.values(presentationKeyForRoute)).toHaveLength(52);
+  expect(Object.values(presentationKeyForRoute)).toHaveLength(53);
 });
 test('navigation unit: switching hides old state and rejects stale updates', async () => {
   const { createServer } = await import("vite");

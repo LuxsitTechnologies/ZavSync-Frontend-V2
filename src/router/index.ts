@@ -9,6 +9,7 @@ const routes: RouteRecordRaw[] = [
   { path: "/employee", component: () => import("@/pages/employee/EmployeeDashboard.vue") },
   { path: "/employee/profile", component: () => import("@/pages/employee/EmployeeProfile.vue") },
   { path: "/employee/notifications", component: () => import("@/pages/employee/EmployeeNotifications.vue") },
+  { path: "/employee/attendance", component: () => import("@/pages/employee/EmployeeAttendance.vue") },
   { path: "/employee/payroll", component: () => import("@/pages/employee/EmployeePayroll.vue") },
   { path: "/employee/payroll/:entry", component: () => import("@/pages/employee/EmployeePayslip.vue") },
 

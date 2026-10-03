@@ -84,6 +84,7 @@ export const navigation: NavGroup[] = [
         icon: Users,
         children: [
           { label: "Employees", to: "/hrm/employees", icon: Users },
+          { label: "Attendance", to: "/hrm/attendance", icon: CalendarCheck, permission: "attendance.view" },
         ],
       },
     ],
@@ -214,6 +215,7 @@ export const navigation: NavGroup[] = [
 /** Exact presentation identities from the certified backend; routes/icons stay local. */
 export const presentationKeyForRoute: Record<string, string> = {
   "/hrm/employees": "hrm.employees",
+  "/hrm/attendance": "hrm.attendance",
   "/fbr-invoicing": "fbr.invoicing",
   "/fbr-invoicing/configuration": "fbr.configuration",
   "/fbr-invoicing/migrations": "fbr.migrations",
@@ -285,6 +287,8 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
 /** Minimum read permission required to enter each production area. */
 export function permissionForPath(path: string): string | null {
   if (path === "/employee/payroll" || path.startsWith("/employee/payroll/")) return "employee.payroll.view";
+  if (path === "/employee/attendance") return "employee.attendance.view";
+  if (path === "/hrm/attendance") return "attendance.view";
   if (path === "/fbr-invoicing/configuration") return "fbr.configuration.view";
   if (path.startsWith("/fbr-invoicing/migrations")) return "migration.view";
   if (path === "/fbr-invoicing/new" || (path.startsWith("/fbr-invoicing/") && path.endsWith("/edit"))) return "pakistan_fbr.manage";
@@ -327,6 +331,7 @@ export function permissionForPath(path: string): string | null {
 }
 
 export function moduleForPath(path:string):string|null{
+  if(path==='/employee/attendance')return 'payroll';
   if(path==='/employee/payroll'||path.startsWith('/employee/payroll/'))return 'payroll';
   if(path.startsWith("/fbr-invoicing"))return "invoicing";
   if(path.startsWith('/payroll')||path.startsWith('/hrm'))return 'payroll';

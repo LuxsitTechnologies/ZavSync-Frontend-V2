@@ -19,7 +19,7 @@ const groups = [
     { label: "My Profile", to: "/employee/profile", icon: UserRound },
   ] },
   { label: "Time & Pay", items: [
-    { label: "Attendance", icon: CalendarCheck },
+    { label: "Attendance", to: "/employee/attendance", icon: CalendarCheck, permission: "employee.attendance.view" },
     { label: "Leaves", icon: CalendarOff },
     { label: "My Payroll", to: "/employee/payroll", icon: Wallet, permission: "employee.payroll.view" },
   ] },

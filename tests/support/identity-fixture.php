@@ -3,7 +3,7 @@
 require getcwd().'/vendor/autoload.php';
 $app = require getcwd().'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-if (!app()->environment('testing') || config('database.default') !== 'sqlite' || config('database.connections.sqlite.database') !== '/tmp/zavsync-stage14-e2e.sqlite') {
+if (!app()->environment('testing') || config('database.default') !== 'sqlite' || config('database.connections.sqlite.database') !== (getenv('ZAVSYNC_E2E_DB') ?: '/tmp/zavsync-stage14-e2e.sqlite')) {
     throw new RuntimeException('Identity fixture requires the disposable E2E SQLite database.');
 }
 $user = App\Models\User::factory()->create(['name' => 'Identity Tester', 'email' => 'identity@example.invalid']);
