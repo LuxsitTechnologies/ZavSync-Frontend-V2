@@ -21,7 +21,7 @@ import { shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import type { InvoiceDetail } from "@/types/accounting";
 
-setPageMeta("FBR Invoices", "Digital invoicing status against FBR IRIS — submitted, queued and rejected documents.");
+setPageMeta("Accounting invoice FBR status", "Submission status for native Accounting invoices only. Dedicated Pakistan FBR invoices have a separate register.");
 
 const company = useCompanyStore();
 const query = ref("");
@@ -50,7 +50,7 @@ async function submitQueued() {
 
 <template>
   <AppShell>
-    <PageHeader title="FBR Invoices" description="Digital invoicing sync with FBR IRIS">
+    <PageHeader title="Accounting invoice FBR status" description="These records come from native Accounting invoices. Pakistan FBR invoice drafts and submissions are in the separate FBR Invoicing register.">
       <template #actions><ZButton variant="outline" @click="state.refresh"><RefreshCw class="size-4" /> Resync</ZButton><ZButton :disabled="submitMutation.saving.value || pending === 0" @click="submitQueued"><Landmark class="size-4" /> {{ submitMutation.saving.value ? "Submitting…" : "Submit queued" }}</ZButton></template>
     </PageHeader>
     <div class="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Accepted" :value="String(accepted)" hint="IRN issued" tone="success" /><StatCard label="Queued" :value="String(pending)" hint="Ready or retryable" tone="warning" /><StatCard label="Rejected" :value="String(rejected)" hint="Needs correction" tone="danger" /><StatCard label="Sales tax reported" :value="formatMoney(tax)" hint="Current result set" tone="brand" /></div>

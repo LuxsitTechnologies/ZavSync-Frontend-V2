@@ -3,6 +3,10 @@ import type { WorkReader, WorkKind, WorkItem, WorkPage, WorkComment, WorkFile, T
 const root = (kind: WorkKind) => `/${kind}`;
 const path = (kind: WorkKind, id: string) => `${root(kind)}/${encodeURIComponent(id)}`;
 export const adminWorkRepository = {
+  assignees: (company: string, search: string, page: number, signal: AbortSignal) => apiRequest<{
+    data: { id: string; employee_code: string; full_name: string; status: string }[];
+    meta: { total: number; current_page: number; last_page: number };
+  }>('/tasks/assignees', { companyId: company, query: { search, page, per_page: 20 }, signal }),
   list: (company: string, kind: WorkKind, page: number, status: string, filter: string, signal: AbortSignal) => apiRequest<WorkPage>(root(kind), { companyId: company, query: { page, status, ...(kind === 'tasks' ? { assigned_employee_id: filter } : { employee_id: filter }) }, signal }),
   detail: (company: string, kind: WorkKind, id: string, signal: AbortSignal) => apiRequest<WorkItem>(path(kind,id), { companyId: company, signal }),
   comments: (company: string, kind: WorkKind, id: string, signal: AbortSignal) => apiRequest<{data: WorkComment[]}>(`${path(kind,id)}/comments`, { companyId: company, signal }),

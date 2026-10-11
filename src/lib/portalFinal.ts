@@ -1,11 +1,11 @@
 import type { PortalDomain, PortalRecord } from '@/types/portalFinal';
 import type { PortalCommand } from '@/services/portalFinal.repository';
-export interface FormField { key: string; label: string; type?: 'text'|'textarea'|'date'|'time'|'file'|'integer'|'money'|'select'; options?: string[]; optional?: boolean; max?: number }
+export interface FormField { key: string; label: string; type?: 'text'|'textarea'|'date'|'time'|'datetime-local'|'file'|'integer'|'money'|'select'; options?: string[]; optional?: boolean; max?: number }
 export interface PortalAction { command: PortalCommand; label: string; permission: string; fields: FormField[]; keyed?: boolean; versioned?: boolean; states?: string[]; targetOnly?: boolean }
 export interface PortalDefinition { title: string; permission: string; navigation?: string; description: string; fields: [keyof PortalRecord,string][]; detail: boolean; create?: PortalAction; actions: PortalAction[] }
 const f=(key:string,label:string,type:FormField['type']='text',optional=false):FormField=>({key,label,type,optional});
 const name=f('name','Name'),reason=f('reason','Reason','textarea'),file=f('file','File','file');
-const announcement=[f('title','Title'),f('description','Description','textarea'),{...f('priority','Priority','select'),options:['LOW','NORMAL','HIGH']},f('expires_at','Expiry (ISO 8601 with offset)','text',true)];
+const announcement=[f('title','Title'),f('description','Description','textarea'),{...f('priority','Priority','select'),options:['LOW','NORMAL','HIGH']},f('expires_at','Expiry date and time','datetime-local',true)];
 const expense=[f('category_id','Expense category','select'),f('title','Title'),f('description','Description','textarea',true),f('amount_minor','Amount (PKR)','money'),f('expense_date','Expense date','date')];
 const contact=[name,f('relationship','Relationship'),f('phone','Phone')];
 const make=(command:PortalCommand,label:string,permission:string,fields:FormField[]=[],keyed=false,versioned=true,states?:string[]):PortalAction=>({command,label,permission,fields,keyed,versioned,states});

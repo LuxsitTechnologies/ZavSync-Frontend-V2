@@ -149,6 +149,9 @@ test("submit requires confirmation and guards double submit; acceptance only com
     if (path.endsWith("/invoice-1") && submitted) { await fulfill(route, { json: { data: invoice({ fbr_status: "submitted", editable: false, document_state: "ISSUED" }) } }); return true; } return false;
   }});
   await page.goto("/fbr-invoicing/invoice-1"); await page.getByRole("button", { name: "Submit to FBR" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("Transmit this saved draft to the configured FBR environment");
+  await expect(page.getByRole("alertdialog")).toContainText("may create an external submission");
+  await expect(page.getByRole("alertdialog")).toContainText("certified retry workflow");
   expect(state.requests.filter(r => r.path.endsWith("/submit"))).toHaveLength(0);
   await page.getByRole("button", { name: "Confirm submission" }).evaluate((element: HTMLButtonElement) => { element.click(); element.click(); });
   await expect(page.getByTestId("fbr-status")).toHaveText("submitted");
@@ -162,7 +165,9 @@ test("retry recovers failed submission without a client key, preserving pending 
   const state = await setup(page, { record, handler: async (route, path) => {
     if (path.endsWith("/retry")) { record.fbr_status = "pending"; await fulfill(route, { json: { data: record } }); return true; } return false;
   }});
-  await page.goto("/fbr-invoicing/invoice-1"); await page.getByRole("button", { name: "Retry submission" }).click(); await page.getByRole("button", { name: "Confirm retry" }).click();
+  await page.goto("/fbr-invoicing/invoice-1"); await page.getByRole("button", { name: "Retry submission" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("original submission attempt");
+  await page.getByRole("button", { name: "Confirm retry" }).click();
   await expect(page.getByTestId("fbr-status")).toHaveText("pending");
   const retry = state.requests.find(r => r.path.endsWith("/retry")); expect(retry?.method).toBe("POST"); expect(retry?.key).toBeUndefined(); expect(state.unexpected).toEqual([]);
 });
@@ -226,7 +231,7 @@ test("configuration does not expose saved credential and omits blank replacement
   const state = await setup(page, { handler: async (route, path) => {
     if (path === "/pakistan-fbr/configuration") { await fulfill(route, { json: { data: { seller_business_name: "Seller", seller_tax_identifier: "1234567", seller_province: "fixture-province", seller_address: "Address", environment: "SANDBOX", credential_configured: true, connection_state: "NOT_VERIFIED" } } }); return true; } return false;
   }});
-  await page.goto("/fbr-invoicing/configuration"); await expect(page.getByLabel("Replacement credential", { exact: true })).toHaveValue("");
+  await page.goto("/fbr-invoicing/configuration"); await expect(page.getByLabel("Company FBR token (replacement)", { exact: true })).toHaveValue("");
   await page.getByRole("button", { name: "Save configuration", exact: true }).click(); await page.getByRole("button", { name: "Confirm configuration" }).click();
   await expect(page.getByText("Configuration saved.", { exact: false })).toBeVisible();
   expect(state.requests.find(r => r.method === "PUT")?.body).not.toHaveProperty("credential"); expect(state.unexpected).toEqual([]);
@@ -277,7 +282,7 @@ test("configuration and migration viewing permissions do not grant mutation auth
     if (path.endsWith("/exceptions")) { await fulfill(route, { json: [{ id: "ex", exception_code: "MISMATCH", resolution_state: "OPEN" }] }); return true; }
     return false;
   }});
-  await page.goto("/fbr-invoicing/configuration"); await expect(page.getByLabel("Replacement credential", { exact: true })).toBeDisabled();
+  await page.goto("/fbr-invoicing/configuration"); await expect(page.getByLabel("Company FBR token (replacement)", { exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Save configuration" })).toHaveCount(0);
   await page.goto("/fbr-invoicing/migrations/run-1"); await expect(page.getByText("MISMATCH", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Review exception" })).toHaveCount(0);

@@ -6,6 +6,7 @@ import Field from '@/components/zs/Field.vue';
 import ZButton from '@/components/zs/ZButton.vue';
 import ConfirmDialog from '@/components/zs/ConfirmDialog.vue';
 import WorkEvidence from './WorkEvidence.vue';
+import TaskAssigneePicker from './TaskAssigneePicker.vue';
 import { useCompanyStore } from '@/stores/company';
 import { useWorkContext } from '@/composables/useWorkContext';
 import { employeeWorkRepository } from '@/services/employeeWork.repository';
@@ -50,6 +51,7 @@ function submit() {
     const id = detail.value.id;
     void context.run('mutation',(companyId,signal) => adminWorkRepository.update(companyId,id,body,signal), accepted, reloadFailure); return;
   }
+  if (props.admin && !form.value.assigned_employee_id) return;
   pending.value ??= {key:crypto.randomUUID(),body:props.admin ? {assigned_employee_id:form.value.assigned_employee_id,title:form.value.title,description:form.value.description,priority:form.value.priority,due_date:form.value.due_date} : {subject:form.value.subject,description:form.value.description,category:form.value.category,priority:form.value.priority}};
   const attempt = pending.value;
   void context.run('mutation',(id,signal) => props.admin ? adminWorkRepository.create(id,attempt.body as TaskInput,attempt.key,signal) : employeeWorkRepository.create(id,attempt.body as TicketInput,attempt.key,signal), accepted, error => {
@@ -69,7 +71,7 @@ function transition() {
   void context.run('mutation',(id,signal) => props.admin ? adminWorkRepository.transition(id,props.kind,item.id,command,item.version,signal) : employeeWorkRepository.transition(id,props.kind,item.id,command as 'start'|'complete'|'close',item.version,signal),accepted,reloadFailure);
 }
 function assign() {
-  if (!canAssign.value || !detail.value || locked.value) return;
+  if (!canAssign.value || !detail.value || locked.value || !assignee.value) return;
   const item = detail.value, employeeId = assignee.value;
   void context.run('mutation',(id,signal) => adminWorkRepository.assign(id,item.id,employeeId,item.version,signal),accepted,reloadFailure);
 }
@@ -88,7 +90,7 @@ load();
         <Field v-if="kind === 'tickets'" v-model="form.category" label="Category" maxlength="120" :disabled="locked" />
         <div><label for="work-priority" class="label-caps">Priority</label><select id="work-priority" v-model="form.priority" class="field mt-1" :disabled="locked"><option>LOW</option><option>NORMAL</option><option>HIGH</option></select></div>
         <Field v-if="kind === 'tasks'" v-model="form.due_date" label="Due date" type="date" required :disabled="locked" />
-        <Field v-if="admin && mode === 'create'" v-model="form.assigned_employee_id" label="Assignee employee UUID" required :disabled="locked" />
+        <TaskAssigneePicker v-if="admin && mode === 'create'" v-model="form.assigned_employee_id" :disabled="locked" />
         <div class="sm:col-span-2"><label for="work-description" class="label-caps">Description</label><textarea id="work-description" v-model="form.description" class="field" :required="kind === 'tickets'" :minlength="kind === 'tickets' ? 3 : undefined" maxlength="10000" :disabled="locked" /></div>
         <p v-if="pending" class="text-sm">Original content and key retained. Retry submits the same request.</p>
         <div class="flex gap-2"><ZButton type="submit" :disabled="context.busy.mutation">{{ pending ? 'Retry same creation' : mode === 'edit' ? 'Save task' : 'Submit creation' }}</ZButton><ZButton variant="outline" :disabled="locked" @click="mode = null">Dismiss form</ZButton></div>
@@ -104,7 +106,7 @@ load();
     <Panel v-if="detail" title="Work detail" class="mt-4" body-class="p-4">
       <div class="min-w-0 space-y-3 break-words"><h2 class="text-lg font-semibold">{{ detail.title ?? detail.subject }}</h2><p data-testid="work-detail-status" class="zs-badge badge-neutral">{{ detail.status.replaceAll('_',' ') }}</p><p class="text-sm">Priority: {{ detail.priority }}</p><template v-if="kind === 'tasks'"><p>Created by {{ detail.creator_name ?? 'Label unavailable' }} · Assigned to {{ detail.assignee_name ?? 'Label unavailable' }}</p><p>Due {{ detail.due_date }}</p></template><p v-else>Category: {{ detail.category ?? 'No category' }}</p><p class="whitespace-pre-wrap">{{ detail.description }}</p>
         <div class="flex flex-wrap gap-2"><ZButton v-for="command in actions" :key="command" variant="outline" :disabled="locked" @click="action = command">{{ command }}</ZButton><ZButton v-if="canEdit" variant="outline" :disabled="locked" @click="showEdit">Edit task</ZButton><ZButton variant="outline" :disabled="locked" @click="refresh">Reload detail</ZButton></div>
-        <form v-if="canAssign" class="flex flex-wrap items-end gap-3" @submit.prevent="assign"><Field v-model="assignee" label="New assignee employee UUID" required :disabled="locked" /><ZButton type="submit" :disabled="locked">Reassign task</ZButton></form>
+        <form v-if="canAssign" class="flex flex-wrap items-end gap-3" @submit.prevent="assign"><TaskAssigneePicker v-model="assignee" :disabled="locked" /><ZButton type="submit" :disabled="locked || !assignee">Reassign task</ZButton></form>
       </div>
       <WorkEvidence :key="detail.id" :id="detail.id" :kind="kind" :repository="repository" :writable="canComment" @conflict="refresh" />
     </Panel>

@@ -82,7 +82,7 @@ async function logout() {
 
       <NotificationCenter/>
 
-      <RouterLink v-if="companyStore.activeCompanyId && companyStore.hasPermission('employee.self.view')" to="/employee" class="grid size-8 place-items-center rounded-md text-content-secondary hover:bg-surface-hover" aria-label="Employee Portal" title="Employee Portal"><UserRound class="size-4" /></RouterLink>
+      <RouterLink v-if="companyStore.activeCompanyId && companyStore.hasModule('payroll') && companyStore.hasPermission('employee.self.view')" to="/employee" class="grid size-8 place-items-center rounded-md text-content-secondary hover:bg-surface-hover" aria-label="Employee Portal" title="Employee Portal for the selected company"><UserRound class="size-4" /></RouterLink>
 
       <button
         type="button"

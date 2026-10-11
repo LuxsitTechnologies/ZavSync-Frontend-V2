@@ -17,6 +17,14 @@ async function setup(page:Page,options:Options={}) {
     if(path.endsWith('/auth/switch-company'))return respond({company:company(String(body.company_id))});
     if(path.endsWith('/employee/me'))return respond({linked:!options.unlinked,employee:options.unlinked?null:{id:'self',full_name:'Self Identity',employee_code:'EMP',status:options.former??'active'},self_editable:false});
     if(path.endsWith('/platform/notifications'))return respond({unread_count:0,notifications:{data:[],current_page:1,last_page:1,total:0}});
+    if(path.endsWith('/tasks/assignees')){
+      if(!permissions.includes('tasks.assign')||!(options.modules??['payroll']).includes('payroll'))return respond({message:'Assignee lookup unavailable'},403);
+      const employees=[{id:'11111111-1111-4111-8111-111111111111',employee_code:'EMP-001',full_name:'Certified Assignee',status:'active'},{id:'22222222-2222-4222-8222-222222222222',employee_code:'EMP-002',full_name:'Reassigned Employee',status:'active'}];
+      const search=(url.searchParams.get('search')??'').toLowerCase();
+      const found=employees.filter(row=>`${row.id} ${row.employee_code} ${row.full_name}`.toLowerCase().includes(search));
+      const currentPage=Number(url.searchParams.get('page')??1);
+      return respond({data:currentPage===1?found:[],meta:{total:found.length,current_page:currentPage,last_page:1}});
+    }
     const match=path.match(/^\/api\/v1\/(?:employee\/)?(tasks|tickets)(?:\/([^/]+))?(?:\/([^/]+))?(?:\/([^/]+))?$/);
     if(!match)return respond({message:'Unrelated API unavailable'},403);
     if(options.unlinked&&path.includes('/employee/'))return respond({message:'Unlinked',error_code:'EMPLOYEE_IDENTITY_NOT_LINKED'},409);
@@ -38,7 +46,7 @@ async function setup(page:Page,options:Options={}) {
   return {calls,records};
 }
 async function open(page:Page,kind:Kind,admin=false){await page.goto(`/${admin?'hrm':'employee'}/${kind}`);await page.getByRole('button',{name:kind==='tasks'?'View task':'View ticket',exact:true}).first().click();await expect(page.getByText(`Private ${kind} A`,{exact:true})).toBeVisible();}
-async function create(page:Page,kind:Kind,admin=false){await page.getByRole('button',{name:kind==='tasks'?'Create task':'Create ticket',exact:true}).click();await page.getByLabel(kind==='tasks'?'Task title':'Subject',{exact:true}).fill('New work request');await page.getByLabel('Description',{exact:true}).fill('Please review this request');if(admin){await page.getByLabel('Due date',{exact:true}).fill('2030-10-10');await page.getByLabel('Assignee employee UUID',{exact:true}).fill('11111111-1111-4111-8111-111111111111');}}
+async function create(page:Page,kind:Kind,admin=false){await page.getByRole('button',{name:kind==='tasks'?'Create task':'Create ticket',exact:true}).click();await page.getByLabel(kind==='tasks'?'Task title':'Subject',{exact:true}).fill('New work request');await page.getByLabel('Description',{exact:true}).fill('Please review this request');if(admin){await page.getByLabel('Due date',{exact:true}).fill('2030-10-10');await page.getByRole('group',{name:'Eligible task assignees'}).getByRole('radio',{name:'Certified Assignee · EMP-001'}).check();}}
 async function action(page:Page,name:string,status:string){await page.getByRole('button',{name,exact:true}).click();await page.getByRole('button',{name:'Record action',exact:true}).click();await expect(page.getByTestId('work-detail-status')).toHaveText(status);}
 for(const kind of ['tasks','tickets'] as const)test(`${kind} list detail filters pagination and privacy`,async({page})=>{
   const {calls}=await setup(page);await open(page,kind);await expect(page.getByTestId('work-detail-status')).toHaveText(kind==='tasks'?'ASSIGNED':'OPEN');await page.getByRole('button',{name:'Next',exact:true}).click();await expect(page.getByText('Page 2 of 2',{exact:true})).toBeVisible();await page.getByLabel('Status filter').selectOption(kind==='tasks'?'COMPLETED':'CLOSED');await page.getByRole('button',{name:'Filter',exact:true}).click();await expect(page.getByText(`No matching ${kind}.`)).toBeVisible();expect(calls.filter(c=>c.path.includes(`/${kind}`)).every(c=>c.path.includes(`/employee/${kind}`))).toBeTruthy();
@@ -66,7 +74,76 @@ for(const kind of ['tasks','tickets'] as const)test(`${kind} comments private fi
 for(const kind of ['tasks','tickets'] as const)for(const endpoint of ['comments','attachments'])test(`${kind} uncertain ${endpoint} retains same content and key`,async({page})=>{await setup(page);const attempts:{key:string|undefined;body:string|null}[]=[];await page.route(`**/employee/${kind}/*/${endpoint}`,route=>{if(route.request().method()!=='POST')return route.fallback();attempts.push({key:route.request().headers()['idempotency-key'],body:route.request().postData()});return attempts.length===1?route.abort('failed'):route.fallback();});await open(page,kind);if(endpoint==='comments'){await page.getByLabel('Comment',{exact:true}).fill('Retry body');await page.getByRole('button',{name:'Add comment',exact:true}).click();await expect(page.getByLabel('Comment',{exact:true})).toBeDisabled();await page.getByRole('button',{name:'Retry same comment',exact:true}).click();await expect(page.getByText('Comment recorded.',{exact:true})).toBeVisible();expect(attempts[1].body).toBe(attempts[0].body);}else{await page.getByLabel('Attachment file').setInputFiles({name:'proof.txt',mimeType:'text/plain',buffer:Buffer.from('private evidence')});await page.getByRole('button',{name:'Upload attachment',exact:true}).click();await expect(page.getByLabel('Attachment file')).toBeDisabled();await page.getByRole('button',{name:'Retry same upload',exact:true}).click();await expect(page.getByText('Attachment uploaded.',{exact:true})).toBeVisible();expect(attempts.every(a=>a.body?.includes('private evidence'))).toBeTruthy();}expect(attempts).toHaveLength(2);expect(attempts[1].key).toBe(attempts[0].key);});
 for(const kind of ['tasks','tickets'] as const)test(`${kind} conflict reload and invalid transition`,async({page})=>{await setup(page);await page.route(`**/employee/${kind}/*/${kind==='tasks'?'start':'close'}`,route=>route.fulfill({status:409,json:{message:'This transition is stale or invalid',error_code:'WORK_VERSION_STALE'}}));await open(page,kind);await page.getByRole('button',{name:kind==='tasks'?'start':'close',exact:true}).click();await page.getByRole('button',{name:'Record action',exact:true}).click();await expect(page.getByRole('alert').filter({hasText:'This transition is stale or invalid'})).toBeVisible();await expect(page.getByTestId('work-detail-status')).toHaveText(kind==='tasks'?'ASSIGNED':'OPEN');});
 for(const admin of [false,true])test(`${admin?'admin task':'employee ticket'} uncertain creation and double submit`,async({page})=>{await setup(page);const kind=admin?'tasks':'tickets';const attempts:{body:unknown;key?:string}[]=[];let release=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});await page.route(`**/api/v1/${admin?'':'employee/'}${kind}`,async route=>{if(route.request().method()!=='POST')return route.fallback();attempts.push({body:route.request().postDataJSON(),key:route.request().headers()['idempotency-key']});if(attempts.length===1){await gate;return route.abort('failed');}return route.fallback();});await page.goto(`/${admin?'hrm':'employee'}/${kind}`);await create(page,kind,admin);await page.getByRole('button',{name:'Submit creation',exact:true}).click();await expect(page.getByRole('button',{name:'Retry same creation',exact:true})).toBeDisabled();expect(attempts).toHaveLength(1);release();await expect(page.getByRole('alert').filter({hasText:'Could not reach'})).toBeVisible();await page.getByRole('button',{name:'Retry same creation',exact:true}).click();await expect(page.getByText('Server state updated.',{exact:true})).toBeVisible();expect(attempts).toHaveLength(2);expect(attempts[1]).toEqual(attempts[0]);});
-test('admin task content reassign reopen cancel without self identity calls',async({page})=>{const {calls}=await setup(page,{permissions:['tasks.view','tasks.manage','tasks.assign']});await open(page,'tasks',true);await page.getByRole('button',{name:'Edit task',exact:true}).click();await page.getByLabel('Task title',{exact:true}).fill('Updated title');await page.getByRole('button',{name:'Save task',exact:true}).click();await expect(page.getByRole('heading',{name:'Updated title',exact:true}).last()).toBeVisible();await page.getByLabel('New assignee employee UUID',{exact:true}).fill('22222222-2222-4222-8222-222222222222');await page.getByRole('button',{name:'Reassign task',exact:true}).click();await expect(page.getByText('Created by Certified Creator · Assigned to Reassigned Employee')).toBeVisible();await action(page,'start','IN PROGRESS');await action(page,'complete','COMPLETED');await action(page,'reopen','ASSIGNED');await action(page,'cancel','CANCELLED');expect(calls.some(c=>c.path.endsWith('/employee/me'))).toBeFalsy();expect(calls.filter(c=>c.method!=='GET').every(c=>c.path.startsWith('/api/v1/tasks'))).toBeTruthy();});
+test('admin task content reassign reopen cancel without self identity calls',async({page})=>{const {calls}=await setup(page,{permissions:['tasks.view','tasks.manage','tasks.assign']});await open(page,'tasks',true);await page.getByRole('button',{name:'Edit task',exact:true}).click();await page.getByLabel('Task title',{exact:true}).fill('Updated title');await page.getByRole('button',{name:'Save task',exact:true}).click();await expect(page.getByRole('heading',{name:'Updated title',exact:true}).last()).toBeVisible();await page.getByRole('group',{name:'Eligible task assignees'}).getByRole('radio',{name:'Reassigned Employee · EMP-002'}).check();await page.getByRole('button',{name:'Reassign task',exact:true}).click();await expect(page.getByText('Created by Certified Creator · Assigned to Reassigned Employee')).toBeVisible();await action(page,'start','IN PROGRESS');await action(page,'complete','COMPLETED');await action(page,'reopen','ASSIGNED');await action(page,'cancel','CANCELLED');expect(calls.some(c=>c.path.endsWith('/employee/me'))).toBeFalsy();expect(calls.filter(c=>c.method!=='GET').every(c=>c.path.startsWith('/api/v1/tasks'))).toBeTruthy();});
+test('task assignee search sends only returned UUID and remains company scoped',async({page})=>{
+  const {calls}=await setup(page,{permissions:['tasks.view','tasks.manage','tasks.assign']});
+  await page.goto('/hrm/tasks');await page.getByRole('button',{name:'Create task',exact:true}).click();
+  await page.getByLabel('Search employees').last().fill('EMP-002');
+  await page.getByRole('button',{name:'Search',exact:true}).last().click();
+  const choices=page.getByRole('group',{name:'Eligible task assignees'}).first();
+  await expect(choices.getByRole('radio')).toHaveCount(1);
+  await choices.getByRole('radio',{name:'Reassigned Employee · EMP-002'}).check();
+  await page.getByLabel('Task title',{exact:true}).fill('Assigned through search');
+  await page.getByLabel('Due date',{exact:true}).fill('2030-10-10');
+  await page.getByRole('button',{name:'Submit creation',exact:true}).click();
+  await expect.poll(()=>calls.filter(call=>call.method==='POST'&&call.path==='/api/v1/tasks').length).toBe(1);
+  expect(calls.find(call=>call.method==='POST'&&call.path==='/api/v1/tasks')?.body.assigned_employee_id).toBe('22222222-2222-4222-8222-222222222222');
+  expect(calls.filter(call=>call.path==='/api/v1/tasks/assignees').every(call=>call.company==='A')).toBe(true);
+  expect(calls.some(call=>call.path.includes('/employee/me')||call.path.includes('/payroll/employees'))).toBe(false);
+});
+test('task assignee lookup error is visible and retry reloads',async({page})=>{
+  await setup(page,{permissions:['tasks.view','tasks.manage','tasks.assign']});
+  let failed=true, requests=0;
+  await page.route(url=>url.pathname==='/api/v1/tasks/assignees',route=>{
+    requests++;return failed?route.fulfill({status:403,json:{message:'Assignees cannot be read'}}):route.fallback();
+  });
+  await page.goto('/hrm/tasks');await page.getByRole('button',{name:'Create task',exact:true}).click();
+  await expect(page.getByRole('alert').filter({hasText:'Assignees cannot be read'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Submit creation',exact:true})).toBeVisible();
+  const beforeRetry=requests;failed=false;await page.getByRole('button',{name:'Retry employee search'}).last().click();
+  await expect(page.getByRole('group',{name:'Eligible task assignees'}).last().getByRole('radio')).toHaveCount(2);
+  expect(requests).toBe(beforeRetry+1);
+});
+test('task assignee pagination loads the selected company page',async({page})=>{
+  await setup(page,{permissions:['tasks.view','tasks.manage','tasks.assign']});
+  const requests:Array<{company:string;page:string|null}>=[];
+  await page.route(url=>url.pathname==='/api/v1/tasks/assignees',route=>{
+    const second=new URL(route.request().url()).searchParams.get('page')==='2';
+    requests.push({company:route.request().headers()['x-company-id']??'',page:new URL(route.request().url()).searchParams.get('page')});
+    return route.fulfill({json:{data:[{id:second?'22222222-2222-4222-8222-222222222222':'11111111-1111-4111-8111-111111111111',employee_code:second?'EMP-002':'EMP-001',full_name:second?'Reassigned Employee':'Certified Assignee',status:'active'}],meta:{total:2,current_page:second?2:1,last_page:2}}});
+  });
+  await page.goto('/hrm/tasks');await page.getByRole('button',{name:'Create task',exact:true}).click();
+  const picker=page.getByRole('group',{name:'Eligible task assignees'}).last();
+  await expect(picker.getByRole('radio',{name:'Certified Assignee · EMP-001'})).toBeVisible();
+  await picker.locator('..').getByRole('button',{name:'Next',exact:true}).click();
+  await expect(picker.locator('..').getByText('Page 2 of 2',{exact:true})).toBeVisible();
+  await expect(picker.getByRole('radio',{name:'Certified Assignee · EMP-001'})).toHaveCount(0);
+  const employee=picker.getByRole('radio',{name:'Reassigned Employee · EMP-002'});
+  await expect(employee).toBeVisible();await employee.check();await expect(employee).toBeChecked();
+  expect(requests).toEqual([{company:'A',page:'1'},{company:'A',page:'2'}]);
+});
+test('task assignee selection and late search clear on company switch',async({page})=>{
+  const {calls}=await setup(page,{permissions:['tasks.view','tasks.manage','tasks.assign']});
+  let release=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route(url=>url.pathname==='/api/v1/tasks/assignees',async route=>{
+    if(route.request().headers()['x-company-id']==='A'&&new URL(route.request().url()).searchParams.get('search')==='late'){
+      await gate;await route.fulfill({json:{data:[{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',employee_code:'OLD',full_name:'Old company employee',status:'active'}],meta:{total:1,current_page:1,last_page:1}}}).catch(()=>{});
+      return;
+    }
+    await route.fallback();
+  });
+  await page.goto('/hrm/tasks');await page.getByRole('button',{name:'Create task',exact:true}).click();
+  await page.getByRole('group',{name:'Eligible task assignees'}).last().getByRole('radio',{name:'Certified Assignee · EMP-001'}).check();
+  await page.getByLabel('Search employees').last().fill('late');await page.getByRole('button',{name:'Search',exact:true}).last().click();
+  await expect(page.getByRole('status').filter({hasText:'Loading eligible employees'})).toBeVisible();
+  await page.getByLabel('Active company').selectOption('B');release();
+  await expect(page.getByRole('button',{name:'Create task',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Create task',exact:true}).click();
+  await expect(page.getByRole('radio',{name:'Old company employee · OLD'})).toHaveCount(0);
+  await expect(page.getByRole('radio',{name:'Certified Assignee · EMP-001'})).not.toBeChecked();
+  expect(calls.some(call=>call.path==='/api/v1/tasks/assignees'&&call.company==='B')).toBe(true);
+  expect(calls.some(call=>call.method==='POST'&&call.path==='/api/v1/tasks')).toBe(false);
+});
 test('admin tickets lifecycle and employee visible comments attachments',async({page})=>{await setup(page,{permissions:['tickets.view','tickets.manage']});await open(page,'tickets',true);await page.getByLabel('Comment',{exact:true}).fill('Support response');await page.getByRole('button',{name:'Add comment',exact:true}).click();await expect(page.getByText('Support response',{exact:true})).toBeVisible();await page.getByLabel('Attachment file').setInputFiles({name:'proof.txt',mimeType:'text/plain',buffer:Buffer.from('private evidence')});await page.getByRole('button',{name:'Upload attachment',exact:true}).click();await expect(page.getByText('Attachment uploaded.',{exact:true})).toBeVisible();await action(page,'start','IN PROGRESS');await action(page,'resolve','RESOLVED');await action(page,'close','CLOSED');await action(page,'reopen','OPEN');});
 for(const permission of ['tasks.manage','tasks.assign'])test(`admin separates ${permission}`,async({page})=>{await setup(page,{permissions:['tasks.view',permission]});await open(page,'tasks',true);await expect(page.getByRole('button',{name:'Create task',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Edit task',exact:true})).toHaveCount(permission==='tasks.manage'?1:0);await expect(page.getByRole('button',{name:'Reassign task',exact:true})).toHaveCount(permission==='tasks.assign'?1:0);});
 for(const width of [390,768,1440])for(const kind of ['tasks','tickets'] as const)test(`${kind} responsive keyboard dialog ${width}`,async({page})=>{await page.setViewportSize({width,height:900});await setup(page);await open(page,kind);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();const control=page.getByRole('button',{name:kind==='tasks'?'start':'close',exact:true});await control.focus();await page.keyboard.press('Enter');await expect(page.getByRole('alertdialog')).toBeVisible();await page.keyboard.press('Escape');await expect(control).toBeFocused();});

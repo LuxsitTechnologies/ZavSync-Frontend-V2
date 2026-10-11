@@ -1,8 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { decimalToMinor, minorToDecimal, portalDefinition } from '../../src/lib/portalFinal';
+import { companyDateTimeToIso, isoToCompanyDateTime } from '../../src/lib/companyDateTime';
 import { permissionForPath,moduleForPath,presentationKeyForRoute,navigationForModules } from '../../src/lib/nav';
 import type { PortalDomain } from '../../src/types/portalFinal';
+test('announcement expiry uses the company timezone and rejects nonexistent wall times',()=>{
+  expect(portalDefinition('announcements',true).create?.fields.find(field=>field.key==='expires_at')?.type).toBe('datetime-local');
+  expect(companyDateTimeToIso('2030-01-01T12:30','Asia/Karachi')).toBe('2030-01-01T12:30:00+05:00');
+  expect(isoToCompanyDateTime('2030-01-01T12:30:00+05:00','Asia/Karachi')).toBe('2030-01-01T12:30');
+  expect(companyDateTimeToIso('2026-03-08T03:30','America/New_York')).toBe('2026-03-08T03:30:00-04:00');
+  expect(()=>companyDateTimeToIso('2026-03-08T02:30','America/New_York')).toThrow('does not exist');
+});
 test('exact PKR conversion rejects rounding, exponent and overflow',()=>{
   for(const [input,expected] of [['0.01',1],['123.45',12345],['9999999999999.99',999999999999999]] as const){expect(decimalToMinor(input)).toBe(expected);expect(minorToDecimal(expected)).toBe(input);}
   for(const input of ['0','-1','1.001','1e3','Infinity','10000000000000','NaN'])expect(()=>decimalToMinor(input)).toThrow();

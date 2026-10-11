@@ -12,6 +12,12 @@ test('Stage 16B.5.1 real work HTTP contract labels navigation lifecycle files an
   try {
     const list=await result(await get(request,'/employee/tasks?per_page=1'));expect(list.meta.total).toBe(1);const task=list.data[0];expect(task.creator_name).toBe('Work Administrator');expect(task.assignee_name).toBe('Work Employee A');expect(task.assigned_employee_id).toBeNull();expect(task).not.toHaveProperty('employee');expect(task).not.toHaveProperty('creator');
     const management=await result(await get(admin,`/tasks/${task.id}`));expect(management.assigned_employee_id).toBeTruthy();
+    const candidates=await result(await get(admin,'/tasks/assignees?search=Work%20Employee%20A&per_page=20&page=1'));
+    expect(candidates.data).toEqual(expect.arrayContaining([{id:management.assigned_employee_id,employee_code:expect.any(String),full_name:'Work Employee A',status:'active'}]));
+    expect(candidates.meta.current_page).toBe(1);
+    expect(Object.keys(candidates.data[0]).sort()).toEqual(['employee_code','full_name','id','status']);
+    expect((await get(denied,'/tasks/assignees')).status()).toBe(403);
+    expect((await result(await get(admin,'/tasks/assignees?search=Work%20Employee%20A',B))).data).toHaveLength(0);
     expect((await get(admin,'/employee/me')).status()).toBe(403);
     const selfNav=await result(await get(request,'/platform/navigation'));expect(selfNav.visible_keys).toEqual(expect.arrayContaining(['employee.tasks','employee.tickets']));expect(selfNav.visible_keys).not.toContain('hrm.tasks');
     const adminNav=await result(await get(admin,'/platform/navigation'));expect(adminNav.visible_keys).toEqual(expect.arrayContaining(['hrm.tasks','hrm.tickets']));expect(adminNav.visible_keys).not.toContain('crm.tasks');

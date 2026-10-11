@@ -66,7 +66,7 @@ async function archive() { if(!remove.value)return; const name=remove.value.name
     </Panel>
     <SidePanel :open="panelOpen" :title="editingId?'Edit company':'Add company'" description="Account details are saved to the active company." @close="panelOpen=false">
       <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="save">
-        <Field v-model="form.name" label="Company name" required/><Field v-model="form.website" label="Website"/><Field v-model="form.industry" label="Industry"/><Field v-model="form.phone" label="Phone"/><Field v-model="form.email" label="Email" type="email"/>
+        <Field v-model="form.name" label="Company name" required/><Field v-model="form.website" label="Website" hint="Use an HTTP/HTTPS address or a bare domain. The saved address uses HTTPS for a bare domain." :error="saveMutation.error.value?.fields.website"/><Field v-model="form.industry" label="Industry"/><Field v-model="form.phone" label="Phone"/><Field v-model="form.email" label="Email" type="email"/>
         <label><span class="label-caps">Owner</span><select v-model="form.owner_id" class="field mt-1.5"><option value="">Unassigned</option><option v-for="owner in data.owners.data.value??[]" :key="owner.id" :value="owner.id">{{owner.name}}</option></select></label>
         <Field v-model="form.ntn" label="NTN"/><Field v-model="form.cnic" label="CNIC"/><Field v-model="form.city" label="City"/><Field v-model="form.source" label="Source"/>
         <label><span class="label-caps">Status</span><select v-model="form.status" class="field mt-1.5"><option v-for="value in ['PROSPECT','ACTIVE','CUSTOMER','INACTIVE']" :key="value">{{value}}</option></select></label>

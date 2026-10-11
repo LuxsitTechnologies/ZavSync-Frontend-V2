@@ -8,6 +8,7 @@ import { useWorkContext } from '@/composables/useWorkContext';
 import { portalFinalRepository } from '@/services/portalFinal.repository';
 import { portalDefinition, decimalToMinor, minorToDecimal, type PortalAction, type FormField } from '@/lib/portalFinal';
 import type { PortalDomain, PortalRecord, PortalList, PortalDetail } from '@/types/portalFinal';
+import { companyDateTimeToIso, isoToCompanyDateTime } from '@/lib/companyDateTime';
 const props=withDefaults(defineProps<{domain:PortalDomain;admin?:boolean;activeEmployee?:boolean;selfId?:string}>(),{admin:false,activeEmployee:false,selfId:''});
 const company=useCompanyStore(), definition=portalDefinition(props.domain,props.admin), api=portalFinalRepository(props.domain,props.admin);
 const canRead=computed(()=>company.hasModule('payroll')&&company.hasPermission(definition.permission));
@@ -53,11 +54,12 @@ function start(a:PortalAction,event:Event){
   if(!allowed(a)||pending.value||context.busy.mutation)return;
   trigger.value=event.currentTarget as HTMLElement;action.value=a;localError.value='';notice.value='';context.invalidate('mutation');
   form.value={};chosenFile.value=null;formEpoch.value++;
-  for(const field of a.fields){const value=a.command==='edit'?row.value?.[field.key as keyof PortalRecord]:undefined;form.value[field.key]=field.type==='money'&&typeof value==='number'?minorToDecimal(value):value===null||value===undefined?'':String(value);}
+  for(const field of a.fields){const value=a.command==='edit'?row.value?.[field.key as keyof PortalRecord]:undefined;form.value[field.key]=field.type==='money'&&typeof value==='number'?minorToDecimal(value):field.type==='datetime-local'&&typeof value==='string'?isoToCompanyDateTime(value,company.activeCompany?.timezone??'UTC'):value===null||value===undefined?'':String(value);}
   if(props.domain==='expenses'&&!props.admin){metadata.value=[];void context.run('metadata',(id,signal)=>portalFinalRepository('categories').list(id,{},signal),v=>{metadata.value=v.data;});}
   void nextTick(()=>formHeading.value?.focus());
 }
 function choices(field:FormField){
+  if(field.key==='is_active')return [{value:'true',label:'Active'},{value:'false',label:'Inactive'}];
   if(field.options)return field.options.map(value=>({value,label:value}));
   if(field.key==='category_id')return metadata.value.map(item=>({value:item.id,label:item.name??'Unnamed category'}));
   if(props.domain==='teams')return (detail.value?.data??[]).map(item=>({value:item.id,label:item.full_name??item.id}));
@@ -72,7 +74,7 @@ function buildAttempt():Attempt {
     if(field.type==='file'){if(!chosenFile.value)throw new Error('Choose a file.');continue;}
     if(field.key==='child_id')continue;
     if(!field.optional&&!value.trim())throw new Error(`${field.label} is required.`);
-    body[field.key]=field.type==='money'?decimalToMinor(value):field.type==='integer'?Number(value):field.key==='is_active'?value==='true':value||null;
+    body[field.key]=field.type==='money'?decimalToMinor(value):field.type==='integer'?Number(value):field.type==='datetime-local'&&value?companyDateTimeToIso(value,company.activeCompany?.timezone??'UTC'):field.key==='is_active'?value==='true':value||null;
     if(field.type==='integer'&&(!Number.isSafeInteger(body[field.key])||Number(body[field.key])<1||Number(body[field.key])>1000))throw new Error('Required coverage must be an integer from 1 to 1000.');
   }
   if(a.versioned)body.version=row.value?.version;
@@ -105,6 +107,14 @@ function download(){const item=row.value;if(!item||!canRead.value)return;const f
 const fileName=computed(()=>row.value?.original_filename??row.value?.attachment?.original_filename??row.value?.receipt?.original_filename);
 function text(item:PortalRecord,key:keyof PortalRecord){const value=item[key];if(key==='amount_minor'&&typeof value==='number')return minorToDecimal(value);if(typeof value==='boolean')return value?'Yes':'No';return typeof value==='string'||typeof value==='number'?String(value):'—';}
 const title=(item:PortalRecord)=>item.title??item.name??item.full_name??item.original_filename??item.item_description??item.shift_name??'Request';
+const confirmationMessage=computed(()=>{
+  const label=action.value?.label??'This action';
+  if(props.domain==='swaps'&&action.value?.command==='accept')return 'Accept this requested swap as the target employee? A separate administrator decision is still required before assignments change.';
+  if(props.domain==='assets'&&action.value?.command==='approve')return 'Approve this equipment request? Approval records a decision; it does not issue inventory or transfer custody.';
+  if(action.value?.command==='publish')return `Publish this ${definition.title.toLowerCase()} to the selected company?`;
+  if(action.value?.command==='release')return 'Release this issued document to the employee? The employee will then be able to view it.';
+  return `${label} in ${definition.title.toLowerCase()} for the selected company? The change is final only after the server confirms it.`;
+});
 load();
 </script>
 <template>
@@ -120,6 +130,8 @@ load();
         <ZButton type="submit" :disabled="!!pending||context.busy.mutation">Load records</ZButton>
       </form>
       <p v-if="domain==='swaps'&&!admin" class="text-sm"><RouterLink class="underline" to="/employee/schedule">Find your assignment reference in Published schedule</RouterLink>. A colleague must share their target assignment reference explicitly; their private schedule is not searched.</p>
+      <p v-if="domain==='swaps'" class="text-sm">Employees request a swap, the target employee accepts, and an administrator then approves or rejects it. Assignments change only after approval.</p>
+      <p v-if="domain==='assets'" class="text-sm">Employees request equipment here. An administrator records approval or rejection; approval does not issue inventory or transfer custody.</p>
       <p v-if="!list && !context.busy.list && !context.errors.list && (domain==='schedule'||(admin&&domain==='documents'))" class="text-sm">Choose the filters above and load records.</p>
       <p v-if="notice" role="status" class="panel p-3">{{ notice }}</p>
       <p v-for="(error,channel) in context.errors" v-show="error" :key="channel" role="alert" class="break-words text-sm text-danger">{{ error?.message }}<span v-if="error?.errorCode==='EMPLOYEE_IDENTITY_NOT_LINKED'"> No employee profile is linked to this membership.</span></p>
@@ -131,8 +143,9 @@ load();
               <textarea v-if="field.type==='textarea'" :id="`${domain}-${field.key}`" v-model="form[field.key]" class="field mt-1 h-auto" rows="4" :required="!field.optional" />
               <select v-else-if="field.type==='select'" :id="`${domain}-${field.key}`" v-model="form[field.key]" class="field mt-1" :required="!field.optional"><option value="">{{ field.optional?'None':'Select an option' }}</option><option v-for="option in choices(field)" :key="option.value" :value="option.value">{{ option.label }}</option></select>
               <input v-else-if="field.type==='file'" :id="`${domain}-${field.key}`" type="file" class="field mt-1 min-w-0" required @change="chosenFile=($event.target as HTMLInputElement).files?.[0]??null" />
-              <input v-else :id="`${domain}-${field.key}`" v-model="form[field.key]" :type="field.type==='date'||field.type==='time'?field.type:'text'" :inputmode="field.type==='money'?'decimal':field.type==='integer'?'numeric':undefined" class="field mt-1" :required="!field.optional" />
+              <input v-else :id="`${domain}-${field.key}`" v-model="form[field.key]" :type="field.type==='date'||field.type==='time'||field.type==='datetime-local'?field.type:'text'" :inputmode="field.type==='money'?'decimal':field.type==='integer'?'numeric':undefined" class="field mt-1" :required="!field.optional" />
               <p v-if="context.errors.mutation?.fields[field.key]" class="text-sm text-danger">{{ context.errors.mutation.fields[field.key] }}</p>
+              <p v-if="field.type==='datetime-local'" class="text-xs text-content-muted">Time in {{ company.activeCompany?.timezone??'UTC' }}. The server receives the matching ISO timestamp with offset.</p>
             </div>
           </fieldset>
           <p v-if="action.fields.some(f=>f.type==='file')" class="text-xs">Private upload. The server validates configured file types and size limits.</p>
@@ -160,7 +173,7 @@ load();
         <div v-if="row.events?.length" class="space-y-2"><h3 class="font-semibold">Recorded history</h3><p v-for="event in row.events" :key="event.id" class="break-words text-sm">{{ event.type }} · {{ event.occurred_at }} · {{ event.reason }}</p></div>
         <div class="flex flex-wrap gap-2"><ZButton v-for="a in actions" :key="a.command" variant="outline" :disabled="!!pending||context.busy.mutation" @click="start(a,$event)">{{ a.label }}</ZButton></div>
       </Panel>
-      <ConfirmDialog :open="confirming" :title="action?.label??'Confirm operation'" message="Send this operation to the server? The server validates permission, version and lifecycle. No change is final until confirmed." confirm-label="Confirm operation" :busy="context.busy.mutation" @confirm="submit" @cancel="cancelConfirmation" />
+      <ConfirmDialog :open="confirming" :title="action?.label??'Confirm operation'" :message="confirmationMessage" confirm-label="Confirm operation" :busy="context.busy.mutation" @confirm="submit" @cancel="cancelConfirmation" />
     </template>
   </section>
 </template>

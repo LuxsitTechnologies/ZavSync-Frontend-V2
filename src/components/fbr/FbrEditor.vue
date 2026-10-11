@@ -88,7 +88,7 @@ const amountFields = [
         <ZButton variant="outline" :disabled="form.lines.length >= 500" @click="form.lines.push(blankLine())">Add line</ZButton>
         <Field v-model="form.notes" label="Notes" aria-label="Notes" maxlength="5000" />
       </fieldset>
-      <p class="text-sm text-content-secondary">Save the draft to review backend-calculated values and totals. Submission is a separate confirmed action.</p>
+      <p class="text-sm text-content-secondary">Save this draft first. Its detail page shows server-calculated totals and, when the company, invoice and your permission are eligible, a separate Submit to FBR action. Saving alone does not submit it.</p>
       <div class="flex flex-wrap gap-3"><ZButton type="submit" :disabled="saving">{{ saving ? 'Saving…' : locked ? 'Retry same save' : 'Save draft and review' }}</ZButton><RouterLink to="/fbr-invoicing" class="self-center text-sm text-content-brand">Back to register</RouterLink></div>
     </form>
   </AsyncSection>

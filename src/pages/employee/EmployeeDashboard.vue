@@ -42,9 +42,9 @@ watch(() => [company.switching, company.activeCompanyId, company.contextVersion,
 
     <p v-if="company.switching" role="status" class="panel p-5">Switching company…</p>
     <p v-else-if="!company.activeCompanyId" class="panel p-5" role="status">No active company is selected.</p>
-    <p v-else-if="!portal.canViewEmployee" class="panel p-5" role="status">Employee self-service is unavailable in this company. Your account has not been granted employee.self.view.</p>
+    <p v-else-if="!portal.canViewEmployee" class="panel p-5" role="status">Employee self-service is unavailable in the selected company. Ask its administrator to check your active membership, employee access and payroll entitlement.</p>
     <p v-else-if="portal.employeeLoading" class="panel p-5" role="status">Loading your employee profile…</p>
-    <p v-else-if="portal.employee && !portal.employee.linked" class="panel p-5" role="status">No employee profile linked. Please contact your company administrator. We will not search for or infer an employee record.</p>
+    <p v-else-if="portal.employee && !portal.employee.linked" class="panel p-5" role="status">No employee profile linked. Ask a company administrator to open Users & Invitations and link your membership to the correct employee in this company. Your account and company selection stay the same.</p>
     <template v-else-if="identity">
       <Panel title="Your employee identity" description="Read-only information from your active company" body-class="p-5">
         <div class="flex flex-wrap items-start justify-between gap-4">

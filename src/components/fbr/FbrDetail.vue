@@ -65,6 +65,8 @@ function confirm() { if (!saving.value && current() && (action.value === "retry"
           </dl>
           <p v-if="invoice.notes" class="whitespace-pre-wrap text-sm">{{ invoice.notes }}</p>
           <p v-if="!invoice.capabilities.provider_submission_enabled" class="text-sm text-warning">Provider submission is unavailable pending certification and enablement.</p>
+          <p v-else-if="invoice.submission_blocked" class="text-sm text-warning">This invoice is blocked from submission. Review its authoritative state before proceeding.</p>
+          <p v-else-if="invoice.is_historical" class="text-sm text-content-muted">Historical invoices cannot be submitted again.</p>
           <p v-if="!company.hasPermission('pakistan_fbr.submit')" class="text-sm text-content-muted">You do not have permission to submit or retry.</p>
           <p v-if="invoice.fbr_status === 'pending'" class="text-sm text-content-secondary">Submission is pending. Refresh for the current state. Recovery during an active server lease may remain pending without sending again.</p>
           <p v-if="uncertain" class="text-sm text-warning">The submission outcome could not be confirmed. Refresh status and use server recovery when available. Do not assume acceptance.</p>
@@ -117,6 +119,6 @@ function confirm() { if (!saving.value && current() && (action.value === "retry"
         <Panel title="Unavailable capabilities" body-class="p-4 text-sm text-content-muted">Regulatory printing, QR codes, buyer registration lookup and certified regulatory catalogs are unavailable. This review is not an FBR-certified printout. Real provider certification has not been executed.</Panel>
       </template>
     </AsyncSection>
-    <ConfirmDialog :open="action !== null" :title="action === 'retry' ? 'Recover FBR submission?' : 'Submit this FBR invoice?'" :message="action === 'retry' ? 'The server will recover the unresolved attempt using its original identity. An active lease may keep the status pending.' : 'Submit the saved backend-authoritative invoice. Submitted or uncertain records cannot be edited.'" :confirm-label="action === 'retry' ? 'Confirm retry' : 'Confirm submission'" :busy="saving" @cancel="action = null" @confirm="confirm" />
+    <ConfirmDialog :open="action !== null" :title="action === 'retry' ? 'Recover FBR submission?' : 'Submit this FBR invoice?'" :message="action === 'retry' ? 'Use the certified recovery workflow for the original submission attempt. The server will reuse its original identity; an active lease may keep the status pending without sending again.' : 'Transmit this saved draft to the configured FBR environment. This is separate from saving a draft and may create an external submission. If the outcome is uncertain, refresh status and use the certified retry workflow; do not submit a new draft.'" :confirm-label="action === 'retry' ? 'Confirm retry' : 'Confirm submission'" :busy="saving" @cancel="action = null" @confirm="confirm" />
   </div>
 </template>

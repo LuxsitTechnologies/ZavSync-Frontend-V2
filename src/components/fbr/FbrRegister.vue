@@ -18,6 +18,7 @@ const columns = [{ key: "number", header: "Invoice" }, { key: "buyer", header: "
 <template>
   <Panel title="Invoice register">
     <template #actions><RouterLink v-if="company.hasPermission('pakistan_fbr.manage')" to="/fbr-invoicing/new" class="text-sm text-content-brand">Create draft</RouterLink></template>
+    <p class="px-4 pt-4 text-sm text-content-secondary">Pakistan FBR invoice drafts, submission states and historical FBR records appear here. Native Accounting invoices have a separate register and separate FBR status page.</p>
     <div class="flex flex-wrap items-end gap-3 p-4">
       <label><span class="label-caps">Records</span><select v-model="historical" class="field mt-1"><option value="">All invoices</option><option value="0">New V2 invoices</option><option value="1">Historical V1 invoices</option></select></label>
       <label><span class="label-caps">Per page</span><select v-model.number="perPage" class="field mt-1"><option :value="10">10</option><option :value="25">25</option><option :value="50">50</option><option :value="100">100</option></select></label>

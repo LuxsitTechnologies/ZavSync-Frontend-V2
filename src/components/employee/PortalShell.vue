@@ -41,7 +41,7 @@ function closeNavigation(): void {
     <div class="flex min-w-0 flex-1 flex-col overflow-x-hidden">
       <PortalTopbar ref="topbar" @open-nav="openNavigation" />
       <main class="mx-auto w-full min-w-0 max-w-content flex-1 animate-fade-in p-4 lg:p-6">
-        <p v-if="portal.employeeError" class="mb-4 rounded-md border border-danger/30 bg-danger/5 p-3 text-sm text-danger" role="alert">{{ portal.employeeError.message }} <button type="button" class="underline" @click="portal.loadEmployee">Retry</button></p>
+        <p v-if="portal.employeeError" class="mb-4 rounded-md border border-danger/30 bg-danger/5 p-3 text-sm text-danger" role="alert">{{ portal.employeeError.message }} <span v-if="portal.employeeError.kind==='permission'">Ask a company administrator to check your membership and employee access in the selected company.</span> <button type="button" class="underline" @click="portal.loadEmployee">Retry</button></p>
         <slot />
       </main>
     </div>

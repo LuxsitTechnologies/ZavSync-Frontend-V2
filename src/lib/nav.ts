@@ -108,7 +108,7 @@ export const navigation: NavGroup[] = [
         label: "FBR Invoicing",
         icon: ReceiptText, module: "invoicing",
         children: [
-          { label: "Invoice register", to: "/fbr-invoicing", icon: FileText },
+          { label: "Pakistan FBR invoice register", to: "/fbr-invoicing", icon: FileText },
           { label: "FBR configuration", to: "/fbr-invoicing/configuration", icon: Settings2 },
           { label: "Migration administration", to: "/fbr-invoicing/migrations", icon: History },
         ],
@@ -119,7 +119,7 @@ export const navigation: NavGroup[] = [
         children: [
           { label: "Invoices", to: "/accounting/invoices", icon: FileText, module:"invoicing" },
           { label: "Customers", to: "/accounting/customers", icon: Building2, module:"receivables" },
-          { label: "FBR Invoices", to: "/accounting/fbr", icon: Landmark, module:"invoicing" },
+          { label: "Accounting invoice FBR status", to: "/accounting/fbr", icon: Landmark, module:"invoicing" },
           { label: "Chart of Accounts", to: "/accounting/chart-of-accounts", icon: BookOpen, module:"accounting" },
           { label: "General Ledger", to: "/accounting/general-ledger", icon: ScrollText, module:"accounting" },
           { label: "Journals", to: "/accounting/journals", icon: NotebookPen, module:"accounting" },

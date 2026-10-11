@@ -38,6 +38,7 @@ function save() { if (!mutation.saving.value && current()) void mutation.run(); 
   <AsyncSection :loading="loading" :error="error" @retry="refresh">
     <form class="space-y-4" @submit.prevent="confirmOpen = true">
       <Panel title="FBR configuration" body-class="space-y-4 p-4">
+        <p class="text-sm text-content-secondary">Set the selected company's seller details, FBR environment and company FBR token here. Drafts are created in the Pakistan FBR invoice register; eligible saved drafts are submitted from their detail page. Saving these settings does not verify the provider or enable submission.</p>
         <p class="text-sm">Connection: {{ data?.connection_state ?? 'Not configured' }} · Credential: {{ data?.credential_configured ? 'Configured' : 'Not configured' }}</p>
         <p v-if="data?.last_error" class="text-sm text-warning">{{ data.last_error }}</p>
         <p class="text-xs text-content-muted">Last verified: {{ data?.last_verified_at ?? 'Never' }}. Saving configuration does not verify the provider connection.</p>
@@ -49,7 +50,7 @@ function save() { if (!mutation.saving.value && current()) void mutation.run(); 
           <FbrReferenceInput v-model="form.seller_province" label="Seller province" category="PROVINCE" :references="refs.data.value ?? []" required />
           <Field v-model="form.seller_address" label="Seller address" aria-label="Seller address" required maxlength="2000" />
           <label><span class="label-caps">Environment</span><select v-model="form.environment" class="field mt-1.5"><option>SANDBOX</option><option>PRODUCTION</option></select></label>
-          <Field v-model="credential" label="Replacement credential" aria-label="Replacement credential" type="password" autocomplete="new-password" minlength="8" maxlength="4000" hint="Leave blank to retain the credential in the same environment. Changing environment without a replacement clears it." />
+          <Field v-model="credential" label="Company FBR token (replacement)" aria-label="Company FBR token (replacement)" type="password" autocomplete="new-password" minlength="8" maxlength="4000" hint="Leave blank to retain the token in the same environment. Changing environment without a replacement clears it. The saved token is never shown again." />
         </fieldset>
         <p class="text-xs text-content-muted">Province must match an active server reference code. Catalog content is not certified regulatory data.</p>
         <FbrError :error="refs.error.value" />

@@ -19,17 +19,25 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const email = ref("");
 const password = ref("");
+const remember = ref(true);
 const companyStore = useCompanyStore();
 
 async function onSubmit() {
   loading.value = true;
   error.value = null;
   try {
-    companyStore.hydrate(await authRepository.login(email.value, password.value));
+    companyStore.hydrate(await authRepository.login(email.value, password.value, remember.value));
+    password.value = "";
     const redirect = typeof route.query.redirect === "string" && route.query.redirect.startsWith("/") && !route.query.redirect.startsWith("//") ? route.query.redirect : "/";
     await router.push(redirect);
   } catch (reason) {
-    error.value = reason instanceof ApiError ? reason.message : "Could not sign in.";
+    error.value = reason instanceof ApiError
+      ? reason.status === 401 ? "Sign-in was not accepted. Check your work email and password, then try again."
+        : reason.status === 403 ? `${reason.message} Ask your company administrator to check your membership and access.`
+        : reason.status === 419 ? "Your sign-in session expired. Reload this page and try again."
+        : reason.status === 422 && reason.fields.email ? reason.fields.email
+        : reason.message
+      : "Could not sign in.";
   } finally {
     loading.value = false;
   }
@@ -49,7 +57,7 @@ async function onSubmit() {
       <Field v-model="password" label="Password" type="password" required />
       <div class="flex items-center justify-between text-sm">
         <label class="flex items-center gap-2 text-content-secondary">
-          <input type="checkbox" class="size-3.5 accent-[var(--primary)]" checked />
+          <input v-model="remember" type="checkbox" class="size-3.5 accent-[var(--primary)]" />
           Keep me signed in
         </label>
         <RouterLink to="/forgot-password" class="text-content-brand hover:underline">
@@ -60,6 +68,7 @@ async function onSubmit() {
         {{ loading ? "Signing in…" : "Sign in" }}
       </ZButton>
       <ValidationMessage :message="error" />
+      <p class="text-xs text-content-muted">Company and Employee Portal use the same account. Access to an employee profile also requires a company membership and an explicit employee link.</p>
     </form>
 
     <template #footer>

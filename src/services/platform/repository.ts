@@ -1,10 +1,11 @@
 import { apiDownload,apiRequest } from "@/services/api/client";
-import type { AuditRecord,CompanyExport,CompanyInvitation,CompanyMembership,CompanySettings,FailedJob,NotificationInbox,NotificationPreference,Paginated,PlatformDocument,PlatformNotification,PlatformRole,SecurityPayload,SubscriptionPayload } from "@/types/platform";
+import type { AuditRecord,CompanyExport,CompanyInvitation,CompanyMembership,CompanySettings,FailedJob,InvitationAssignableRole,NotificationInbox,NotificationPreference,Paginated,PlatformDocument,PlatformNotification,PlatformRole,SecurityPayload,SubscriptionPayload } from "@/types/platform";
 
 export const platformRepository={
  acceptInvitation:(token:string,input:{name?:string;password?:string})=>apiRequest<{already_accepted:boolean}>("/invitations/accept",{method:"POST",body:{...input,token}}),
  users:(companyId:string,search="")=>apiRequest<Paginated<CompanyMembership>>("/platform/users",{companyId,query:{search}}),
  invitations:(companyId:string)=>apiRequest<Paginated<CompanyInvitation>>("/platform/invitations",{companyId}),
+ assignableInvitationRoles:(companyId:string)=>apiRequest<{roles:InvitationAssignableRole[]}>("/platform/invitations/assignable-roles",{companyId}),
  invite:(companyId:string,email:string,role_ids:number[])=>apiRequest<{invitation:CompanyInvitation}>("/platform/invitations",{method:"POST",companyId,body:{email,role_ids}}),
  resendInvitation:(companyId:string,id:string)=>apiRequest<{invitation:CompanyInvitation}>(`/platform/invitations/${id}/resend`,{method:"POST",companyId,body:{}}),
  revokeInvitation:(companyId:string,id:string)=>apiRequest<CompanyInvitation>(`/platform/invitations/${id}/revoke`,{method:"POST",companyId,body:{}}),
