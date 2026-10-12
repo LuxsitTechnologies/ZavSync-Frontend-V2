@@ -7,7 +7,7 @@ export interface PortalRecord {
   priority?: string; expires_at?: string | null; attachment?: PortalFile | null; receipt?: PortalFile | null;
   relationship?: string; phone?: string; full_name?: string; department?: string | null; designation?: string | null; location?: string | null;
   lead?: Colleague | null; member_count?: number; manager?: Colleague | null; direct_report_count?: number;
-  start_time?: string; end_time?: string; start_date?: string; end_date?: string; timezone?: string; is_active?: boolean;
+  start_time?: string; end_time?: string; ends_next_day?: boolean; start_date?: string; end_date?: string; timezone?: string; is_active?: boolean;
   shift_date?: string; shift_name?: string; slot_id?: string; shift_id?: string; rota_id?: string;
   required_coverage?: number; assigned_count?: number; coverage_gap?: number; assignments?: PortalRecord[];
   requester_employee_id?: string; target_employee_id?: string; from_assignment_id?: string; to_assignment_id?: string;

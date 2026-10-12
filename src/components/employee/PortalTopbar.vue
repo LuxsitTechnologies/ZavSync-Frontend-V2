@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { Bell, ChevronRight, Menu, Moon, Sun } from "lucide-vue-next";
 
 import { initials } from "@/lib/format";
+import { moduleForPath, permissionForPath } from "@/lib/nav";
 import { useCompanyStore } from "@/stores/company";
 import { useEmployeePortalStore } from "@/stores/employeePortal";
 
@@ -11,6 +12,7 @@ defineEmits<{ openNav: [] }>();
 const company = useCompanyStore();
 const portal = useEmployeePortalStore();
 const route = useRoute();
+const router = useRouter();
 const menuButton = ref<HTMLButtonElement | null>(null);
 const dark = ref(document.documentElement.classList.contains("dark"));
 const name = computed(() => portal.employee?.employee?.full_name ?? company.currentUser.name);
@@ -27,7 +29,13 @@ function toggleTheme(): void {
 }
 async function switchCompany(id: string): Promise<void> {
   switchError.value = "";
-  try { await company.setCompany(id); }
+  try {
+    await company.setCompany(id);
+    const module = moduleForPath(route.path), permission = permissionForPath(route.path);
+    if ((module && !company.hasModule(module)) || (permission && !company.hasPermission(permission))) {
+      await router.push(company.hasPermission('employee.self.view') && company.hasModule('payroll') ? '/employee' : '/');
+    }
+  }
   catch { switchError.value = "Company switch failed. Your previous company remains active."; }
 }
 </script>

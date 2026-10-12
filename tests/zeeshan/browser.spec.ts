@@ -6,6 +6,7 @@ const settings = { company_id: "A", legal_name: "Company A", trading_name: null,
 
 async function setup(page: Page, grants = permissions) {
   const writes: Array<{ path: string; company: string; body: Record<string, unknown> }> = [];
+  const reads: Array<{ path: string; company: string }> = [];
   const roleReads: Array<{ path: string; company: string }> = [];
   let roleFailure = false;
   let roleEmpty = false;
@@ -20,6 +21,7 @@ async function setup(page: Page, grants = permissions) {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
     const active = request.headers()["x-company-id"] ?? "A";
     const body = request.postData() ? request.postDataJSON() as Record<string, unknown> : {};
+    if (method === "GET" && ["/api/v1/platform/users", "/api/v1/platform/invitations"].includes(path)) reads.push({ path, company: active });
     const respond = (json: unknown, status = 200) => route.fulfill({ json, status });
     if (path.endsWith("/auth/me")) return respond({ user: { id: 1, name: "QA User", email: "qa@example.invalid", is_platform_admin: false }, companies: [company("A", grants), company("B", grants)] });
     if (path.endsWith("/auth/switch-company")) return respond({ company: company(String(body.company_id), grants) });
@@ -58,7 +60,7 @@ async function setup(page: Page, grants = permissions) {
     }
     return respond({ message: "Unexpected API request" }, 500);
   });
-  return { writes, roleReads, setRoleFailure: (value: boolean) => { roleFailure = value; }, setRoleEmpty: (value: boolean) => { roleEmpty = value; }, setFormatFailure: (value: boolean) => { formatFailure = value; } };
+  return { writes, reads, roleReads, setRoleFailure: (value: boolean) => { roleFailure = value; }, setRoleEmpty: (value: boolean) => { roleEmpty = value; }, setFormatFailure: (value: boolean) => { formatFailure = value; } };
 }
 
 test("shared sign-in maps safe errors and sends the selected remember value", async ({ page }) => {
@@ -232,4 +234,141 @@ test("late invitation roles from the old company cannot replace the selected com
   await expect(role.getByRole("option", { name: "Company B viewer" })).toHaveCount(1);
   await expect(role.getByRole("option", { name: "Old company role" })).toHaveCount(0);
   await expect(role).toHaveValue("");
+});
+
+test("company switch leaves a route when the new membership lacks its permission", async ({ page }) => {
+  const { reads } = await setup(page);
+  await page.route(url => url.pathname === "/api/v1/auth/me", route => route.fulfill({ json: {
+    user: { id: 1, name: "QA User", email: "qa@example.invalid", is_platform_admin: false },
+    companies: [company("A"), company("B", ["platform.settings.view"])],
+  } }));
+  await page.route(url => url.pathname === "/api/v1/auth/switch-company", route => route.fulfill({ json: {
+    company: company("B", ["platform.settings.view"]),
+  } }));
+  await page.route(url => url.pathname === "/api/v1/platform/users", route => route.request().headers()["x-company-id"] === "A"
+    ? route.fulfill({ json: { data: [{ id: 99, company_id: "A", user: { id: 99, name: "Private Company A member", email: "private-a@example.invalid" }, role: null, roles: [], is_active: true, suspended_at: null }], current_page: 1, last_page: 1, total: 1 } })
+    : route.fallback());
+  await page.goto("/users");
+  await expect(page.getByRole("heading", { name: "Users & Invitations" })).toBeVisible();
+  await expect(page.getByText("Private Company A member")).toBeVisible();
+  await page.getByLabel("Active company").selectOption("B");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByLabel("Active company")).toHaveValue("B");
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Users & Invitations" })).toHaveCount(0);
+  await expect(page.getByText("Private Company A member")).toHaveCount(0);
+  expect(reads.filter(read => read.company === "B")).toHaveLength(0);
+  await page.goto("/users");
+  await expect(page).toHaveURL(/\/$/);
+  expect(reads.filter(read => read.company === "B")).toHaveLength(0);
+});
+
+async function beneficiaryFixture(page: Page, grants = ["payroll.view", "payroll.configure"]) {
+  await setup(page);
+  const accounts = new Map<string, { id: string; employee_id: string; account_holder_name: string; bank_name: string; branch_name: string; masked_account_number: string; swift_configured: boolean; version: number }>();
+  const writes: Array<{ method: string; company: string; body: Record<string, unknown> }> = [];
+  const reads: string[] = [];
+  const membership = (id: string) => company(id, grants);
+  await page.route(url => url.pathname === "/api/v1/auth/me", route => route.fulfill({ json: {
+    user: { id: 1, name: "Payroll administrator", email: "admin@example.invalid", is_platform_admin: false },
+    companies: [membership("A"), membership("B")],
+  } }));
+  await page.route(url => url.pathname === "/api/v1/auth/switch-company", route => route.fulfill({ json: {
+    company: membership(String(route.request().postDataJSON().company_id)),
+  } }));
+  await page.route(url => /\/api\/v1\/payroll\/employees\/[^/]+\/beneficiary-account(?:\/[^/]+)?$/.test(url.pathname), route => {
+    const request = route.request(), method = request.method(), companyId = request.headers()["x-company-id"] ?? "";
+    const employeeId = new URL(request.url()).pathname.split("/")[5] ?? "";
+    const key = `${companyId}:${employeeId}`;
+    const current = accounts.get(key);
+    if (!grants.includes("payroll.configure")) return route.fulfill({ status: 403, json: { message: "Payroll configuration is unavailable" } });
+    if (method === "GET") { reads.push(key); return route.fulfill(current ? { json: current } : { status: 404, json: { message: "No beneficiary account" } }); }
+    const body = request.postDataJSON() as Record<string, unknown>;
+    writes.push({ method, company: companyId, body });
+    if ((method === "PUT" || method === "DELETE") && (!current || body.version !== current.version)) return route.fulfill({ status: 409, json: { message: "The beneficiary account changed; refresh before editing.", error_code: "BENEFICIARY_ACCOUNT_VERSION_STALE" } });
+    if (method === "DELETE") { accounts.delete(key); return route.fulfill({ json: { status: "REMOVED" } }); }
+    if (method === "POST" && current) return route.fulfill({ status: 409, json: { message: "Account exists", error_code: "BENEFICIARY_ACCOUNT_EXISTS" } });
+    const last = String(body.account_number).replace(/[^A-Za-z0-9]/g, "").slice(-4);
+    const saved = { id: current?.id ?? "beneficiary-1", employee_id: employeeId, account_holder_name: String(body.account_holder_name), bank_name: String(body.bank_name), branch_name: String(body.branch_name), masked_account_number: `••••${last}`, swift_configured: !!body.swift_code, version: (current?.version ?? 0) + 1 };
+    accounts.set(key, saved);
+    return route.fulfill({ status: method === "POST" ? 201 : 200, json: saved });
+  });
+  return { accounts, writes, reads };
+}
+
+test("payroll administrator creates, replaces and removes masked beneficiary details", async ({ page }) => {
+  const { writes, reads } = await beneficiaryFixture(page);
+  await page.goto("/hrm/employees");
+  await page.getByRole("button", { name: "Beneficiary banking" }).first().click();
+  const panel = page.getByRole("dialog", { name: "Beneficiary banking" });
+  await expect(panel.getByText("No beneficiary account is saved")).toBeVisible();
+  const readsBeforeCreate = reads.length;
+  await panel.getByLabel("Account holder").fill("Payroll Employee");
+  await panel.getByLabel("Account number").fill("PK00-TEST-1234");
+  await panel.getByLabel("Bank name").fill("Example Bank");
+  await panel.getByLabel("Branch").fill("Main Branch");
+  await panel.getByLabel("SWIFT (optional)").fill("EXAMPKKA");
+  await panel.getByRole("button", { name: "Add account" }).click();
+  await expect(panel.getByText("Account ••••1234")).toBeVisible();
+  expect(reads).toHaveLength(readsBeforeCreate);
+  await expect(panel.getByText("SWIFT configured")).toBeVisible();
+  await expect(page.getByText("PK00-TEST-1234")).toHaveCount(0);
+  await panel.getByRole("button", { name: "Edit bank details" }).click();
+  await expect(panel.getByLabel("Account number")).toHaveValue("");
+  await panel.getByLabel("Account number").fill("PK99-NEW-5678");
+  await panel.getByRole("button", { name: "Save replacement" }).click();
+  await expect(panel.getByText("Account ••••5678")).toBeVisible();
+  await panel.getByRole("button", { name: "Remove bank details" }).click();
+  await expect(page.getByRole("alertdialog", { name: "Remove beneficiary account" })).toBeVisible();
+  await page.getByRole("button", { name: "Remove account" }).click();
+  await expect(panel.getByText("No beneficiary account is saved")).toBeVisible();
+  expect(writes.map(write => [write.method, write.company])).toEqual([["POST", "A"], ["PUT", "A"], ["DELETE", "A"]]);
+  expect(writes[1]?.body).toMatchObject({ account_number: "PK99-NEW-5678", version: 1 });
+  expect(writes[2]?.body).toEqual({ version: 2 });
+});
+
+test("beneficiary banking denies ordinary users and clears on company switch", async ({ page }) => {
+  await beneficiaryFixture(page, ["payroll.view"]);
+  await page.goto("/hrm/employees");
+  await expect(page.getByRole("button", { name: "Beneficiary banking" })).toHaveCount(0);
+  await page.getByLabel("Active company").selectOption("B");
+  await expect(page.getByText("Company B Employee")).toBeVisible();
+  await expect(page.getByText("Employee One")).toHaveCount(0);
+});
+
+test("beneficiary form and masked account stay within the selected company", async ({ page }) => {
+  const { accounts } = await beneficiaryFixture(page);
+  const employeeId = "11111111-1111-4111-8111-111111111111";
+  accounts.set(`A:${employeeId}`, { id: "beneficiary-A", employee_id: employeeId, account_holder_name: "Company A holder", bank_name: "Bank A", branch_name: "A branch", masked_account_number: "••••1234", swift_configured: false, version: 1 });
+  await page.goto("/hrm/employees");
+  await page.getByRole("button", { name: "Beneficiary banking" }).first().click();
+  const panel = page.getByRole("dialog", { name: "Beneficiary banking" });
+  await expect(panel.getByText("Account ••••1234")).toBeVisible();
+  await panel.getByRole("button", { name: "Edit bank details" }).click();
+  await panel.getByLabel("Account number").fill("UNSAVED-TEST-9999");
+  await panel.getByRole("button", { name: "Close panel" }).last().click();
+  await page.getByLabel("Active company").selectOption("B");
+  await expect(page.getByText("Company B Employee")).toBeVisible();
+  await page.getByRole("button", { name: "Beneficiary banking" }).click();
+  await expect(page.getByRole("dialog", { name: "Beneficiary banking" }).getByText("No beneficiary account is saved")).toBeVisible();
+  await expect(page.getByText("Company A holder")).toHaveCount(0);
+  await expect(page.getByText("UNSAVED-TEST-9999")).toHaveCount(0);
+});
+
+test("beneficiary version conflict reloads authoritative masked state without replay", async ({ page }) => {
+  const { accounts, writes } = await beneficiaryFixture(page);
+  const employeeId = "11111111-1111-4111-8111-111111111111";
+  accounts.set(`A:${employeeId}`, { id: "beneficiary-1", employee_id: employeeId, account_holder_name: "Original", bank_name: "Example Bank", branch_name: "Main", masked_account_number: "••••1234", swift_configured: false, version: 1 });
+  await page.goto("/hrm/employees");
+  await page.getByRole("button", { name: "Beneficiary banking" }).first().click();
+  const panel = page.getByRole("dialog", { name: "Beneficiary banking" });
+  await expect(panel.getByText("Account ••••1234")).toBeVisible();
+  await panel.getByRole("button", { name: "Edit bank details" }).click();
+  await panel.getByLabel("Account number").fill("PK99-NEW-5678");
+  accounts.set(`A:${employeeId}`, { id: "beneficiary-1", employee_id: employeeId, account_holder_name: "Changed elsewhere", bank_name: "Other Bank", branch_name: "Other", masked_account_number: "••••9999", swift_configured: true, version: 2 });
+  await panel.getByRole("button", { name: "Save replacement" }).click();
+  await expect(panel.getByText("Account ••••9999")).toBeVisible();
+  await expect(panel.getByText("Account changed.", { exact: false })).toBeVisible();
+  expect(writes.filter(write => write.method === "PUT")).toHaveLength(1);
+  await expect(page.getByText("PK99-NEW-5678")).toHaveCount(0);
 });

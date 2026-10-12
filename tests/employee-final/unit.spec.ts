@@ -2,8 +2,14 @@ import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { decimalToMinor, minorToDecimal, portalDefinition } from '../../src/lib/portalFinal';
 import { companyDateTimeToIso, isoToCompanyDateTime } from '../../src/lib/companyDateTime';
+import { nextCalendarDate, shiftWindow } from '../../src/lib/shiftDisplay';
 import { permissionForPath,moduleForPath,presentationKeyForRoute,navigationForModules } from '../../src/lib/nav';
 import type { PortalDomain } from '../../src/types/portalFinal';
+test('overnight display advances calendar dates without changing server work attribution',()=>{
+  expect(nextCalendarDate('2030-01-31')).toBe('2030-02-01');
+  expect(shiftWindow({shift_date:'2030-01-31',start_time:'22:00',end_time:'06:00',ends_next_day:true,timezone:'Asia/Karachi'})).toBe('2030-01-31 22:00 → 2030-02-01 06:00 (Asia/Karachi)');
+  expect(shiftWindow({shift_date:'2030-01-31',start_time:'09:00',end_time:'17:00',ends_next_day:false,timezone:'Asia/Karachi'})).toBe('2030-01-31 09:00 → 2030-01-31 17:00 (Asia/Karachi)');
+});
 test('announcement expiry uses the company timezone and rejects nonexistent wall times',()=>{
   expect(portalDefinition('announcements',true).create?.fields.find(field=>field.key==='expires_at')?.type).toBe('datetime-local');
   expect(companyDateTimeToIso('2030-01-01T12:30','Asia/Karachi')).toBe('2030-01-01T12:30:00+05:00');
@@ -27,6 +33,7 @@ test('domain lifecycle and consent actions are restricted to certified states',(
   expect(portalDefinition('swaps',true).actions.every(a=>a.states?.[0]==='PENDING_ADMIN')).toBeTruthy();
   expect(portalDefinition('assets',false).create?.fields.map(f=>f.key)).toEqual(['item_description','reason']);
   expect(portalDefinition('documents',true).actions.map(a=>a.command)).toEqual(['release']);
+  expect(portalDefinition('shifts',true).actions.map(a=>[a.command,a.permission,a.versioned])).toEqual([['edit','schedules.manage',true]]);
   for(const d of ['documents','announcements','contacts','teams','swaps','assets','expenses','categories','shifts','rotas'] as PortalDomain[])for(const admin of [false,true]){const def=portalDefinition(d,admin);if(def.create)expect(def.create.keyed).toBe(true);}
 });
 test('private allowlists exclude payroll banking tax and raw employee resources',()=>{
@@ -47,7 +54,8 @@ test('repository exact paths and payloads use scoped private authority',async()=
     await r('teams',true).mutate('A','remove-member','team',{version:4},undefined,signal,'member');
     await r('rotas',true).mutate('A','assignment','rota',{employee_id:'explicit'},'same-key',signal,'slot');
     await r('expenses').mutate('A','create','',{amount_minor:123},'same-key',signal);
-    expect(calls.map(c=>c.path)).toEqual(['/api/v1/employee/documents','/api/v1/hrm/employee-documents/doc/release','/api/v1/hrm/teams/team/members/member','/api/v1/hrm/rota-slots/slot/assignments','/api/v1/employee/expense-claims']);expect(calls[2]!.method).toBe('DELETE');expect(calls[3]!.headers['Idempotency-Key']).toBe('same-key');expect(calls.every(c=>c.headers['X-Company-Id']==='A')).toBeTruthy();
+    await r('shifts',true).mutate('A','edit','shift-1',{name:'Night',start_time:'22:00',end_time:'06:00',version:3},undefined,signal);
+    expect(calls.map(c=>c.path)).toEqual(['/api/v1/employee/documents','/api/v1/hrm/employee-documents/doc/release','/api/v1/hrm/teams/team/members/member','/api/v1/hrm/rota-slots/slot/assignments','/api/v1/employee/expense-claims','/api/v1/hrm/shifts/shift-1']);expect(calls[2]!.method).toBe('DELETE');expect(calls[3]!.headers['Idempotency-Key']).toBe('same-key');expect(calls[5]).toMatchObject({method:'PUT',body:{name:'Night',start_time:'22:00',end_time:'06:00',version:3}});expect(calls.every(c=>c.headers['X-Company-Id']==='A')).toBeTruthy();
     expect(()=>r('directory',true)).toThrow();expect(()=>r('shifts')).toThrow();
   }finally{globalThis.fetch=oldFetch;if(oldWindow)Object.defineProperty(globalThis,'window',oldWindow);else Reflect.deleteProperty(globalThis,'window');await server.close();}
 });

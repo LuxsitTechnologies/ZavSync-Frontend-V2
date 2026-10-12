@@ -1,10 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 type Kind='tasks'|'tickets';
-type Options={permissions?:string[]; status?:string; former?:string; unlinked?:boolean; hidden?:boolean; modules?:string[]; labels?:boolean};
+type Options={permissions?:string[]; companyBPermissions?:string[]; status?:string; former?:string; unlinked?:boolean; hidden?:boolean; modules?:string[]; labels?:boolean};
 async function setup(page:Page,options:Options={}) {
   const calls:{path:string;method:string;company:string;body:Record<string,unknown>;key?:string}[]=[];
   const permissions=options.permissions??['employee.self.view','employee.tasks.view','employee.tasks.update','employee.tasks.comment','employee.tickets.view','employee.tickets.create','employee.tickets.comment','tasks.view','tasks.manage','tasks.assign','tickets.view','tickets.manage'];
-  const company=(id:string)=>({id,name:`Company ${id}`,modules:options.modules??['payroll'],permissions,roles:[],timezone:'Asia/Karachi',effective_navigation:{visible_keys:options.hidden?[]:['employee.tasks','employee.tickets','hrm.tasks','hrm.tickets'],items:[],catalog:[]}});
+  const company=(id:string)=>({id,name:`Company ${id}`,modules:options.modules??['payroll'],permissions:id==='B'?(options.companyBPermissions??permissions):permissions,roles:[],timezone:'Asia/Karachi',effective_navigation:{visible_keys:options.hidden?[]:['employee.tasks','employee.tickets','hrm.tasks','hrm.tickets'],items:[],catalog:[]}});
   const records=new Map<string,Record<string,unknown>[]>();
   for(const id of ['A','B'])for(const kind of ['tasks','tickets'])records.set(`${id}-${kind}`,[{id:`${kind}-${id}`,title:kind==='tasks'?`Task ${id}`:undefined,subject:kind==='tickets'?`Ticket ${id}`:undefined,description:`Private ${kind} ${id}`,status:options.status??(kind==='tasks'?'ASSIGNED':'OPEN'),priority:'NORMAL',version:1,due_date:'2030-10-05',category:'Access',creator_name:options.labels?'Unavailable user':'Certified Creator',assignee_name:options.labels?'Unavailable employee':'Certified Assignee',created_at:'2030-10-01T10:00:00Z'}]);
   const comments=new Map<string,unknown[]>(),files=new Map<string,unknown[]>();
@@ -56,7 +56,18 @@ test('task employee start complete and closed evidence controls',async({page})=>
 for(const state of ['OPEN','IN_PROGRESS','RESOLVED'])test(`employee ticket close from ${state}`,async({page})=>{await setup(page,{status:state});await open(page,'tickets');await action(page,'close','CLOSED');await expect(page.getByRole('button',{name:'Add comment',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'reopen',exact:true})).toHaveCount(0);});
 for(const kind of ['tasks','tickets'] as const)for(const former of ['resigned','terminated'])test(`${former} ${kind} historical read only`,async({page})=>{await setup(page,{former});await open(page,kind);for(const name of ['start','close','Add comment','Upload attachment','Create ticket'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);});
 for(const kind of ['tasks','tickets'] as const)test(`${kind} unlinked explicit`,async({page})=>{await setup(page,{unlinked:true});await page.goto(`/employee/${kind}`);await expect(page.getByText('No employee identity is linked to this company membership.')).toBeVisible();});
-for(const audience of ['employee','hrm'])for(const kind of ['tasks','tickets'] as const)test(`${audience} ${kind} platform admin does not bypass missing permission`,async({page})=>{const {calls}=await setup(page,{permissions:['employee.self.view']});await page.goto(`/${audience}/${kind}`);await expect(page).toHaveURL(/\/$/);expect(calls.filter(c=>c.path.endsWith(`/${kind}`))).toHaveLength(0);});
+for(const audience of ['employee','hrm'])for(const kind of ['tasks','tickets'] as const)test(`${audience} ${kind} platform admin does not bypass missing permission`,async({page})=>{const {calls}=await setup(page,{permissions:['employee.self.view']});await page.goto(`/${audience}/${kind}`);await expect(page).toHaveURL(audience==='employee'?/\/employee$/:/\/$/);expect(calls.filter(c=>c.path.endsWith(`/${kind}`))).toHaveLength(0);});
+for(const kind of ['tasks','tickets'] as const)for(const access of [{name:'self permission',permissions:[],modules:['payroll']},{name:'payroll entitlement',permissions:['employee.self.view'],modules:[]}])test(`employee ${kind} denied without ${access.name} uses general fallback`,async({page})=>{const {calls}=await setup(page,access);await page.goto(`/employee/${kind}`);await expect(page).toHaveURL(/\/$/);expect(calls.filter(c=>c.path.endsWith(`/employee/${kind}`))).toHaveLength(0);});
+for(const kind of ['tasks','tickets'] as const)test(`employee ${kind} company switch keeps denied work out of the new company`,async({page})=>{
+  const {calls}=await setup(page,{companyBPermissions:['employee.self.view']});
+  await open(page,kind);
+  await page.getByLabel('Active company').selectOption('B');
+  await expect(page).toHaveURL(/\/employee$/);
+  await expect(page.getByText(`Private ${kind} A`,{exact:true})).toHaveCount(0);
+  await page.goto(`/employee/${kind}`);
+  await expect(page).toHaveURL(/\/employee$/);
+  expect(calls.filter(c=>c.company==='B'&&c.path.startsWith(`/api/v1/employee/${kind}`))).toHaveLength(0);
+});
 for(const audience of ['employee','hrm'])test(`${audience} direct route hidden but permission allowed`,async({page})=>{
   await setup(page,{hidden:true});
   await open(page,'tasks',audience==='hrm');

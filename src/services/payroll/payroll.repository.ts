@@ -1,6 +1,8 @@
 import { apiRequest } from "@/services/api/client";
 import type {
   Employee,
+  EmployeeBeneficiaryAccount,
+  EmployeeBeneficiaryInput,
   EmployeeInput,
   EmployeePayrollProfile,
   FinancialAccountOption,
@@ -24,6 +26,10 @@ export const payrollRepository = {
   updateEmployee: (companyId: string, id: string, input: Partial<EmployeeInput>) => apiRequest<Employee>(`/payroll/employees/${id}`, { method: "PATCH", companyId, body: input }),
   profiles: (companyId: string, employeeId: string) => apiRequest<EmployeePayrollProfile[]>(`/payroll/employees/${employeeId}/profiles`, { companyId }),
   createProfile: (companyId: string, employeeId: string, input: Record<string, unknown>) => apiRequest<EmployeePayrollProfile>(`/payroll/employees/${employeeId}/profiles`, { method: "POST", companyId, body: input }),
+  beneficiary: (companyId: string, employeeId: string, signal?: AbortSignal) => apiRequest<EmployeeBeneficiaryAccount>(`/payroll/employees/${encodeURIComponent(employeeId)}/beneficiary-account`, { companyId, signal }),
+  createBeneficiary: (companyId: string, employeeId: string, input: EmployeeBeneficiaryInput, signal?: AbortSignal) => apiRequest<EmployeeBeneficiaryAccount>(`/payroll/employees/${encodeURIComponent(employeeId)}/beneficiary-account`, { method: "POST", companyId, body: input, signal }),
+  updateBeneficiary: (companyId: string, employeeId: string, accountId: string, input: EmployeeBeneficiaryInput, version: number, signal?: AbortSignal) => apiRequest<EmployeeBeneficiaryAccount>(`/payroll/employees/${encodeURIComponent(employeeId)}/beneficiary-account/${encodeURIComponent(accountId)}`, { method: "PUT", companyId, body: { ...input, version }, signal }),
+  deleteBeneficiary: (companyId: string, employeeId: string, accountId: string, version: number, signal?: AbortSignal) => apiRequest<{status: "REMOVED"}>(`/payroll/employees/${encodeURIComponent(employeeId)}/beneficiary-account/${encodeURIComponent(accountId)}`, { method: "DELETE", companyId, body: { version }, signal }),
 
   components: (companyId: string, type?: string) => apiRequest<PayrollComponent[]>("/payroll/components", { companyId, query: { type } }),
   createComponent: (companyId: string, input: Record<string, unknown>) => apiRequest<PayrollComponent>("/payroll/components", { method: "POST", companyId, body: input }),

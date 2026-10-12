@@ -83,6 +83,26 @@ export interface EmployeePayrollProfile {
   components?: EmployeePayrollComponent[];
 }
 
+export interface EmployeeBeneficiaryAccount {
+  id: string;
+  employee_id: string;
+  account_holder_name: string;
+  bank_name: string;
+  branch_name: string;
+  masked_account_number: string;
+  swift_configured: boolean;
+  version: number;
+}
+
+
+export interface EmployeeBeneficiaryInput {
+  account_holder_name: string;
+  account_number: string;
+  bank_name: string;
+  branch_name: string;
+  swift_code: string | null;
+}
+
 export interface PayrollPeriod {
   id: string;
   company_id: string;

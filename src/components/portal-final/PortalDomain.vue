@@ -9,6 +9,7 @@ import { portalFinalRepository } from '@/services/portalFinal.repository';
 import { portalDefinition, decimalToMinor, minorToDecimal, type PortalAction, type FormField } from '@/lib/portalFinal';
 import type { PortalDomain, PortalRecord, PortalList, PortalDetail } from '@/types/portalFinal';
 import { companyDateTimeToIso, isoToCompanyDateTime } from '@/lib/companyDateTime';
+import { shiftWindow } from '@/lib/shiftDisplay';
 const props=withDefaults(defineProps<{domain:PortalDomain;admin?:boolean;activeEmployee?:boolean;selfId?:string}>(),{admin:false,activeEmployee:false,selfId:''});
 const company=useCompanyStore(), definition=portalDefinition(props.domain,props.admin), api=portalFinalRepository(props.domain,props.admin);
 const canRead=computed(()=>company.hasModule('payroll')&&company.hasPermission(definition.permission));
@@ -18,9 +19,10 @@ const action=ref<PortalAction|null>(null),confirming=ref(false),notice=ref(''),l
 const metadata=ref<PortalRecord[]>([]),trigger=ref<HTMLElement|null>(null),formHeading=ref<HTMLElement|null>(null);
 interface Attempt { action:PortalAction; id:string; child:string; body:Record<string,unknown>; file:File|null; key?:string }
 const pending=ref<Attempt|null>(null);
+const replacement=ref<{name:string;start_time:string;end_time:string}|null>(null);
 const row=computed<PortalRecord|null>(()=>detail.value?.team??detail.value?.rota??detail.value);
 const detailPage=ref(1);
-function reset(){list.value=null;detail.value=null;selected.value='';query.value={};clearForm();notice.value='';localError.value='';metadata.value=[];detailPage.value=1;}
+function reset(){list.value=null;detail.value=null;selected.value='';query.value={};clearForm();replacement.value=null;notice.value='';localError.value='';metadata.value=[];detailPage.value=1;}
 function clearForm(){action.value=null;form.value={};chosenFile.value=null;pending.value=null;confirming.value=false;formEpoch.value++;}
 const context=useWorkContext(reset,load);
 function allowed(a:PortalAction,item:PortalRecord|null=row.value){
@@ -52,18 +54,25 @@ function restoreFocus(){void nextTick(()=>trigger.value?.isConnected&&trigger.va
 function closeForm(){if(pending.value||context.busy.mutation)return;clearForm();restoreFocus();}
 function start(a:PortalAction,event:Event){
   if(!allowed(a)||pending.value||context.busy.mutation)return;
+  replacement.value=null;
   trigger.value=event.currentTarget as HTMLElement;action.value=a;localError.value='';notice.value='';context.invalidate('mutation');
   form.value={};chosenFile.value=null;formEpoch.value++;
   for(const field of a.fields){const value=a.command==='edit'?row.value?.[field.key as keyof PortalRecord]:undefined;form.value[field.key]=field.type==='money'&&typeof value==='number'?minorToDecimal(value):field.type==='datetime-local'&&typeof value==='string'?isoToCompanyDateTime(value,company.activeCompany?.timezone??'UTC'):value===null||value===undefined?'':String(value);}
   if(props.domain==='expenses'&&!props.admin){metadata.value=[];void context.run('metadata',(id,signal)=>portalFinalRepository('categories').list(id,{},signal),v=>{metadata.value=v.data;});}
   void nextTick(()=>formHeading.value?.focus());
 }
+function startReplacement(event:Event){
+  const candidate=replacement.value,create=definition.create;
+  if(!candidate||!create||props.domain!=='shifts'||!allowed(create))return;
+  start(create,event);
+  form.value={name:`${candidate.name} replacement`,start_time:candidate.start_time,end_time:candidate.end_time};
+}
 function choices(field:FormField){
   if(field.key==='is_active')return [{value:'true',label:'Active'},{value:'false',label:'Inactive'}];
   if(field.options)return field.options.map(value=>({value,label:value}));
   if(field.key==='category_id')return metadata.value.map(item=>({value:item.id,label:item.name??'Unnamed category'}));
   if(props.domain==='teams')return (detail.value?.data??[]).map(item=>({value:item.id,label:item.full_name??item.id}));
-  if(props.domain==='rotas'&&field.key==='child_id')return (detail.value?.slots??[]).map(item=>({value:item.id,label:`${item.shift_date} ${item.start_time}–${item.end_time}`}));
+  if(props.domain==='rotas'&&field.key==='child_id')return (detail.value?.slots??[]).map(item=>({value:item.id,label:shiftWindow({...item,timezone:row.value?.timezone})}));
   return [];
 }
 function buildAttempt():Attempt {
@@ -98,8 +107,14 @@ function submit(){
     detail.value=null;load();if(recordId&&definition.detail&&attempt.action.command!=='remove')open(recordId,1,true);restoreFocus();
   },error=>{
     if(attempt.key&&['network','server'].includes(error.kind)){notice.value='Outcome uncertain. Retry preserves the original payload, file and key.';return;}
+    replacement.value=props.domain==='shifts'&&attempt.action.command==='edit'&&error.errorCode==='SHIFT_IN_USE'
+      ? {name:String(attempt.body.name),start_time:String(attempt.body.start_time),end_time:String(attempt.body.end_time)}:null;
     pending.value=null;action.value=null;chosenFile.value=null;form.value={};formEpoch.value++;
-    notice.value='The operation was not confirmed. Review refreshed server state before another action.';
+    notice.value=error.errorCode==='SHIFT_IN_USE'
+      ? 'This shift is already used by a rota. Its existing slots and assignments remain unchanged. Review a new replacement template instead.'
+      : error.errorCode==='SCHEDULE_VERSION_STALE'
+        ? 'The shift changed. Review the latest server version before editing again; the change was not replayed.'
+        : 'The operation was not confirmed. Review refreshed server state before another action.';
     detail.value=null;load();if(attempt.id&&definition.detail&&attempt.action.command!=='remove')open(attempt.id,1,true);restoreFocus();
   });
 }
@@ -111,6 +126,7 @@ const confirmationMessage=computed(()=>{
   const label=action.value?.label??'This action';
   if(props.domain==='swaps'&&action.value?.command==='accept')return 'Accept this requested swap as the target employee? A separate administrator decision is still required before assignments change.';
   if(props.domain==='assets'&&action.value?.command==='approve')return 'Approve this equipment request? Approval records a decision; it does not issue inventory or transfer custody.';
+  if(props.domain==='shifts'&&action.value?.command==='edit')return 'Edit this unused shift template for the selected company? Existing rota slots and assignments will not be changed.';
   if(action.value?.command==='publish')return `Publish this ${definition.title.toLowerCase()} to the selected company?`;
   if(action.value?.command==='release')return 'Release this issued document to the employee? The employee will then be able to view it.';
   return `${label} in ${definition.title.toLowerCase()} for the selected company? The change is final only after the server confirms it.`;
@@ -134,6 +150,7 @@ load();
       <p v-if="domain==='assets'" class="text-sm">Employees request equipment here. An administrator records approval or rejection; approval does not issue inventory or transfer custody.</p>
       <p v-if="!list && !context.busy.list && !context.errors.list && (domain==='schedule'||(admin&&domain==='documents'))" class="text-sm">Choose the filters above and load records.</p>
       <p v-if="notice" role="status" class="panel p-3">{{ notice }}</p>
+      <ZButton v-if="replacement && definition.create && allowed(definition.create)" variant="outline" @click="startReplacement($event)">Create replacement shift</ZButton>
       <p v-for="(error,channel) in context.errors" v-show="error" :key="channel" role="alert" class="break-words text-sm text-danger">{{ error?.message }}<span v-if="error?.errorCode==='EMPLOYEE_IDENTITY_NOT_LINKED'"> No employee profile is linked to this membership.</span></p>
       <Panel v-if="action" :key="formEpoch" class="p-4">
         <h3 ref="formHeading" tabindex="-1" class="font-semibold">{{ action.label }}</h3>
@@ -149,6 +166,7 @@ load();
             </div>
           </fieldset>
           <p v-if="action.fields.some(f=>f.type==='file')" class="text-xs">Private upload. The server validates configured file types and size limits.</p>
+          <p v-if="domain==='shifts'" class="text-xs">End earlier than start means next day; equal times are invalid. DST validity is checked by the server when this shift is placed on a dated rota slot.</p>
           <button v-if="context.errors.metadata" type="button" class="underline" @click="start(action,$event)">Retry categories</button>
           <p v-if="localError" role="alert">{{ localError }}</p><p v-if="pending&&!context.busy.mutation&&!confirming" role="alert">Retry uses the unchanged original submission.</p>
           <div class="flex flex-wrap gap-2"><ZButton type="submit" :disabled="context.busy.mutation||context.busy.metadata">{{ context.busy.mutation?'Working…':pending?'Retry same submission':'Review submission' }}</ZButton><ZButton variant="outline" :disabled="!!pending||context.busy.mutation" @click="closeForm">Cancel</ZButton></div>
@@ -159,7 +177,7 @@ load();
         <div v-else-if="context.errors.list" class="p-4"><ZButton variant="outline" @click="load()">Retry list</ZButton></div>
         <template v-else-if="list">
           <div v-if="domain==='teams'&&!admin" class="border-b border-line p-4 text-sm"><p>Manager: {{ list.manager?.full_name??'No current manager assigned' }}</p><p v-if="list.manager">{{ list.manager.designation }} · {{ list.manager.department }} · {{ list.manager.location }}</p><p>Direct reports: {{ list.direct_report_count }}</p></div>
-          <div class="grid gap-3 p-4 sm:grid-cols-2"><article v-for="item in list.data" :key="item.id" class="min-w-0 rounded-md border border-line p-4"><h3 class="break-words font-semibold">{{ title(item) }}</h3><dl class="mt-2 space-y-2 text-sm"><div v-for="[key,label] in definition.fields" :key="key"><dt class="text-content-muted">{{ label }}</dt><dd class="whitespace-pre-wrap break-words">{{ text(item,key) }}</dd></div></dl><ZButton v-if="definition.detail||definition.actions.length" variant="outline" class="mt-3" :disabled="!!pending||context.busy.mutation" @click="definition.detail?open(item.id):selectInline(item)">View details</ZButton></article><p v-if="!list.data.length">No records returned.</p></div>
+          <div class="grid gap-3 p-4 sm:grid-cols-2"><article v-for="item in list.data" :key="item.id" class="min-w-0 rounded-md border border-line p-4"><h3 class="break-words font-semibold">{{ title(item) }}</h3><p v-if="domain==='schedule'" class="mt-1 text-sm">{{ shiftWindow(item) }}</p><dl class="mt-2 space-y-2 text-sm"><div v-for="[key,label] in definition.fields" :key="key"><dt class="text-content-muted">{{ label }}</dt><dd class="whitespace-pre-wrap break-words">{{ text(item,key) }}</dd></div></dl><ZButton v-if="definition.detail||definition.actions.length" variant="outline" class="mt-3" :disabled="!!pending||context.busy.mutation" @click="definition.detail?open(item.id):selectInline(item)">View details</ZButton></article><p v-if="!list.data.length">No records returned.</p></div>
           <div v-if="list.meta" class="flex flex-wrap items-center gap-3 border-t border-line p-4 text-sm"><span>Page {{ list.meta.current_page }} of {{ list.meta.last_page }} · {{ list.meta.total }} records</span><ZButton variant="outline" :disabled="list.meta.current_page<=1||!!pending||context.busy.mutation" @click="load(list.meta.current_page-1)">Previous page</ZButton><ZButton variant="outline" :disabled="list.meta.current_page>=list.meta.last_page||!!pending||context.busy.mutation" @click="load(list.meta.current_page+1)">Next page</ZButton></div>
         </template>
       </Panel>
@@ -169,7 +187,7 @@ load();
         <p v-if="row.lead" class="text-sm">Team lead: {{ row.lead.full_name }}</p>
         <ZButton v-if="fileName" variant="outline" :disabled="context.busy.download" @click="download">Download {{ fileName }}</ZButton>
         <div v-if="detail?.data" class="space-y-2"><h3 class="font-semibold">Members</h3><p v-for="member in detail.data" :key="member.id" class="break-words text-sm">{{ member.full_name }} · {{ member.department }} · {{ member.designation }} · {{ member.location }}</p><div v-if="detail.meta" class="flex flex-wrap gap-2 text-sm"><span>{{ detail.meta.total }} members · Page {{ detail.meta.current_page }}</span><ZButton variant="outline" :disabled="detail.meta.current_page<=1||!!pending" @click="open(selected,detailPage-1)">Previous members</ZButton><ZButton variant="outline" :disabled="detail.meta.current_page>=detail.meta.last_page||!!pending" @click="open(selected,detailPage+1)">Next members</ZButton></div></div>
-        <div v-if="detail?.slots" class="space-y-3"><h3 class="font-semibold">Slots and assignments</h3><article v-for="slot in detail.slots" :key="slot.id" class="rounded border border-line p-3 text-sm"><p>{{ slot.shift_date }} · {{ slot.start_time }}–{{ slot.end_time }}</p><p>Required coverage {{ slot.required_coverage }} · Assigned {{ slot.assigned_count }} · Gap {{ slot.coverage_gap }}</p><p v-for="assignment in slot.assignments" :key="assignment.id" class="break-all">Employee {{ assignment.employee_id }} · Assignment {{ assignment.id }}</p></article></div>
+        <div v-if="detail?.slots" class="space-y-3"><h3 class="font-semibold">Slots and assignments</h3><article v-for="slot in detail.slots" :key="slot.id" class="rounded border border-line p-3 text-sm"><p>{{ shiftWindow({...slot,timezone:row.timezone}) }}</p><p v-if="slot.ends_next_day">Ends next day; work is attributed to {{ slot.shift_date }}.</p><p>Required coverage {{ slot.required_coverage }} · Assigned {{ slot.assigned_count }} · Gap {{ slot.coverage_gap }}</p><p v-for="assignment in slot.assignments" :key="assignment.id" class="break-all">Employee {{ assignment.employee_id }} · Assignment {{ assignment.id }}</p></article></div>
         <div v-if="row.events?.length" class="space-y-2"><h3 class="font-semibold">Recorded history</h3><p v-for="event in row.events" :key="event.id" class="break-words text-sm">{{ event.type }} · {{ event.occurred_at }} · {{ event.reason }}</p></div>
         <div class="flex flex-wrap gap-2"><ZButton v-for="a in actions" :key="a.command" variant="outline" :disabled="!!pending||context.busy.mutation" @click="start(a,$event)">{{ a.label }}</ZButton></div>
       </Panel>

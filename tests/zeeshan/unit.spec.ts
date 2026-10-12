@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { customerPhoneError } from '../../src/lib/customerPhone';
+import { readFileSync } from 'node:fs';
 
 test('customer phone follows 7–15 digits and permits common separators without restricting names', () => {
   for (const value of ['', '+92 (300) 123-4567', '1234567', '123.456.7890']) expect(customerPhoneError(value)).toBeNull();
@@ -30,4 +31,12 @@ test('invitation role lookup uses its own company-scoped endpoint while role adm
     if (oldWindow) Object.defineProperty(globalThis, 'window', oldWindow); else Reflect.deleteProperty(globalThis, 'window');
     await server.close();
   }
+});
+
+test('beneficiary UI keeps full account input out of persistent storage and display', () => {
+  const source = readFileSync('src/components/payroll/EmployeeBeneficiary.vue', 'utf8');
+  expect(source).not.toMatch(/localStorage|sessionStorage|console\.|v-html|masked_account_number\s*=\s*form/);
+  expect(source).toContain('account.masked_account_number');
+  expect(source).not.toMatch(/\{\{\s*form\.account_number\s*\}\}/);
+  expect(source).toContain('company.hasPermission("payroll.configure")');
 });

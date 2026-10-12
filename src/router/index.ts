@@ -183,7 +183,10 @@ router.beforeEach((to) => {
   const module = moduleForPath(to.path);
   const permission = permissionForPath(to.path);
   if (to.path === "/system-health" && !company.isPlatformAdmin) return "/";
-  if (permission && !company.hasPermission(permission)) return "/";
-  if (module && !company.hasModule(module)) return "/";
+  if ((permission && !company.hasPermission(permission)) || (module && !company.hasModule(module))) {
+    return to.path.startsWith("/employee/") && company.hasPermission("employee.self.view") && company.hasModule("payroll")
+      ? "/employee"
+      : "/";
+  }
   return true;
 });

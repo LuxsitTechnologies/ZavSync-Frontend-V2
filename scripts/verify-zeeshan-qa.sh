@@ -5,8 +5,8 @@ frontend_dir="/Users/humzamazhar/Documents/Codex/ZavSync-Frontend-V2"
 backend_dir="/Users/humzamazhar/Documents/ChatGPT/ZavSync-Backend-V2"
 
 cd "$frontend_dir"
-test "$(git rev-parse HEAD)" = "f1897546081b07e70d9fc02a96f6c9780b88a714"
-test "$(git -C "$backend_dir" rev-parse HEAD)" = "b10fb7a4bfae89f7b9fa275548e5a19fad678727"
+test "$(git rev-parse HEAD)" = "0cc042c511766bde66c7840ad48f468945f949a2"
+test "$(git -C "$backend_dir" rev-parse HEAD)" = "013471be8d4a407388798135b640d5bc07943b39"
 
 npm run typecheck
 npm run build

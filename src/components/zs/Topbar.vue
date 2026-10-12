@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { RouterLink, useRoute,useRouter } from "vue-router";
 import { ChevronRight, LogOut, Menu, Moon, Sun, UserRound } from "lucide-vue-next";
 
-import { breadcrumbFor,moduleForPath } from "@/lib/nav";
+import { breadcrumbFor,moduleForPath,permissionForPath } from "@/lib/nav";
 import { useCompanyStore } from "@/stores/company";
 import { initials } from "@/lib/format";
 import NotificationCenter from "./NotificationCenter.vue";
@@ -23,7 +23,7 @@ function toggleTheme() {
   dark.value = !dark.value;
   document.documentElement.classList.toggle("dark", dark.value);
 }
-async function changeCompany(id:string){try{await companyStore.setCompany(id);const module=moduleForPath(route.path);if(module&&!companyStore.hasModule(module))await router.push('/')}catch(error){showToast('Company switch failed',error instanceof Error?error.message:'Could not switch company.','danger')}}
+async function changeCompany(id:string){try{await companyStore.setCompany(id);if(route.path.startsWith('/fbr-invoicing'))return;const module=moduleForPath(route.path),permission=permissionForPath(route.path);if((module&&!companyStore.hasModule(module))||(permission&&!companyStore.hasPermission(permission)))await router.push('/')}catch(error){showToast('Company switch failed',error instanceof Error?error.message:'Could not switch company.','danger')}}
 async function logout() {
   try {
     await authRepository.logout();

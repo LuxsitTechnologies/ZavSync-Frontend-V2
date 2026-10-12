@@ -22,8 +22,8 @@ export function portalFinalRepository(domain: PortalDomain, admin = false) {
     detail: (companyId: string, id: string, page: number, signal: AbortSignal) => apiRequest<PortalDetail>(item(id),{companyId,query:{page},signal}),
     mutate: (companyId: string, command: PortalCommand, id: string, body: Record<string,unknown>|FormData, key: string|undefined, signal: AbortSignal, childId = '') => {
       let path = command === 'create' ? root : item(id);
-      let method: 'POST'|'PATCH'|'DELETE' = 'POST';
-      if (command === 'edit') method = 'PATCH';
+      let method: 'POST'|'PUT'|'PATCH'|'DELETE' = 'POST';
+      if (command === 'edit') method = admin && domain === 'shifts' ? 'PUT' : 'PATCH';
       else if (command === 'remove') method = 'DELETE';
       else if (command === 'remove-member') { method = 'DELETE'; path += `/members/${encodeURIComponent(childId)}`; }
       else if (command === 'assignment') {

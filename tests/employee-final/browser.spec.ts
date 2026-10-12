@@ -36,6 +36,153 @@ for(const [route,api,title] of domains){
   for(const width of [390,768,1440])test(`${route} layout and keyboard ${width}`,async({page})=>{await page.setViewportSize({width,height:900});await setup(page);await page.goto('/employee/'+route);await expect(page.getByRole('heading',{name:title,exact:true}).first()).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'Next page',exact:true}).first().focus();await page.keyboard.press('Enter');await expect(page.getByText('Page 2 of 2 · 2 records').first()).toBeVisible();});
 }
 test('hidden navigation leaves direct route authorized',async({page})=>{await setup(page,{hidden:true});await page.goto('/employee/documents');await expect(page.getByRole('heading',{name:'Documents',exact:true})).toBeVisible();await expect(page.getByRole('navigation',{name:'Employee Portal',exact:true}).getByRole('link',{name:'Documents',exact:true})).toHaveCount(0);});
+test('employee company switch leaves a route when the new membership lacks its permission',async({page})=>{
+  const {calls}=await setup(page);
+  const restricted={id:'B',name:'Company B',timezone:'Asia/Karachi',modules:['payroll'],permissions:['employee.self.view'],roles:[],effective_navigation:{visible_keys:[],items:[],catalog:[]}};
+  await page.route(url=>url.pathname==='/api/v1/auth/me',route=>route.fulfill({json:{user:{id:1,name:'Account',email:'portal@example.invalid',is_platform_admin:true},companies:[{...restricted,id:'A',name:'Company A',permissions:['*']},restricted]}}));
+  await page.route(url=>url.pathname==='/api/v1/auth/switch-company',route=>route.fulfill({json:{company:restricted}}));
+  await page.goto('/employee/documents');
+  await expect(page.getByRole('heading',{name:'Documents',exact:true})).toBeVisible();
+  await page.getByLabel('Active company').selectOption('B');
+  await expect(page).toHaveURL(/\/employee$/);
+  await page.goto('/employee/documents');
+  await expect(page).toHaveURL(/\/employee$/);
+  await expect(page.getByText('Private description A',{exact:true})).toHaveCount(0);
+  expect(calls.some(call=>call.company==='B'&&call.path==='/api/v1/employee/documents')).toBe(false);
+});
+
+test('employee company switch uses general safe landing without self access',async({page})=>{
+  const {calls}=await setup(page);
+  const restricted={id:'B',name:'Company B',timezone:'Asia/Karachi',modules:['payroll'],permissions:[],roles:[],effective_navigation:{visible_keys:[],items:[],catalog:[]}};
+  await page.route(url=>url.pathname==='/api/v1/auth/me',route=>route.fulfill({json:{user:{id:1,name:'Account',email:'portal@example.invalid',is_platform_admin:true},companies:[{...restricted,id:'A',name:'Company A',permissions:['*']},restricted]}}));
+  await page.route(url=>url.pathname==='/api/v1/auth/switch-company',route=>route.fulfill({json:{company:restricted}}));
+  await page.goto('/employee/documents');
+  await expect(page.getByRole('heading',{name:'Documents',exact:true})).toBeVisible();
+  await page.getByLabel('Active company').selectOption('B');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+  await page.goto('/employee/documents');
+  await expect(page).toHaveURL(/\/$/);
+  expect(calls.some(call=>call.company==='B'&&call.path==='/api/v1/employee/documents')).toBe(false);
+});
+
+for(const width of [390,768,1440])test(`overnight published schedule crosses month boundary ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const {calls}=await setup(page);
+  await page.route(url=>url.pathname==='/api/v1/employee/schedule',route=>route.fulfill({json:{data:[{id:'night-assignment',slot_id:'night-slot',version:1,shift_name:'Night shift',shift_date:'2030-01-31',start_time:'22:00',end_time:'06:00',ends_next_day:true,timezone:'Asia/Karachi'},{id:'day-assignment',slot_id:'day-slot',version:1,shift_name:'Day shift',shift_date:'2030-02-01',start_time:'09:00',end_time:'17:00',ends_next_day:false,timezone:'Asia/Karachi'}]}}));
+  await page.goto('/employee/schedule');
+  await page.getByLabel('From date',{exact:true}).fill('2030-01-31');
+  await page.getByLabel('To date',{exact:true}).fill('2030-02-01');
+  await page.getByRole('button',{name:'Load records',exact:true}).click();
+  await expect(page.getByText('2030-01-31 22:00 → 2030-02-01 06:00 (Asia/Karachi)')).toBeVisible();
+  await expect(page.getByText('2030-02-01 09:00 → 2030-02-01 17:00 (Asia/Karachi)')).toBeVisible();
+  await expect(page.getByText('Ends next day',{exact:true}).first()).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(calls.some(call=>call.method!=='GET'&&/attendance|payroll\/batches/.test(call.path))).toBe(false);
+});
+
+test('administrative shifts create same-day and overnight definitions',async({page})=>{
+  await setup(page);
+  const shifts:any[]=[];
+  await page.route(url=>url.pathname==='/api/v1/hrm/shifts',route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{data:shifts,meta:{total:shifts.length,current_page:1,last_page:1}}});
+    const body=route.request().postDataJSON();
+    if(body.start_time===body.end_time)return route.fulfill({status:422,json:{message:'A shift must have different start and end times.',error_code:'SCHEDULE_SHIFT_ZERO_LENGTH'}});
+    const shift={id:`shift-${shifts.length+1}`,name:body.name,start_time:body.start_time,end_time:body.end_time,ends_next_day:body.end_time<body.start_time,is_active:true,version:1};
+    shifts.push(shift);return route.fulfill({status:201,json:shift});
+  });
+  await page.goto('/hrm/shifts');
+  for(const [name,start,end] of [['Night shift','22:00','06:00'],['Day shift','09:00','17:00']]){
+    await page.getByRole('button',{name:'Create shift',exact:true}).click();
+    await page.getByLabel('Name',{exact:true}).fill(name!);
+    await page.getByLabel('Start time',{exact:true}).fill(start!);
+    await page.getByLabel('End time',{exact:true}).fill(end!);
+    await page.getByRole('button',{name:'Review submission',exact:true}).click();
+    await page.getByRole('button',{name:'Confirm operation',exact:true}).click();
+    await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+  }
+  await expect(page.getByText('Ends next day',{exact:true})).toHaveCount(2);
+  expect(shifts.map(shift=>shift.ends_next_day)).toEqual([true,false]);
+});
+
+test('shift edit uses PUT with version and reloads after stale conflict',async({page})=>{
+  await setup(page);
+  const shift={id:'shift-1',name:'Day shift',start_time:'09:00',end_time:'17:00',ends_next_day:false,is_active:true,version:1};
+  const writes:any[]=[];
+  await page.route(url=>url.pathname==='/api/v1/hrm/shifts',route=>route.fulfill({json:{data:[shift],meta:{total:1,current_page:1,last_page:1}}}));
+  await page.route(url=>url.pathname==='/api/v1/hrm/shifts/shift-1',route=>{
+    const body=route.request().postDataJSON();writes.push({method:route.request().method(),company:route.request().headers()['x-company-id'],body});
+    if(body.version!==shift.version)return route.fulfill({status:409,json:{message:'The schedule changed; refresh before editing.',error_code:'SCHEDULE_VERSION_STALE'}});
+    Object.assign(shift,body,{ends_next_day:body.end_time<body.start_time,version:shift.version+1});return route.fulfill({json:shift});
+  });
+  await page.goto('/hrm/shifts');
+  await page.getByRole('button',{name:'View details',exact:true}).click();
+  await page.getByRole('button',{name:'Edit shift',exact:true}).click();
+  await page.getByLabel('Start time',{exact:true}).fill('22:00');
+  await page.getByLabel('End time',{exact:true}).fill('06:00');
+  await page.getByRole('button',{name:'Review submission',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm operation',exact:true}).click();
+  await expect(page.getByText('Yes',{exact:true}).first()).toBeVisible();
+  expect(writes[0]).toMatchObject({method:'PUT',company:'A',body:{name:'Day shift',start_time:'22:00',end_time:'06:00',version:1}});
+  await page.getByRole('button',{name:'View details',exact:true}).click();
+  await page.getByRole('button',{name:'Edit shift',exact:true}).click();
+  shift.version=3;
+  await page.getByLabel('Start time',{exact:true}).fill('21:00');
+  await page.getByRole('button',{name:'Review submission',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm operation',exact:true}).click();
+  await expect(page.getByText('The shift changed.',{exact:false})).toBeVisible();
+  expect(writes).toHaveLength(2);
+  expect(shift.start_time).toBe('22:00');
+});
+
+test('in-use shift offers explicit replacement without rewriting the original',async({page})=>{
+  await setup(page);
+  const shift={id:'shift-1',name:'Assigned shift',start_time:'09:00',end_time:'17:00',ends_next_day:false,is_active:true,version:1};
+  const created:any[]=[];let putCount=0;
+  await page.route(url=>url.pathname==='/api/v1/hrm/shifts',route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{data:[shift,...created],meta:{total:created.length+1,current_page:1,last_page:1}}});
+    const body=route.request().postDataJSON();created.push({id:'shift-2',...body,version:1,is_active:true,ends_next_day:body.end_time<body.start_time});return route.fulfill({status:201,json:created[0]});
+  });
+  await page.route(url=>url.pathname==='/api/v1/hrm/shifts/shift-1',route=>{putCount++;return route.fulfill({status:409,json:{message:'A shift used by a rota cannot be edited; create a new shift template.',error_code:'SHIFT_IN_USE'}});});
+  await page.goto('/hrm/shifts');
+  await page.getByRole('button',{name:'View details',exact:true}).click();
+  await page.getByRole('button',{name:'Edit shift',exact:true}).click();
+  await page.getByLabel('Start time',{exact:true}).fill('22:00');
+  await page.getByLabel('End time',{exact:true}).fill('06:00');
+  await page.getByRole('button',{name:'Review submission',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm operation',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Create replacement shift'})).toBeVisible();
+  expect(created).toHaveLength(0);
+  await page.getByRole('button',{name:'Create replacement shift'}).click();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Assigned shift replacement');
+  await expect(page.getByLabel('Start time',{exact:true})).toHaveValue('22:00');
+  await expect(page.getByLabel('End time',{exact:true})).toHaveValue('06:00');
+  await page.getByRole('button',{name:'Review submission',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm operation',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Assigned shift replacement'})).toBeVisible();
+  expect(putCount).toBe(1);expect(created).toHaveLength(1);
+  expect(shift).toMatchObject({name:'Assigned shift',start_time:'09:00',end_time:'17:00',version:1});
+});
+
+test('overnight rota surfaces DST and assignment overlap responses',async({page})=>{
+  await setup(page);
+  await page.route(url=>url.pathname==='/api/v1/hrm/rotas/rotas-A/slots',route=>route.fulfill({status:422,json:{message:'The scheduled local time is missing or ambiguous in the company timezone.',error_code:'SCHEDULE_LOCAL_TIME_INVALID'}}));
+  await page.route(url=>url.pathname==='/api/v1/hrm/rota-slots/slot/assignments',route=>route.fulfill({status:409,json:{message:'This employee already has an overlapping assignment.',error_code:'SCHEDULE_ASSIGNMENT_CONFLICT'}}));
+  await open(page,'/hrm/rotas');
+  await page.getByRole('button',{name:'Add slot',exact:true}).click();
+  await page.getByLabel('Shift UUID',{exact:true}).fill('11111111-1111-4111-8111-111111111111');
+  await page.getByLabel('Shift date',{exact:true}).fill('2030-01-31');
+  await page.getByLabel('Required coverage',{exact:true}).fill('1');
+  await page.getByRole('button',{name:'Review submission',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm operation',exact:true}).click();
+  await expect(page.getByRole('alert').filter({hasText:'missing or ambiguous'})).toBeVisible();
+  await page.getByRole('button',{name:'Assign employee',exact:true}).click();
+  await page.getByLabel('Slot',{exact:true}).selectOption('slot');
+  await page.getByLabel('Employee UUID',{exact:true}).fill('22222222-2222-4222-8222-222222222222');
+  await page.getByRole('button',{name:'Review submission',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm operation',exact:true}).click();
+  await expect(page.getByRole('alert').filter({hasText:'overlapping assignment'})).toBeVisible();
+});
 for(const options of [{permissions:['employee.self.view']},{modules:[]}])test(`platform admin no bypass ${JSON.stringify(options)}`,async({page})=>{const {calls}=await setup(page,options);await page.goto('/employee/documents');await expect(page).not.toHaveURL(/\/employee\/documents$/);expect(calls.some(c=>c.path.endsWith('/employee/documents'))).toBe(false);});
 test('former employee may read documents but has no upload',async({page})=>{await setup(page,{former:true});await page.goto('/employee/documents');await expect(page.getByText('Page 1 of 2 · 2 records')).toBeVisible();await expect(page.getByRole('button',{name:'Upload document',exact:true})).toHaveCount(0);});
 test('unlinked read shows explicit safe state',async({page})=>{await setup(page,{unlinked:true});await page.goto('/employee/documents');await expect(page.getByRole('alert').filter({hasText:'No employee profile is linked'})).toBeVisible();await expect(page.getByText('No records returned.',{exact:true})).toHaveCount(0);});

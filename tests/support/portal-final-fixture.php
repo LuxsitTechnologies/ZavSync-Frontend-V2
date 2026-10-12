@@ -15,7 +15,7 @@ $admin = App\Models\User::factory()->create(['name'=>'Final Administrator','emai
 $denied = App\Models\User::factory()->create(['email'=>'final-denied@example.invalid','is_platform_admin'=>true]);
 $reader = App\Models\User::factory()->create(['email'=>'final-reader@example.invalid','is_platform_admin'=>true]);
 $selfPermissions=['employee.self.view','employee.profile.edit','employee.documents.view','employee.documents.upload','employee.announcements.view','employee.directory.view','employee.teams.view','employee.schedule.view','employee.schedule.swap.request','employee.schedule.swap.respond','employee.assets.view','employee.assets.request','employee.expenses.view','employee.expenses.create','employee.expenses.edit','employee.expenses.submit'];
-$adminPermissions=['employee.documents.admin.view','employee.documents.issue','employee.documents.release','announcements.view','announcements.manage','announcements.publish','teams.view','teams.manage','schedules.view','schedules.manage','schedules.swaps.decide','assets.view','assets.decide','expenses.view','expenses.categories.manage','expenses.approve'];
+$adminPermissions=['employee.documents.admin.view','employee.documents.issue','employee.documents.release','announcements.view','announcements.manage','announcements.publish','teams.view','teams.manage','schedules.view','schedules.manage','schedules.swaps.decide','assets.view','assets.decide','expenses.view','expenses.categories.manage','expenses.approve','payroll.configure'];
 foreach (['A','B','C','D'] as $letter) {
     $company=App\Models\Company::factory()->create(['name'=>'Final Company '.$letter,'timezone'=>'Asia/Karachi']);
     if ($letter === 'D') {
