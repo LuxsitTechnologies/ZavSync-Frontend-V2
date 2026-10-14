@@ -19,8 +19,14 @@ test("Stage 16B.1 portal uses real V2 identity, company switch and notification 
   await expect(page.getByRole("main").getByText("Identity Employee B", { exact: true })).toBeVisible();
   await expect(page.getByText("Identity Employee A", { exact: true })).toHaveCount(0);
   await page.getByLabel("Active company").selectOption({ label: "Identity Company C" });
-  await expect(page.getByText(/No employee profile linked/)).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("Identity Employee B", { exact: true })).toHaveCount(0);
+  await page.goto("/employee/notifications");
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByLabel("Active company").selectOption({ label: "Identity Company B" });
+  await expect(page.getByRole("main").getByText("Live workspace for Identity Company B", { exact: true })).toBeVisible();
+  await page.goto("/employee");
+  await expect(page.getByRole("main").getByText("Identity Employee B", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Notifications", exact: true }).first().click();
   await expect(page).toHaveURL(/\/employee\/notifications$/);
   expect(calls.some(path => path.endsWith("/employee/me"))).toBe(true);

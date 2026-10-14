@@ -11,11 +11,14 @@ export interface AuthCompany {
   modules: string[];
   approval_status?: "PENDING" | "APPROVED" | "REJECTED";
   is_active?: boolean;
+  is_company_owner?: boolean;
+  employee_linked?: boolean;
+  employee_portal_available?: boolean;
   effective_navigation?: EffectiveNavigation;
 }
 
 export interface AuthPayload {
-  user: { id: number; name: string; email: string; email_verified?: boolean; is_platform_admin: boolean };
+  user: { id: number; name: string; email: string; email_verified?: boolean; is_platform_admin: boolean; platform_permissions?: string[] };
   companies: AuthCompany[];
 }
 

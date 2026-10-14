@@ -18,6 +18,9 @@ export interface CompanyOption {
   modules?: string[];
   approval_status?: "PENDING" | "APPROVED" | "REJECTED";
   is_active?: boolean;
+  is_company_owner?: boolean;
+  employee_linked?: boolean;
+  employee_portal_available?: boolean;
   effective_navigation?: EffectiveNavigation;
 }
 
@@ -30,13 +33,16 @@ export const useCompanyStore = defineStore("company", () => {
     email_verified?: boolean;
     role?: string;
     is_platform_admin?: boolean;
+    platform_permissions?: string[];
   }>({ name: "", email: "", is_platform_admin: false });
   const activeCompanyId = ref("");
   const initialized = ref(false);
   const switching = ref(false);
   const contextVersion = ref(0);
+  const isPlatformAdmin = computed(() => currentUser.value.is_platform_admin === true);
   const activeCompany = computed(() => companies.value.find((company) => company.id === activeCompanyId.value));
   const activePermissions = computed(() => activeCompany.value?.permissions ?? []);
+  const effectivePermissions = computed(() => [...new Set([...activePermissions.value, ...(isPlatformAdmin.value ? currentUser.value.platform_permissions ?? [] : [])])]);
   const activeModules = computed(() => activeCompany.value?.modules ?? []);
   const effectiveNavigation = computed(() => switching.value ? { catalog: [], items: [], visible_keys: [] } : activeCompany.value?.effective_navigation);
   function updateNavigation(companyId: string, version: number, navigation: EffectiveNavigation) {
@@ -44,7 +50,8 @@ export const useCompanyStore = defineStore("company", () => {
     const target = companies.value.find(item => item.id === companyId);
     if (target) target.effective_navigation = navigation;
   }
-  const isPlatformAdmin = computed(() => currentUser.value.is_platform_admin === true);
+  const isCompanyOwner = computed(() => activeCompany.value?.is_company_owner === true);
+  const employeePortalAvailable = computed(() => activeCompany.value?.employee_portal_available === true);
   const authenticated = computed(() => currentUser.value.id !== undefined);
 
   function hydrate(payload: AuthPayload) {
@@ -86,7 +93,7 @@ export const useCompanyStore = defineStore("company", () => {
     }
   }
 
-  const hasPermission = (permission: string) => activePermissions.value.includes("*") || activePermissions.value.includes(permission);
+  const hasPermission = (permission: string) => effectivePermissions.value.includes("*") || effectivePermissions.value.includes(permission);
   const hasModule = (module: string) => activeModules.value.includes(module);
 
   watch(activeCompanyId, (id) => {
@@ -99,6 +106,7 @@ export const useCompanyStore = defineStore("company", () => {
     activeCompanyId,
     activeCompany,
     activePermissions,
+    effectivePermissions,
     activeModules,
     effectiveNavigation,
     updateNavigation,
@@ -107,6 +115,8 @@ export const useCompanyStore = defineStore("company", () => {
     switching,
     contextVersion,
     isPlatformAdmin,
+    isCompanyOwner,
+    employeePortalAvailable,
     hasPermission,
     hasModule,
     hydrate,

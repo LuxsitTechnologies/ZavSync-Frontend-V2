@@ -32,6 +32,10 @@ async function switchCompany(id: string): Promise<void> {
   switchError.value = "";
   try {
     await company.setCompany(id);
+    if (company.activeCompany?.employee_portal_available === false) {
+      await router.replace("/");
+      return;
+    }
     const module = moduleForPath(route.path), permission = permissionForPath(route.path);
     if ((module && !company.hasModule(module)) || (permission && !company.hasPermission(permission))) {
       await router.push(company.hasPermission('employee.self.view') && company.hasModule('payroll') ? '/employee' : '/');

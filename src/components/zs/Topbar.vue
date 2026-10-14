@@ -20,6 +20,7 @@ const dark = ref(false);
 const companyStore = useCompanyStore();
 const employeePortal = useEmployeePortalStore();
 const currentUser = computed(() => companyStore.currentUser);
+const roleLabel = computed(() => [companyStore.isPlatformAdmin ? 'ZavSync Admin' : null, ...(companyStore.activeCompany?.roles ?? [])].filter(Boolean).join(' · '));
 const switchableCompanies = computed(() => companyStore.companies.filter(item =>
   ((item.approval_status === undefined || item.approval_status === "APPROVED") && item.is_active !== false)
   || item.id === companyStore.activeCompanyId));
@@ -28,7 +29,15 @@ function toggleTheme() {
   dark.value = !dark.value;
   document.documentElement.classList.toggle("dark", dark.value);
 }
-async function changeCompany(id:string){try{await companyStore.setCompany(id);if(route.path.startsWith('/fbr-invoicing'))return;const module=moduleForPath(route.path),permission=permissionForPath(route.path);if((module&&!companyStore.hasModule(module))||(permission&&!companyStore.hasPermission(permission)))await router.push('/')}catch(error){showToast('Company switch failed',error instanceof Error?error.message:'Could not switch company.','danger')}}
+async function changeCompany(id:string){try{
+  await companyStore.setCompany(id);
+  if(route.path.startsWith('/employee') && companyStore.activeCompany?.employee_portal_available === false){await router.push('/');return;}
+  if(route.path === '/billing' && companyStore.isCompanyOwner)return;
+  if(route.path === '/fbr-invoicing/portal-settings' && !companyStore.isCompanyOwner && !companyStore.hasPermission('portal.settings.view')){await router.push('/');return;}
+  if(route.path.startsWith('/fbr-invoicing'))return;
+  const module=moduleForPath(route.path),permission=permissionForPath(route.path);
+  if((module&&!companyStore.hasModule(module))||(permission&&!companyStore.hasPermission(permission)))await router.push('/');
+}catch(error){showToast('Company switch failed',error instanceof Error?error.message:'Could not switch company.','danger')}}
 async function logout() {
   try {
     await authRepository.logout();
@@ -86,7 +95,7 @@ async function logout() {
 
       <NotificationCenter/>
 
-      <RouterLink v-if="!companyStore.switching && companyStore.hasModule('payroll') && employeePortal.employee?.linked" to="/employee" class="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-content-brand hover:bg-surface-hover" aria-label="Employee Portal" title="Employee Portal for the selected company"><UserRound class="size-4" /><span class="hidden sm:inline">Employee Portal</span></RouterLink>
+      <RouterLink v-if="!companyStore.switching && (companyStore.activeCompany?.employee_portal_available ?? (companyStore.hasModule('payroll') && employeePortal.employee?.linked))" to="/employee" class="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-content-brand hover:bg-surface-hover" aria-label="Employee Portal" title="Employee Portal for the selected company"><UserRound class="size-4" /><span class="hidden sm:inline">Employee Portal</span></RouterLink>
 
       <button
         type="button"
@@ -105,7 +114,7 @@ async function logout() {
         </span>
         <div class="hidden leading-tight lg:block">
           <p class="text-xs font-semibold text-content">{{ currentUser.name }}</p>
-          <p class="text-2xs text-content-muted">{{ currentUser.role }}</p>
+          <p class="text-2xs text-content-muted">{{ roleLabel }}</p>
         </div>
       </RouterLink>
     </div>

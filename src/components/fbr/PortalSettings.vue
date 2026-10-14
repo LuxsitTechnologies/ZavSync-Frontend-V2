@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import ConfirmDialog from "@/components/zs/ConfirmDialog.vue";
 import Panel from "@/components/zs/Panel.vue";
 import ZButton from "@/components/zs/ZButton.vue";
@@ -9,6 +9,7 @@ import type { PortalSettings, PortalSettingsInput } from "@/types/portalSettings
 import { useFbrContext } from "./context";
 
 const { company, companyId, current } = useFbrContext();
+const canManage = computed(() => company.isCompanyOwner || company.hasPermission("portal.settings.manage"));
 const state = ref<PortalSettings | null>(null);
 const form = reactive<PortalSettingsInput>({ footer: null, declaration: null, default_notes: null, number_prefix_display: null, show_seller_email: true, show_seller_phone: true, show_seller_address: true });
 const credential = ref(""), logo = ref<File | null>(null), confirming = ref<"reset" | "credential" | null>(null);
@@ -31,7 +32,7 @@ async function load(): Promise<void> {
   finally { if (current() && token === generation) loading.value = false; }
 }
 async function mutate(action: (version: number) => Promise<PortalSettings>, notice: string): Promise<void> {
-  if (!current() || !state.value || busy.value || !company.hasPermission("portal.settings.manage")) return;
+  if (!current() || !state.value || busy.value || !canManage.value) return;
   const token = generation, version = state.value.presentation.version;
   busy.value = true; error.value = null; message.value = "";
   try { const result = await action(version); if (current() && token === generation) { accept(result); message.value = notice; } }
@@ -65,24 +66,24 @@ onBeforeUnmount(() => { generation++; credential.value = ""; logo.value = null; 
     <template v-if="state">
       <Panel title="Invoice Presentation" body-class="space-y-3 p-4">
         <p>{{ company.activeCompany?.name }} · Document logo {{ state.presentation.logo_document_id ? 'configured' : 'not configured' }}</p>
-        <label class="block">Invoice Footer <textarea v-model="form.footer" class="field mt-1 block w-full" maxlength="5000" :disabled="!company.hasPermission('portal.settings.manage') || busy"></textarea></label>
-        <label class="block">Invoice Declaration <textarea v-model="form.declaration" class="field mt-1 block w-full" maxlength="5000" :disabled="!company.hasPermission('portal.settings.manage') || busy"></textarea></label>
-        <label class="block">Default Document Notes <textarea v-model="form.default_notes" class="field mt-1 block w-full" maxlength="5000" :disabled="!company.hasPermission('portal.settings.manage') || busy"></textarea></label>
-        <label class="block">Invoice Prefix / Presentation <input v-model="form.number_prefix_display" class="field mt-1 block w-full" maxlength="20" :disabled="!company.hasPermission('portal.settings.manage') || busy" /></label>
+        <label class="block">Invoice Footer <textarea v-model="form.footer" class="field mt-1 block w-full" maxlength="5000" :disabled="!canManage || busy"></textarea></label>
+        <label class="block">Invoice Declaration <textarea v-model="form.declaration" class="field mt-1 block w-full" maxlength="5000" :disabled="!canManage || busy"></textarea></label>
+        <label class="block">Default Document Notes <textarea v-model="form.default_notes" class="field mt-1 block w-full" maxlength="5000" :disabled="!canManage || busy"></textarea></label>
+        <label class="block">Invoice Prefix / Presentation <input v-model="form.number_prefix_display" class="field mt-1 block w-full" maxlength="20" :disabled="!canManage || busy" /></label>
         <p class="text-sm font-medium">Seller / Contact Presentation</p>
-        <label class="flex gap-2"><input v-model="form.show_seller_email" type="checkbox" :disabled="!company.hasPermission('portal.settings.manage') || busy" />Show seller email</label>
-        <label class="flex gap-2"><input v-model="form.show_seller_phone" type="checkbox" :disabled="!company.hasPermission('portal.settings.manage') || busy" />Show seller phone</label>
-        <label class="flex gap-2"><input v-model="form.show_seller_address" type="checkbox" :disabled="!company.hasPermission('portal.settings.manage') || busy" />Show seller address</label>
-        <div v-if="company.hasPermission('portal.settings.manage')" class="flex flex-wrap gap-2"><ZButton :disabled="busy" @click="mutate(version => fbrRepository.savePortalSettings(companyId, version, { ...form }), 'Portal Settings saved.')">Save Settings</ZButton><ZButton variant="outline" :disabled="busy" @click="confirming = 'reset'">Reset to Defaults</ZButton></div>
+        <label class="flex gap-2"><input v-model="form.show_seller_email" type="checkbox" :disabled="!canManage || busy" />Show seller email</label>
+        <label class="flex gap-2"><input v-model="form.show_seller_phone" type="checkbox" :disabled="!canManage || busy" />Show seller phone</label>
+        <label class="flex gap-2"><input v-model="form.show_seller_address" type="checkbox" :disabled="!canManage || busy" />Show seller address</label>
+        <div v-if="canManage" class="flex flex-wrap gap-2"><ZButton :disabled="busy" @click="mutate(version => fbrRepository.savePortalSettings(companyId, version, { ...form }), 'Portal Settings saved.')">Save Settings</ZButton><ZButton variant="outline" :disabled="busy" @click="confirming = 'reset'">Reset to Defaults</ZButton></div>
       </Panel>
       <Panel title="Document Logo" body-class="space-y-3 p-4">
         <p>Upload your company logo as PNG, JPEG or WebP (up to 2 MB).</p>
-        <input type="file" aria-label="Document logo file" accept=".png,.jpg,.jpeg,.webp" :disabled="!company.hasPermission('portal.settings.manage') || busy" @change="selectLogo" />
-        <ZButton v-if="company.hasPermission('portal.settings.manage')" variant="outline" :disabled="busy || !logo" @click="mutate(version => fbrRepository.uploadPortalLogo(companyId, version, logo!), 'Logo saved.'); logo = null">Upload Logo</ZButton>
+        <input type="file" aria-label="Document logo file" accept=".png,.jpg,.jpeg,.webp" :disabled="!canManage || busy" @change="selectLogo" />
+        <ZButton v-if="canManage" variant="outline" :disabled="busy || !logo" @click="mutate(version => fbrRepository.uploadPortalLogo(companyId, version, logo!), 'Logo saved.'); logo = null">Upload Logo</ZButton>
       </Panel>
       <Panel title="FBR Credential" body-class="space-y-3 p-4">
         <p>FBR credential: <strong>{{ state.fbr_configuration.credential_configured ? 'Configured' : 'Not configured' }}</strong>. The saved credential is never shown.</p>
-        <template v-if="company.hasPermission('portal.settings.manage') && company.hasPermission('fbr.configuration.manage')">
+        <template v-if="canManage && company.hasPermission('fbr.configuration.manage')">
           <label>Replacement credential <input v-model="credential" class="field mt-1 block w-full" type="password" autocomplete="off" :disabled="busy" /></label>
           <div class="flex flex-wrap gap-2"><ZButton :disabled="busy || credential.length < 8" @click="mutate(version => fbrRepository.replacePortalCredential(companyId, version, credential), 'Credential replaced. Connection is not verified.')">Replace Credential</ZButton><ZButton v-if="state.fbr_configuration.credential_configured" variant="outline" :disabled="busy" @click="confirming = 'credential'">Remove Credential</ZButton></div>
         </template>

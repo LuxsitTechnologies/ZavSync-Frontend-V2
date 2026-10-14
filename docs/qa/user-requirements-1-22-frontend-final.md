@@ -1,5 +1,19 @@
 # User Requirements 1–22: frontend implementation and verification record
 
+## Role-model DEV correction candidate (2026-10-14; verification pending)
+
+| State | Frontend | Backend |
+|---|---|---|
+| **BASE COMMIT** | `5e69750067abeb3db6ea93ab3af543599052e159` | `e93e998ae6cfbcb675805e1006791106260100b4` |
+| **UNCOMMITTED ROLE-MODEL CANDIDATE** | Changes to role-aware navigation, routing, authentication consumers and regression tests, plus this verification record and tooling. | Separate uncommitted Platform Admin/Admin/custom-role provisioning, authority, migration and contract/test changes. |
+| **FINAL CERTIFIED COMMIT** | Not yet created. | Not yet created for the role-model changes. |
+
+The earlier Requirements 1–22 executable verification and the currently deployed frontend commit do **not** certify these new role-model worktree bytes. The new verifier records the exact changed-file inventory, each changed file's SHA-256 and executable mode, and the tracked binary-diff SHA-256 for both repositories in [the candidate lock](user-requirements-1-22-role-model-candidate.lock.json). The lock itself is excluded from its own fingerprint to avoid a circular hash; it is a review artifact, not executable authority. Both HEADs must remain at the base commits, staged changes are rejected, and the verifier checks the recorded candidate before testing and again after testing. New, removed or changed files in either repository make it stop. The lock is never refreshed by a verifier run.
+
+After reviewing any intentional edit to either candidate, explicitly run `node scripts/verify-role-model-candidate.mjs record` from the frontend repository, review the resulting lock inventory and diff, then run `node scripts/verify-role-model-candidate.mjs verify`. A new record supersedes prior test evidence for the changed bytes. In normal Terminal, run `bash /Users/humzamazhar/Documents/Codex/ZavSync-Frontend-V2/scripts/verify-user-requirements-1-22.sh` only after that review. Full Chromium/real-backend verification, MariaDB certification of the backend role-model candidate, DEV actor `/auth/me` acceptance and final commit review remain pending. No commit, push or deployment is authorized by this record.
+
+The section below describes the **prior** certified Requirements 1–22 candidate. Its 19 browser/real-backend passes and 52 unit/static passes are historical evidence, not verification of the current role-model candidate.
+
 ## Final executable candidate against certified backend e93e998 (2026-10-14)
 
 Frontend base HEAD is `8465a37b43ea89425aee573075a3dbc55ec8a29d`. The **72-file candidate** (45 modified, 27 new) remains uncommitted and unstaged. The clean backend is at `e93e998ae6cfbcb675805e1006791106260100b4`, equal to local `origin/main`; its [frontend handoff](/Users/humzamazhar/Documents/ChatGPT/ZavSync-Backend-V2/docs/qa/user-requirements-1-22-frontend-contract.md) is the authority. The older `013471be` analysis below is historical evidence, not the current contract. No production or V1 data was accessed, and no backend mutation, frontend commit, push or deployment occurred.

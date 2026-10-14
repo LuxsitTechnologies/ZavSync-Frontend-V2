@@ -51,6 +51,17 @@ test('Portal Settings is the normal FBR configuration destination with separate 
   expect(authorized).not.toContain('"to":"/fbr-invoicing/configuration"');
   expect(authorized).not.toContain('"to":"/fbr-invoicing/migrations"');
 });
+test('company ownership exposes only backend-authorized billing and Portal Settings destinations', () => {
+  const owner = JSON.stringify(navigationForModules(['invoicing'], false, [], undefined, true));
+  const ordinary = JSON.stringify(navigationForModules(['invoicing'], false, [], undefined, false));
+  const ownerWithoutFbr = JSON.stringify(navigationForModules([], false, [], undefined, true));
+  expect(owner).toContain('"to":"/billing"');
+  expect(owner).toContain('"to":"/fbr-invoicing/portal-settings"');
+  expect(owner).not.toContain('"to":"/fbr-invoicing/migrations"');
+  expect(ordinary).not.toContain('"to":"/billing"');
+  expect(ordinary).not.toContain('"to":"/fbr-invoicing/portal-settings"');
+  expect(ownerWithoutFbr).not.toContain('"to":"/fbr-invoicing/portal-settings"');
+});
 test('Migration Administration requires migration viewing permission, not platform-admin status', () => {
   const viewer = JSON.stringify(navigationForModules(['invoicing'], false, ['migration.view'], nav(['fbr.migrations'])));
   const ordinary = JSON.stringify(navigationForModules(['invoicing'], false, ['pakistan_fbr.view'], nav(['fbr.migrations'])));
@@ -136,6 +147,11 @@ test('navigation unit: switching hides old state and rejects stale updates', asy
     expect(store.effectiveNavigation?.visible_keys).toEqual(['fbr.invoicing']);
     store.updateNavigation('A',version,nav([]));
     expect(store.effectiveNavigation?.visible_keys).toEqual(['fbr.invoicing']);
+    expect(store.activePermissions).toEqual(['pakistan_fbr.view']);
+    store.hydrate({user:{id:1,name:'Company Admin',email:'admin@example.invalid',is_platform_admin:false,platform_permissions:['platform.jobs.view']},companies:[b]});
+    expect(store.hasPermission('platform.jobs.view')).toBe(false);
+    store.hydrate({user:{id:1,name:'ZavSync Admin',email:'platform@example.invalid',is_platform_admin:true,platform_permissions:['platform.jobs.view']},companies:[b]});
+    expect(store.hasPermission('platform.jobs.view')).toBe(true);
     expect(store.activePermissions).toEqual(['pakistan_fbr.view']);
   } finally {authRepository.switchCompany=original;await server.close();if(storage)Object.defineProperty(globalThis,"localStorage",storage);else Reflect.deleteProperty(globalThis,"localStorage");}
 });

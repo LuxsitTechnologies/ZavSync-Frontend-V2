@@ -315,7 +315,7 @@ export function activeNavigationPath(path: string): string | null {
     .sort((left, right) => right.length - left.length)[0] ?? null;
 }
 
-export function navigationForModules(modules:string[],isPlatformAdmin=false,permissions:string[]=[],effective?:EffectiveNavigation):NavGroup[]{
+export function navigationForModules(modules:string[],isPlatformAdmin=false,permissions:string[]=[],effective?:EffectiveNavigation,isCompanyOwner=false):NavGroup[]{
   const filter=(items:NavItem[]):NavItem[]=>items.flatMap(item=>{
     if (effective?.parents && item.presentationParentKey && effective.parents.some(parent => parent.key === item.presentationParentKey && !parent.effective_visible)) return [];
     const key = item.to ? presentationKeyForRoute[item.to] : undefined;
@@ -323,7 +323,8 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
     if(item.module&&!modules.includes(item.module))return [];
     if(item.platformAdmin&&!isPlatformAdmin)return [];
     const permission = item.permission ?? (item.to ? permissionForPath(item.to) : null);
-    if(permission&&!permissions.includes('*')&&!permissions.includes(permission))return [];
+    const ownerAccess = isCompanyOwner && (item.to === "/billing" || item.to === "/fbr-invoicing/portal-settings");
+    if(permission&&!permissions.includes('*')&&!permissions.includes(permission)&&!ownerAccess)return [];
     const children=item.children?filter(item.children):undefined;
     if(item.children&&!children?.length)return [];
     return [{...item,children}];

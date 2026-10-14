@@ -185,6 +185,7 @@ router.beforeEach(async (to) => {
   if (to.path === "/companies") return true;
   if (company.activeCompany?.approval_status && (company.activeCompany.approval_status !== "APPROVED" || company.activeCompany.is_active === false)) return "/companies";
   if (!company.activeCompanyId) return "/companies";
+  if ((to.path === "/employee" || to.path.startsWith("/employee/")) && company.activeCompany?.employee_portal_available === false) return "/";
   if (to.path === "/" && employeeOnlyCandidate(company)) {
     const id = company.activeCompanyId, version = company.contextVersion;
     try {
@@ -203,7 +204,8 @@ router.beforeEach(async (to) => {
   const module = moduleForPath(to.path);
   const permission = permissionForPath(to.path);
   if (to.path === "/system-health" && !company.isPlatformAdmin) return "/";
-  if ((permission && !company.hasPermission(permission)) || (module && !company.hasModule(module))) {
+  const ownerAccess = company.isCompanyOwner && (to.path === "/billing" && permission === "billing.view");
+  if ((permission && !company.hasPermission(permission) && !ownerAccess) || (module && !company.hasModule(module))) {
     return to.path.startsWith("/employee/") && company.hasPermission("employee.self.view") && company.hasModule("payroll")
       ? "/employee"
       : "/";

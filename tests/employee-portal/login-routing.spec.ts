@@ -3,14 +3,15 @@ import { expect, test, type Page } from "@playwright/test";
 async function signIn(page: Page, options: { linked: boolean; workspace: boolean; platformAdmin?: boolean }) {
   const calls: string[] = [];
   const permissions = ["employee.self.view", ...(options.workspace ? ["accounting.view"] : [])];
-  const company = { id: "A", name: "Company A", roles: options.workspace ? ["Company User"] : ["Employee"], permissions, modules: ["payroll", ...(options.workspace ? ["invoicing"] : [])], approval_status: "APPROVED", is_active: true, effective_navigation: { catalog: [], items: [], visible_keys: [] } };
+  const company = { id: "A", name: "Company A", roles: options.workspace ? ["Company User"] : ["Employee"], permissions, modules: ["payroll", ...(options.workspace ? ["invoicing"] : [])], employee_linked: options.linked, employee_portal_available: options.linked, approval_status: "APPROVED", is_active: true, effective_navigation: { catalog: [], items: [], visible_keys: [] } };
   const payload = { user: { id: 1, name: "Account User", email: "account@example.invalid", is_platform_admin: options.platformAdmin ?? false }, companies: [company] };
+  let authenticated = false;
   await page.route("**/sanctum/csrf-cookie", route => route.fulfill({ status: 204 }));
   await page.route("**/api/v1/**", route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     calls.push(path);
-    if (path.endsWith("/auth/me")) return route.fulfill({ status: 401, json: { message: "Unauthenticated" } });
-    if (path.endsWith("/auth/login")) return route.fulfill({ json: payload });
+    if (path.endsWith("/auth/me")) return authenticated ? route.fulfill({ json: payload }) : route.fulfill({ status: 401, json: { message: "Unauthenticated" } });
+    if (path.endsWith("/auth/login")) { authenticated = true; return route.fulfill({ json: payload }); }
     if (path.endsWith("/employee/me")) return route.fulfill({ json: { linked: options.linked, employee: options.linked ? { id: "employee-A", full_name: "Linked Employee", employee_code: "EMP-001", status: "active" } : null, self_editable: false } });
     if (path.endsWith("/platform/notifications")) return route.fulfill({ json: { unread_count: 0, notifications: { data: [], current_page: 1, last_page: 1, per_page: 30, total: 0 } } });
     return route.fulfill({ status: 403, json: { message: "Unavailable in this fixture" } });
@@ -27,6 +28,9 @@ test("linked employee-only account lands in the existing Employee Portal", async
   await expect(page).toHaveURL(/\/employee$/);
   expect(calls.some(path => path.endsWith("/employee/me"))).toBe(true);
   await expect(page.getByRole("link", { name: "Back to Dashboard" })).toHaveCount(0);
+  await page.goto("/employee/notifications");
+  await expect(page).toHaveURL(/\/employee\/notifications$/);
+  expect(calls.some(path => path.endsWith("/platform/notifications"))).toBe(true);
 });
 
 test("dual-role account lands in company workspace and keeps an explicit Portal entry", async ({ page }) => {
@@ -34,12 +38,27 @@ test("dual-role account lands in company workspace and keeps an explicit Portal 
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Employee Portal", exact: true })).toBeVisible();
   expect(calls.some(path => path.endsWith("/employee/me"))).toBe(true);
+  await page.goto("/employee/notifications");
+  await expect(page).toHaveURL(/\/employee\/notifications$/);
+  expect(calls.some(path => path.endsWith("/platform/notifications"))).toBe(true);
 });
 
 test("unlinked account is not routed to employee self-service", async ({ page }) => {
   await signIn(page, { linked: false, workspace: false });
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Employee Portal", exact: true })).toHaveCount(0);
+  await page.goto('/employee');
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/employee/notifications');
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("company administrator without employee linkage keeps workspace access but not Portal access", async ({ page }) => {
+  await signIn(page, { linked: false, workspace: true });
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("link", { name: "Employee Portal", exact: true })).toHaveCount(0);
+  await page.goto('/employee');
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("platform administrator retains the company workspace landing", async ({ page }) => {

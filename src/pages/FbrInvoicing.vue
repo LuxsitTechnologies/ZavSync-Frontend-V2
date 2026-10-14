@@ -26,7 +26,7 @@ const screen = computed(() => route.path.endsWith("/portal-settings") ? PortalSe
     <nav v-if="company.hasModule('invoicing')" class="mb-4 flex flex-wrap gap-4 text-sm text-content-brand print:hidden" aria-label="FBR Invoice">
       <RouterLink v-if="company.hasPermission('pakistan_fbr.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.invoicing'))" to="/fbr-invoicing">Invoice Register</RouterLink>
       <RouterLink v-if="company.hasPermission('pakistan_fbr.manage') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.invoicing'))" to="/fbr-invoicing/new">Create Invoice</RouterLink>
-      <RouterLink v-if="company.hasPermission('portal.settings.view')" to="/fbr-invoicing/portal-settings">Portal Settings</RouterLink>
+      <RouterLink v-if="company.hasPermission('portal.settings.view') || company.isCompanyOwner" to="/fbr-invoicing/portal-settings">Portal Settings</RouterLink>
       <RouterLink v-if="company.hasPermission('migration.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.migrations'))" to="/fbr-invoicing/migrations">Migration Administration</RouterLink>
     </nav>
     <p v-if="company.switching" role="status">Switching company…</p>

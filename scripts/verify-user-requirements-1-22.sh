@@ -3,21 +3,13 @@ set -euo pipefail
 
 frontend_dir="/Users/humzamazhar/Documents/Codex/ZavSync-Frontend-V2"
 backend_dir="/Users/humzamazhar/Documents/ChatGPT/ZavSync-Backend-V2"
-expected_frontend="d395331441343959577edc7f2ca636c84751a7db"
-expected_backend="e93e998ae6cfbcb675805e1006791106260100b4"
 
 fail() { printf 'VERIFICATION FAILED: %s\n' "$*" >&2; exit 1; }
 [[ -d "$frontend_dir/.git" ]] || fail "Frontend repository missing: $frontend_dir"
 [[ -d "$backend_dir/.git" ]] || fail "Backend repository missing: $backend_dir"
 cd "$frontend_dir"
-actual_frontend="$(git rev-parse HEAD)"
-actual_backend="$(git -C "$backend_dir" rev-parse HEAD)"
-printf 'Frontend expected: %s\nFrontend actual:   %s\nBackend expected:  %s\nBackend actual:    %s\n' \
-  "$expected_frontend" "$actual_frontend" "$expected_backend" "$actual_backend"
-[[ "$actual_frontend" == "$expected_frontend" ]] || fail "Frontend HEAD changed; review and update the pinned candidate before testing."
-[[ "$actual_backend" == "$expected_backend" ]] || fail "Backend HEAD changed; certify and update the reviewed contract before testing."
-backend_status="$(git -C "$backend_dir" status --porcelain --untracked-files=all)"
-[[ -z "$backend_status" ]] || fail "Certified backend worktree is not clean."
+printf 'Pinned committed bases and reviewed uncommitted candidate\n'
+node scripts/verify-role-model-candidate.mjs verify || fail "Candidate integrity check failed before testing."
 
 printf '\nTypecheck and production build\n'
 npm run typecheck
@@ -48,15 +40,23 @@ if grep -Eq 'ZavSync — Unified ERP|HRM, payroll, accounting and FBR compliance
   fail "Built HTML still contains obsolete public preview copy."
 fi
 git diff --check
+git -C "$backend_dir" diff --check
 
 printf '\nArtifact and secret-file review\n'
 if git status --porcelain --untracked-files=all | grep -Ei '(^|/)(\.env(\.|$)|playwright-report|test-results|dist|screenshots?|traces?|[^/]+\.(log|sqlite|db)$)'; then
   fail "A generated artifact or secret-like file is present in Git status."
 fi
+if git -C "$backend_dir" status --porcelain --untracked-files=all | grep -Ei '(^|/)(\.env(\.|$)|playwright-report|test-results|dist|screenshots?|traces?|[^/]+\.(log|sqlite|db)$)'; then
+  fail "A generated artifact or secret-like file is present in backend Git status."
+fi
 secret_pattern="^\\+[^+]*(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|sk_live_[A-Za-z0-9]+|password[[:space:]]*[:=][[:space:]]*['\"][^'\"]+['\"])"
 if git diff -- . ':!*.md' | grep -Ei "$secret_pattern"; then
   fail "A secret pattern appears in executable changes; inspect the diff."
 fi
+if git -C "$backend_dir" diff -- . ':!*.md' | grep -Ei "$secret_pattern"; then
+  fail "A secret pattern appears in backend executable changes; inspect the diff."
+fi
+node scripts/verify-role-model-candidate.mjs verify || fail "Candidate integrity changed during testing."
 
 printf '\nExecutable verification gate: PASS\n'
 printf 'Requirements 1–22 acceptance remains conditional on the documented backend contracts, DEV checks and Zeeshan/user review.\n'
