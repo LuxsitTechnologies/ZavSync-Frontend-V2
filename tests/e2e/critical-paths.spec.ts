@@ -53,20 +53,103 @@ test("authentication protects routes and logout clears the session", async ({ pa
 });
 
 test("company switching invalidates tenant UI and enforces module entitlements", async ({ page }) => {
-  await signIn(page);
-  await page.goto("/settings");
-  await page.getByRole("button", { name: "New company" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Legal name").fill("Stage 14 Isolation Company");
-  await dialog.getByLabel("Plan").selectOption({ label: "Starter" });
-  await dialog.getByRole("button", { name: "Create company" }).click();
-  await expect(page.getByLabel("Active company")).toHaveValue(/.+/);
-  await expect(page.getByLabel("Active company").locator("option:checked")).toHaveText("Stage 14 Isolation Company");
-  await expect(page.getByText("Payroll", { exact: true })).toHaveCount(0);
-  await page.goto("/payroll");
+  const originalCompanyId = await signIn(page);
+  const newCompanyName = "Stage 14 Isolation Company";
+  await page.goto("/companies");
+  const creation = page.locator("section").filter({ has: page.getByRole("heading", { name: "New Company", exact: true }) });
+  await creation.getByLabel("Company name").fill(newCompanyName);
+  await creation.getByLabel("Company contact email").fill("stage14-isolation@example.invalid");
+  await creation.getByLabel("Province code").fill("SINDH");
+  await creation.getByLabel("NTN / CNIC").fill("1234567");
+  await creation.getByLabel("Plan").selectOption({ label: "Starter" });
+  const [created] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith("/api/v1/platform/companies") && response.request().method() === "POST"),
+    creation.getByRole("button", { name: "Create Pending Company" }).click(),
+  ]);
+  expect(created.status()).toBe(201);
+  const { company: createdCompany } = await created.json() as { company: { id: string; approval_status: string } };
+  expect(createdCompany.approval_status).toBe("PENDING");
+  const newCompanyOption = page.getByLabel("Active company").locator(`option[value="${createdCompany.id}"]`);
+  await expect(newCompanyOption).toHaveCount(0);
+  const pending = page.locator("section").filter({ has: page.getByRole("heading", { name: "My Pending Companies" }) });
+  await expect(pending.getByText(`${newCompanyName} · PENDING`, { exact: false })).toBeVisible();
+
+  const administration = page.locator("section").filter({ has: page.getByRole("heading", { name: "Platform Company Administration" }) });
+  await expect(page.getByText("Loading company information…")).toHaveCount(0);
+  await administration.getByLabel("Search").fill(newCompanyName);
+  await administration.getByRole("button", { name: "Search" }).click();
+  const companyRow = administration.getByText(`${newCompanyName} · PENDING · Active`, { exact: true }).locator("..");
+  await expect(companyRow).toBeVisible();
+  await companyRow.getByRole("button", { name: "View Profile", exact: true }).click();
+  const profile = page.locator("section").filter({ has: page.getByRole("heading", { name: "Company Profile" }) });
+  await expect(profile.getByLabel("Company name")).toHaveValue(newCompanyName);
+  await expect(profile.getByText("PENDING · Active · Version 1")).toBeVisible();
+  const [approved] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith(`/api/v1/platform/admin/companies/${createdCompany.id}/approval`) && response.request().method() === "POST"),
+    profile.getByRole("button", { name: "Approve" }).click(),
+  ]);
+  expect(approved.status()).toBe(200);
+  expect((await approved.json() as { approval_status: string }).approval_status).toBe("APPROVED");
+  await page.reload();
+  await expect(newCompanyOption).toBeEnabled();
+
+  await page.goto("/accounting/customers");
+  await expect(page.getByText("Demo Customer", { exact: true })).toBeVisible();
+  const [newCompanyCustomers, switched] = await Promise.all([
+    page.waitForResponse(response => response.url().includes("/api/v1/accounting/customers") && response.request().headers()["x-company-id"] === createdCompany.id),
+    page.waitForResponse(response => response.url().endsWith("/api/v1/auth/switch-company") && response.request().method() === "POST"),
+    page.getByLabel("Active company").selectOption(createdCompany.id),
+  ]);
+  expect(switched.status()).toBe(200);
+  const switchedCompany = (await switched.json() as { company: { id: string; modules: string[] } }).company;
+  expect(switchedCompany.id).toBe(createdCompany.id);
+  const billing = await apiRequest<{
+    commercial: { state: string; trial_ends_at: string | null };
+    subscription: { plan: string; status: string } | null;
+  }>(page, "/api/v1/platform/billing/summary", { companyId: createdCompany.id });
+  expect(billing.status).toBe(200);
+  expect(billing.body.subscription).toMatchObject({ plan: "starter", status: "TRIALING" });
+  expect(billing.body.commercial.state).toBe("TRIAL");
+  expect(billing.body.commercial.trial_ends_at).toBeTruthy();
+  const history = await apiRequest<{
+    data: Array<{ plan: { code: string }; status: string; starts_at: string; trial_ends_at: string }>;
+  }>(page, "/api/v1/platform/subscription/history", { companyId: createdCompany.id });
+  expect(history.status).toBe(200);
+  const trial = history.body.data.find(item => item.plan.code === "starter" && item.status === "TRIALING");
+  expect(trial).toBeDefined();
+  expect(trial?.trial_ends_at).toBe(billing.body.commercial.trial_ends_at);
+  expect(Date.parse(trial!.trial_ends_at) - Date.parse(trial!.starts_at)).toBe(14 * 24 * 60 * 60 * 1000);
+  expect(switchedCompany.modules).toContain("payroll");
+  expect(switchedCompany.modules).not.toContain("procurement");
+  expect(newCompanyCustomers.status()).toBe(200);
+  expect(await newCompanyCustomers.json()).toEqual([]);
+  await expect(page.getByLabel("Active company")).toHaveValue(createdCompany.id);
+  await expect(page.getByText("No customers", { exact: true })).toBeVisible();
+  await expect(page.getByText("Demo Customer", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Payroll", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Purchases", exact: true })).toHaveCount(0);
+  const unauthorizedPurchaseRequests: string[] = [];
+  page.on("request", request => {
+    if (request.url().includes("/api/v1/purchases/") && request.headers()["x-company-id"] === createdCompany.id) {
+      unauthorizedPurchaseRequests.push(request.url());
+    }
+  });
+  await page.goto("/purchases");
   await expect(page).toHaveURL(/\/$/);
-  await page.getByLabel("Active company").selectOption({ label: "ZavSync Demo Company" });
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  expect(unauthorizedPurchaseRequests).toEqual([]);
+  const deniedPurchases = await apiRequest<{ error_code: string }>(page, "/api/v1/purchases/orders", { companyId: createdCompany.id });
+  expect(deniedPurchases.status).toBe(403);
+  expect(deniedPurchases.body.error_code).toBe("MODULE_NOT_ENTITLED");
+  await expect(page.getByText("Demo Customer", { exact: true })).toHaveCount(0);
+  const [restored] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith("/api/v1/auth/switch-company") && response.request().method() === "POST"),
+    page.getByLabel("Active company").selectOption(originalCompanyId),
+  ]);
+  expect(restored.status()).toBe(200);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("zavsync.active_company"))).toBe(originalCompanyId);
+  await expect(page.getByLabel("Active company")).toHaveValue(originalCompanyId);
+  await page.goto("/accounting/customers");
+  await expect(page.getByText("Demo Customer", { exact: true })).toBeVisible();
 });
 
 test("revenue and receivables screens use authoritative records", async ({ page }) => {

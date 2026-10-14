@@ -1,6 +1,7 @@
 export type NavigationReason = "PLATFORM_INACTIVE" | "NOT_ENTITLED" | "NOT_AUTHORIZED" | "HIDDEN_BY_COMPANY";
 export interface NavigationItem {
   key: string; label: string; group: string; order: number; module_key: string;
+  parent_key?: string | null;
   required_permission: string; platform_active: boolean; entitled: boolean; authorized: boolean;
   visibility_override: boolean | null; presentation_visible: boolean; effective_visible: boolean;
   unavailable_reason: NavigationReason | null;
@@ -8,6 +9,7 @@ export interface NavigationItem {
 export interface EffectiveNavigation {
   catalog: { key: string; name: string; is_active: boolean; entitled: boolean }[];
   items: NavigationItem[];
+  parents?: Array<{ key: string; label: string; child_keys: string[]; visible_child_keys: string[]; effective_visible: boolean }>;
   visible_keys: string[];
 }
 export const visibilityLabel = (value: boolean | null) => value === null ? "Default (inherited)" : value ? "Visible (explicit show)" : "Hidden (explicit hide)";

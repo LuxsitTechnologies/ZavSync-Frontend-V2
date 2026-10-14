@@ -40,6 +40,7 @@ const { saving, error, fieldErrors, run } = useMutation(async () => {
 function save() { if (!saving.value && current()) void run(); }
 const amountFields = [
   { key: "unit_price", label: "Unit price (PKR)", required: true },
+  { key: "taxable_amount", label: "Exact taxable amount override (PKR)", required: false },
   { key: "discount", label: "Discount (PKR)", required: true },
   { key: "sales_tax", label: "Exact sales tax (PKR)", required: false },
   { key: "extra_tax", label: "Extra tax (PKR)", required: true },
@@ -51,7 +52,7 @@ const amountFields = [
   <AsyncSection :loading="loading" :error="loadError" @retry="refresh">
     <div v-if="invoiceId && (!invoice?.editable || invoice.is_historical)" class="panel p-6" role="alert">This invoice is read-only. <RouterLink :to="`/fbr-invoicing/${invoiceId}`">View invoice</RouterLink></div>
     <form v-else class="space-y-4" @submit.prevent="save">
-      <h2 class="text-lg font-semibold">{{ invoiceId ? 'Edit draft' : 'Create draft' }}</h2>
+      <h2 class="text-lg font-semibold">{{ invoiceId ? 'Edit Draft' : 'Create Invoice' }}</h2>
       <FbrError :error="error" />
       <p v-if="locked && !saving" class="text-sm text-warning" role="status">The save outcome is uncertain. Retry the same saved request below, or inspect the register before starting another draft. Fields remain locked to prevent duplicates.</p>
       <fieldset :disabled="saving || locked" class="space-y-4">
@@ -60,6 +61,8 @@ const amountFields = [
           <Field v-model="form.buyer_snapshot.registration_number" label="NTN / CNIC" aria-label="NTN / CNIC" pattern="[0-9]{7}|[0-9]{13}" maxlength="13" hint="7 or 13 digits. Registration lookup is unavailable." :error="fieldErrors['buyer_snapshot.registration_number']" />
           <label class="block"><span class="label-caps">Buyer registration type</span><select v-model="form.buyer_snapshot.type" class="field mt-1.5"><option>Unregistered</option><option>Registered</option></select></label>
           <Field v-model="form.buyer_snapshot.address" label="Buyer address" aria-label="Buyer address" maxlength="2000" />
+          <Field v-model="form.buyer_snapshot.email" label="Buyer email" aria-label="Buyer email" type="email" maxlength="255" :error="fieldErrors['buyer_snapshot.email']" />
+          <Field v-model="form.buyer_snapshot.phone" label="Buyer phone" aria-label="Buyer phone" maxlength="40" :error="fieldErrors['buyer_snapshot.phone']" />
           <FbrReferenceInput v-model="form.buyer_snapshot.province" label="Buyer province" category="PROVINCE" :references="refs.data.value ?? []" required :error="fieldErrors['buyer_snapshot.province']" />
           <Field v-model="form.invoice_date" label="Invoice date" aria-label="Invoice date" type="date" required :error="fieldErrors['invoice_date']" />
           <Field v-model="form.due_date" label="Due date" aria-label="Due date" type="date" :min="form.invoice_date" :error="fieldErrors['due_date']" />
@@ -79,7 +82,7 @@ const amountFields = [
           <FbrReferenceInput v-model="line.hs_code" label="HS code" category="HS_CODE" :references="refs.data.value ?? []" required />
           <FbrReferenceInput v-model="line.unit" label="UOM" category="UOM" :references="refs.data.value ?? []" required />
           <Field v-model="line.quantity" label="Quantity" aria-label="Quantity" inputmode="decimal" required hint="Up to 3 decimal places." :error="fieldErrors[`lines.${index}.quantity_milli`]" />
-          <Field v-for="amount in amountFields" :key="amount.key" v-model="line[amount.key]" :label="amount.label" :aria-label="amount.label" inputmode="decimal" :required="amount.required" :error="fieldErrors[`lines.${index}.${amount.key}`]" :hint="amount.key === 'sales_tax' ? 'Positive amount overrides the rate. Blank or zero uses the backend rate calculation.' : amount.key === 'st_withheld' ? 'Reported separately; does not reduce the invoice total.' : 'Up to 2 decimal places.'" />
+          <Field v-for="amount in amountFields" :key="amount.key" v-model="line[amount.key]" :label="amount.label" :aria-label="amount.label" inputmode="decimal" :required="amount.required" :error="fieldErrors[`lines.${index}.${amount.key}`]" :hint="amount.key === 'sales_tax' ? 'Positive amount overrides the rate. Blank or zero uses the backend rate calculation.' : amount.key === 'taxable_amount' ? 'Positive amount overrides quantity × unit price. Clear to derive on the server.' : amount.key === 'st_withheld' ? 'Reported separately; does not reduce the invoice total.' : 'Up to 2 decimal places.'" />
           <Field v-model="line.rate" label="Sales tax rate (%)" aria-label="Sales tax rate (%)" inputmode="decimal" required :error="fieldErrors[`lines.${index}.tax_rate_bps`]" />
           <FbrReferenceInput v-model="line.fbr_rate_id" label="FBR rate metadata" category="RATE" :references="refs.data.value ?? []" required />
           <FbrReferenceInput v-model="line.sro_schedule_id" label="SRO schedule" category="SRO_SCHEDULE" :references="refs.data.value ?? []" />
@@ -89,7 +92,7 @@ const amountFields = [
         <Field v-model="form.notes" label="Notes" aria-label="Notes" maxlength="5000" />
       </fieldset>
       <p class="text-sm text-content-secondary">Save this draft first. Its detail page shows server-calculated totals and, when the company, invoice and your permission are eligible, a separate Submit to FBR action. Saving alone does not submit it.</p>
-      <div class="flex flex-wrap gap-3"><ZButton type="submit" :disabled="saving">{{ saving ? 'Saving…' : locked ? 'Retry same save' : 'Save draft and review' }}</ZButton><RouterLink to="/fbr-invoicing" class="self-center text-sm text-content-brand">Back to register</RouterLink></div>
+      <div class="flex flex-wrap gap-3"><ZButton type="submit" :disabled="saving">{{ saving ? 'Saving…' : locked ? 'Retry Same Save' : 'Save Draft' }}</ZButton><RouterLink to="/fbr-invoicing" class="self-center text-sm text-content-brand">Back to Register</RouterLink></div>
     </form>
   </AsyncSection>
 </template>

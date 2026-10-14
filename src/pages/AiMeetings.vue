@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { FileText, ShieldCheck } from "lucide-vue-next";
 
 import AppShell from "@/components/zs/AppShell.vue";
+import InternalCalendar from "@/components/ai/InternalCalendar.vue";
 import AsyncSection from "@/components/zs/AsyncSection.vue";
 import PageHeader from "@/components/zs/PageHeader.vue";
 import Panel from "@/components/zs/Panel.vue";
@@ -15,11 +16,13 @@ import { useCompanyStore } from "@/stores/company";
 
 setPageMeta("Meeting Assistant", "Permission-aware meeting preparation from synchronized calendar and CRM data.");
 const company = useCompanyStore();
-const events = useAsyncData(() => aiRepository.calendarEvents(company.activeCompanyId), { watch: [() => company.activeCompanyId] });
+const events = useAsyncData(() => aiRepository.calendarEvents(company.activeCompanyId), { watch: [() => company.contextVersion] });
 const context = ref<Record<string, unknown> | null>(null);
+watch(() => company.contextVersion, () => { context.value = null; }, { flush: "sync" });
 const prepare = useMutation(async (id: string) => {
-  const value = await aiRepository.meetingContext(company.activeCompanyId, id);
-  context.value = value;
+  const companyId = company.activeCompanyId, version = company.contextVersion;
+  const value = await aiRepository.meetingContext(companyId, id);
+  if (!company.switching && company.activeCompanyId === companyId && company.contextVersion === version) context.value = value;
   return value;
 });
 </script>
@@ -27,6 +30,7 @@ const prepare = useMutation(async (id: string) => {
 <template>
   <AppShell>
     <PageHeader title="Meeting Assistant" description="Meeting preparation respects CRM and underlying financial permissions"/>
+    <div class="mb-4"><InternalCalendar title="My Internal Meetings" /></div>
     <ValidationMessage :message="prepare.error.value?.message"/>
     <div class="grid gap-4 xl:grid-cols-[22rem_1fr]">
       <Panel title="Upcoming synchronized events"><AsyncSection :loading="events.loading.value" :error="events.error.value" :empty="!(events.data.value?.data.length)" empty-title="No authoritative meetings" empty-message="Connect and synchronize an approved calendar provider before meeting context can be prepared." @retry="events.refresh"><div class="divide-y divide-line"><div v-for="event in events.data.value?.data ?? []" :key="String(event.id)" class="p-4"><p class="text-sm font-medium text-content">{{String(event.title)}}</p><p class="mt-1 text-2xs text-content-muted">{{new Date(String(event.starts_at)).toLocaleString()}}</p><ZButton class="mt-3" variant="outline" @click="prepare.run(String(event.id))"><FileText class="size-4"/>Prepare context</ZButton></div></div></AsyncSection></Panel>

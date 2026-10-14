@@ -78,7 +78,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-50 grid place-items-center p-4" role="alertdialog" aria-modal="true" :aria-labelledby="titleId" :aria-describedby="messageId">
       <button type="button" class="absolute inset-0 bg-black/40" tabindex="-1" aria-label="Cancel" @click="cancel" />
-      <div ref="dialog" class="panel relative w-full max-w-md p-5" tabindex="-1">
+      <div ref="dialog" class="panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden" tabindex="-1">
+        <div class="min-h-0 overflow-y-auto p-5">
         <div class="flex gap-3">
           <span
             class="grid size-9 shrink-0 place-items-center rounded-full"
@@ -94,7 +95,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
         <div v-if="$slots.default" class="mt-4">
           <slot />
         </div>
-        <div class="mt-5 flex justify-end gap-2">
+        </div>
+        <div class="flex shrink-0 justify-end gap-2 border-t border-line p-4">
           <ZButton variant="outline" :disabled="busy" @click="cancel">{{ cancelLabel }}</ZButton>
           <ZButton :disabled="busy" @click="$emit('confirm')">
             {{ busy ? "Working…" : confirmLabel }}

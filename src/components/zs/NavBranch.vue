@@ -1,21 +1,22 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ChevronDown } from "lucide-vue-next";
 
 import NavLeaf from "./NavLeaf.vue";
-import type { NavItem } from "@/lib/nav";
+import { activeNavigationPath, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 const props = defineProps<{ item: NavItem }>();
 const route = useRoute();
 
 function isActive(item: NavItem, pathname: string): boolean {
-  if (item.to === pathname) return true;
-  return Boolean(item.children?.some((child) => isActive(child, pathname)));
+  const active = activeNavigationPath(pathname);
+  return item.to === active || Boolean(item.children?.some(child => child.to === active));
 }
 
 const open = ref(isActive(props.item, route.path));
+watch(() => route.path, path => { if (isActive(props.item, path)) open.value = true; });
 </script>
 
 <template>

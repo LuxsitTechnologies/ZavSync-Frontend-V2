@@ -11,6 +11,7 @@ const error = ref(""), notice = ref("");
 let mounted = true;
 onBeforeUnmount(() => { mounted = false; });
 const current = () => mounted && !company.switching && company.activeCompanyId === companyId && company.contextVersion === version;
+const displayLabel = (key: string, label: string) => key === "fbr.invoicing" ? "FBR Invoice" : label;
 function accept(result: EffectiveNavigation) {
   if (!current()) return;
   data.value = result;
@@ -41,7 +42,7 @@ onMounted(load);
 </script>
 <template>
   <section class="space-y-4" aria-label="Company navigation preferences">
-    <p class="text-sm text-content-secondary">Default inherits visible presentation. Platform availability, subscription and permissions still determine effective visibility.</p>
+    <p class="text-sm text-content-secondary">Navigation visibility controls presentation only. Default inherits the company setting; permissions and subscribed modules still determine access.</p>
     <p v-if="!company.hasPermission('platform.settings.manage')" class="text-sm">Read-only navigation preferences.</p>
     <p v-if="error" role="alert" class="text-danger">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
@@ -49,16 +50,16 @@ onMounted(load);
     <ZButton v-if="error" variant="outline" :disabled="loading || saving" @click="retryLoad">Reload visibility</ZButton>
     <template v-if="data && !loading">
       <p v-if="!data.items.length">No configurable presentation items.</p>
-      <article v-for="item in data.items" :key="item.key" class="panel flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between" :aria-label="item.label">
+      <article v-for="item in data.items" :key="item.key" class="panel flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between" :aria-label="displayLabel(item.key, item.label)">
         <div class="min-w-0">
-          <h2 class="font-semibold">{{ item.label }}</h2>
+          <h2 class="font-semibold">{{ displayLabel(item.key, item.label) }}</h2>
           <p class="text-sm">{{ visibilityLabel(item.visibility_override) }}</p>
           <p class="text-sm text-content-secondary">{{ item.effective_visible ? 'Visible in navigation' : item.unavailable_reason ? navigationReasonLabels[item.unavailable_reason] : 'Unavailable' }}</p>
         </div>
         <div v-if="company.hasPermission('platform.settings.manage')" class="flex flex-wrap gap-2">
-          <ZButton variant="outline" :aria-label="`Show ${item.label}`" :disabled="saving || !item.platform_active || !item.entitled || !item.authorized || item.visibility_override === true" @click="change(item.key, true)">Show</ZButton>
-          <ZButton variant="outline" :aria-label="`Hide ${item.label}`" :disabled="saving || item.visibility_override === false" @click="change(item.key, false)">Hide</ZButton>
-          <ZButton variant="ghost" :aria-label="`Reset ${item.label} to default`" :disabled="saving || item.visibility_override === null" @click="change(item.key, null)">Reset to default</ZButton>
+          <ZButton variant="outline" :aria-label="`Show ${displayLabel(item.key, item.label)}`" :disabled="saving || !item.platform_active || !item.entitled || !item.authorized || item.visibility_override === true" @click="change(item.key, true)">Show</ZButton>
+          <ZButton variant="outline" :aria-label="`Hide ${displayLabel(item.key, item.label)}`" :disabled="saving || item.visibility_override === false" @click="change(item.key, false)">Hide</ZButton>
+          <ZButton variant="ghost" :aria-label="`Reset ${displayLabel(item.key, item.label)} to default`" :disabled="saving || item.visibility_override === null" @click="change(item.key, null)">Reset to default</ZButton>
         </div>
       </article>
     </template>

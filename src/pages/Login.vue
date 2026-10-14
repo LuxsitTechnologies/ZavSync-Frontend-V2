@@ -72,7 +72,7 @@ async function onSubmit() {
     </form>
 
     <template #footer>
-      <span>Need an account? Ask your workspace admin to send an invite.</span>
+      <span>New company? <RouterLink to="/register" class="text-content-brand underline">Create an Account</RouterLink>. Joining an existing company? Ask its admin for an invitation.</span>
     </template>
   </AuthLayout>
 </template>

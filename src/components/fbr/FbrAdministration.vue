@@ -29,7 +29,7 @@ function resolve() { if (!mutation.saving.value && note.value.trim() && current(
 </script>
 <template>
   <div class="space-y-4">
-    <h2 class="text-lg font-semibold">Migration administration</h2>
+    <h2 class="text-lg font-semibold">Migration Administration</h2>
     <p class="text-sm text-content-muted">Review saved reconciliation and resolve documented exceptions. Import execution is not available here. A completed run does not imply certification or resolved discrepancies.</p>
     <AsyncSection v-if="!runId" :loading="runs.loading.value" :error="runs.error.value" :empty="!runs.data.value?.length" empty-title="No migration runs" @retry="runs.refresh">
       <Panel v-for="item in runs.data.value" :key="item.id" :title="item.source_system" body-class="p-4 text-sm">

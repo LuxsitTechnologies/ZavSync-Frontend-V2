@@ -1,4 +1,5 @@
 import { apiRequest } from "@/services/api/client";
+import type { InternalCalendarEvent, InternalCalendarInput, InternalCalendarPage } from "@/types/internalCalendar";
 import type {
   AiActionExecution,
   AiActionProposal,
@@ -124,4 +125,14 @@ export const aiRepository = {
     apiRequest<Paginated<Record<string, unknown>>>("/ai/intelligence/calendar/events", { companyId }),
   meetingContext: (companyId: string, eventId: string) =>
     apiRequest<Record<string, unknown>>(`/ai/intelligence/calendar/events/${eventId}/context`, { companyId }),
+  internalEvents: (companyId: string, query: { from?: string; to?: string; page?: number; per_page?: number }, signal?: AbortSignal) =>
+    apiRequest<InternalCalendarPage>("/ai/intelligence/calendar/internal-events", { companyId, query, signal }),
+  internalEvent: (companyId: string, id: string, signal?: AbortSignal) =>
+    apiRequest<InternalCalendarEvent>(`/ai/intelligence/calendar/internal-events/${encodeURIComponent(id)}`, { companyId, signal }),
+  createInternalEvent: (companyId: string, input: InternalCalendarInput) =>
+    apiRequest<InternalCalendarEvent>("/ai/intelligence/calendar/internal-events", { method: "POST", companyId, body: input }),
+  updateInternalEvent: (companyId: string, id: string, version: number, input: InternalCalendarInput) =>
+    apiRequest<InternalCalendarEvent>(`/ai/intelligence/calendar/internal-events/${encodeURIComponent(id)}`, { method: "PATCH", companyId, body: { ...input, version } }),
+  cancelInternalEvent: (companyId: string, id: string, version: number) =>
+    apiRequest<InternalCalendarEvent>(`/ai/intelligence/calendar/internal-events/${encodeURIComponent(id)}/cancel`, { method: "POST", companyId, body: { version } }),
 };

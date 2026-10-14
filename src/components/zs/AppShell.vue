@@ -10,12 +10,12 @@ const navOpen = ref(false);
 
 <template>
   <div class="flex min-h-screen bg-background">
-    <div class="hidden lg:block">
+    <div class="hidden lg:block print:hidden">
       <Sidebar class="fixed inset-y-0 left-0" />
     </div>
-    <div class="hidden w-sidebar shrink-0 lg:block" aria-hidden="true" />
+    <div class="hidden w-sidebar shrink-0 lg:block print:hidden" aria-hidden="true" />
 
-    <div v-if="navOpen" class="fixed inset-0 z-40 lg:hidden">
+    <div v-if="navOpen" class="fixed inset-0 z-40 lg:hidden print:hidden">
       <button
         type="button"
         aria-label="Close navigation"
@@ -36,8 +36,8 @@ const navOpen = ref(false);
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col overflow-x-hidden">
-      <Topbar @open-nav="navOpen = true" />
-      <main class="mx-auto min-w-0 w-full max-w-content flex-1 animate-fade-in p-4 lg:p-6">
+      <Topbar class="print:hidden" @open-nav="navOpen = true" />
+      <main class="mx-auto min-w-0 w-full max-w-content flex-1 animate-fade-in p-4 lg:p-6 print:max-w-none print:p-0">
         <slot />
       </main>
     </div>

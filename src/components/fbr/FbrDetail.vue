@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useAsyncData, useMutation } from "@/composables/useAsyncData";
 import { fbrRepository } from "@/services/fbr/repository";
 import { useFbrContext } from "./context";
@@ -10,35 +10,70 @@ import Panel from "@/components/zs/Panel.vue";
 import AsyncSection from "@/components/zs/AsyncSection.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import ConfirmDialog from "@/components/zs/ConfirmDialog.vue";
+import { ApiError } from "@/services/api/client";
+import FbrCreditNotes from "./FbrCreditNotes.vue";
 const { company, companyId, current } = useFbrContext();
 const invoiceId = String(useRoute().params.id);
+const router = useRouter();
 const { data: invoice, loading, error, refresh } = useAsyncData(() => fbrRepository.detail(companyId, invoiceId));
 const attempts = useAsyncData(() => invoice.value && !invoice.value.is_historical ? fbrRepository.attempts(companyId, invoiceId) : Promise.resolve([]), { watch: [invoice] });
 const evidence = useAsyncData(() => invoice.value?.is_historical && company.hasPermission("migration.view") ? fbrRepository.evidence(companyId, invoiceId) : Promise.resolve([]), { watch: [invoice] });
-const action = ref<"submit" | "retry" | null>(null);
+const action = ref<"submit" | "retry" | "delete" | "resolve" | null>(null);
 const submissionKey = crypto.randomUUID();
+const resolutionKey = crypto.randomUUID();
+const resolutionOutcome = ref<"ACCEPTED" | "REJECTED">("REJECTED"), resolutionEvidence = ref(""), resolutionReference = ref("");
 const uncertain = ref(false);
+const reconciliationError = ref<ApiError | null>(null);
+const checking = ref(false);
 const { saving, error: mutationError, run } = useMutation(async () => {
   if (!current() || !action.value) return;
   const requested = action.value;
   try {
-    await (requested === "retry" ? fbrRepository.retry(companyId, invoiceId) : fbrRepository.submit(companyId, invoiceId, submissionKey));
+    if (requested === "delete") {
+      await fbrRepository.deleteDraft(companyId, invoiceId);
+      if (current()) await router.push("/fbr-invoicing");
+      return;
+    }
+    if (requested === "resolve") {
+      await fbrRepository.resolveUncertain(companyId, invoiceId, {
+        outcome: resolutionOutcome.value, evidence_note: resolutionEvidence.value.trim(),
+        fbr_reference_number: resolutionOutcome.value === "ACCEPTED" ? resolutionReference.value.trim() : null,
+      }, resolutionKey);
+    } else {
+      await (requested === "retry" ? fbrRepository.retry(companyId, invoiceId) : fbrRepository.submit(companyId, invoiceId, submissionKey));
+    }
     uncertain.value = false;
   } catch (cause) {
-    uncertain.value = true;
+    uncertain.value = (requested === "submit" || requested === "retry") && (cause instanceof ApiError && (cause.kind === "network" || cause.kind === "server"));
     throw cause;
   } finally {
-    if (current()) { action.value = null; await refresh(); }
+    if (current()) { action.value = null; if (requested !== "delete") await refresh(); }
   }
 });
 const canSubmit = computed(() => !!invoice.value && !invoice.value.is_historical && !invoice.value.submission_blocked && invoice.value.fbr_reference_number === null && ["not_submitted", "rejected"].includes(invoice.value.fbr_status) && invoice.value.capabilities.provider_submission_enabled && company.hasPermission("pakistan_fbr.submit"));
 const canRetry = computed(() => !!invoice.value && !invoice.value.is_historical && invoice.value.fbr_reference_number === null && invoice.value.capabilities.retry_recovery && invoice.value.capabilities.provider_submission_enabled && company.hasPermission("pakistan_fbr.submit"));
+const canDelete = computed(() => !!invoice.value?.capabilities.delete_draft && company.hasPermission("pakistan_fbr.manage"));
+const canResolve = computed(() => !!invoice.value?.capabilities.reconciliation_required && company.hasPermission("fbr.reconcile"));
 const totals = [ ["subtotal", "Subtotal"], ["discount", "Discount"], ["taxable_amount", "Taxable value"], ["sales_tax", "Sales tax"], ["extra_tax", "Extra tax"], ["further_tax", "Further tax"], ["withholding_tax", "Withholding (reported separately)"], ["total", "Invoice total"] ] as const;
-function confirm() { if (!saving.value && current() && (action.value === "retry" ? canRetry.value : canSubmit.value)) void run(); }
+function confirm() {
+  if (saving.value || !current()) return;
+  if ((action.value === "retry" && canRetry.value) || (action.value === "submit" && canSubmit.value)
+    || (action.value === "delete" && canDelete.value)
+    || (action.value === "resolve" && canResolve.value && resolutionEvidence.value.trim().length >= 10
+      && (resolutionOutcome.value === "REJECTED" || !!resolutionReference.value.trim()))) void run();
+}
+async function checkProvider(): Promise<void> {
+  if (!current() || checking.value || !company.hasPermission("pakistan_fbr.submit")) return;
+  checking.value = true; reconciliationError.value = null;
+  try { await fbrRepository.reconcile(companyId, invoiceId); if (current()) await refresh(); }
+  catch (cause) { if (current()) reconciliationError.value = cause instanceof ApiError ? cause : new ApiError("Provider status could not be reconciled."); }
+  finally { checking.value = false; }
+}
 </script>
 <template>
   <div class="space-y-4">
     <FbrError :error="mutationError" />
+    <FbrError :error="reconciliationError" />
     <AsyncSection :loading="loading" :error="error" @retry="refresh">
       <template v-if="invoice">
         <Panel :title="invoice.invoice_number" body-class="space-y-3 p-4">
@@ -46,6 +81,8 @@ function confirm() { if (!saving.value && current() && (action.value === "retry"
             <RouterLink v-if="invoice.editable && !invoice.is_historical && company.hasPermission('pakistan_fbr.manage') && !saving && !uncertain" :to="`/fbr-invoicing/${invoice.id}/edit`" class="text-sm text-content-brand">Edit draft</RouterLink>
             <ZButton v-if="canSubmit" :disabled="saving" @click="action = 'submit'">Submit to FBR</ZButton>
             <ZButton v-if="canRetry" :disabled="saving" @click="action = 'retry'">Retry submission</ZButton>
+            <ZButton v-if="canDelete" variant="outline" :disabled="saving" @click="action = 'delete'">Delete Draft</ZButton>
+            <RouterLink v-if="invoice.capabilities.print_data" :to="`/fbr-invoicing/${invoice.id}/print`" class="text-sm text-content-brand underline">View / Print Invoice</RouterLink>
             <ZButton variant="outline" :disabled="saving || loading" @click="refresh">Refresh status</ZButton>
           </div></template>
           <p v-if="invoice.is_historical" class="text-sm text-warning">Historical V1 invoice · Read-only. Original header and line values are preserved independently. Submission and recalculation are unavailable.</p>
@@ -57,6 +94,9 @@ function confirm() { if (!saving.value && current() && (action.value === "retry"
             <div><dt class="text-content-muted">Buyer</dt><dd>{{ invoice.buyer_snapshot.name }}</dd></div>
             <div><dt class="text-content-muted">NTN / CNIC</dt><dd>{{ invoice.buyer_snapshot.registration_number ?? '—' }}</dd></div>
             <div><dt class="text-content-muted">Buyer registration type</dt><dd>{{ invoice.buyer_snapshot.type }} · not independently verified</dd></div>
+            <div><dt class="text-content-muted">Buyer verification</dt><dd>{{ invoice.buyer_verification?.status ?? 'NOT_VERIFIED' }}</dd></div>
+            <div v-if="invoice.buyer_snapshot.email"><dt class="text-content-muted">Buyer email</dt><dd>{{ invoice.buyer_snapshot.email }}</dd></div>
+            <div v-if="invoice.buyer_snapshot.phone"><dt class="text-content-muted">Buyer phone</dt><dd>{{ invoice.buyer_snapshot.phone }}</dd></div>
             <div><dt class="text-content-muted">Buyer province / address</dt><dd>{{ invoice.buyer_snapshot.province }} / {{ invoice.buyer_snapshot.address ?? '—' }}</dd></div>
             <div><dt class="text-content-muted">Origin / destination</dt><dd>{{ invoice.origin_province }} / {{ invoice.destination_province }}</dd></div>
             <div><dt class="text-content-muted">Document / sales type</dt><dd>{{ invoice.invoice_type }} / {{ invoice.sale_type }}</dd></div>
@@ -69,8 +109,20 @@ function confirm() { if (!saving.value && current() && (action.value === "retry"
           <p v-else-if="invoice.is_historical" class="text-sm text-content-muted">Historical invoices cannot be submitted again.</p>
           <p v-if="!company.hasPermission('pakistan_fbr.submit')" class="text-sm text-content-muted">You do not have permission to submit or retry.</p>
           <p v-if="invoice.fbr_status === 'pending'" class="text-sm text-content-secondary">Submission is pending. Refresh for the current state. Recovery during an active server lease may remain pending without sending again.</p>
+          <div v-if="invoice.capabilities.reconciliation_required" class="space-y-2 rounded-md border border-line p-3">
+            <p>Submission outcome is uncertain. Check the provider's authoritative status before any manual resolution.</p>
+            <ZButton v-if="company.hasPermission('pakistan_fbr.submit')" variant="outline" :disabled="saving || checking" @click="checkProvider">Check Provider Status</ZButton>
+            <template v-if="canResolve">
+              <p>Manual resolution records evidence and is not proof of an automatic provider call.</p>
+              <label>Outcome <select v-model="resolutionOutcome" class="field ml-2"><option value="REJECTED">Rejected</option><option value="ACCEPTED">Accepted</option></select></label>
+              <label class="block">Evidence note <textarea v-model="resolutionEvidence" class="field mt-1 block w-full" minlength="10"></textarea></label>
+              <label v-if="resolutionOutcome === 'ACCEPTED'" class="block">Accepted FBR reference <input v-model="resolutionReference" class="field mt-1 block w-full" /></label>
+              <ZButton :disabled="saving || resolutionEvidence.trim().length < 10 || (resolutionOutcome === 'ACCEPTED' && !resolutionReference.trim())" @click="action = 'resolve'">Review Manual Resolution</ZButton>
+            </template>
+          </div>
           <p v-if="uncertain" class="text-sm text-warning">The submission outcome could not be confirmed. Refresh status and use server recovery when available. Do not assume acceptance.</p>
         </Panel>
+        <FbrCreditNotes v-if="!invoice.is_historical && (invoice.capabilities.internal_credit_note || invoice.credit_note)" :invoice="invoice" />
         <Panel title="Stored invoice lines" body-class="divide-y divide-line">
           <article v-for="line in invoice.lines" :key="line.id" class="p-4">
             <h3 class="font-semibold">{{ line.position }}. {{ line.description }}</h3>
@@ -116,9 +168,9 @@ function confirm() { if (!saving.value && current() && (action.value === "retry"
           </template>
           <p v-else>Historical evidence requires migration viewing permission.</p>
         </Panel>
-        <Panel title="Unavailable capabilities" body-class="p-4 text-sm text-content-muted">Regulatory printing, QR codes, buyer registration lookup and certified regulatory catalogs are unavailable. This review is not an FBR-certified printout. Real provider certification has not been executed.</Panel>
+        <Panel title="Certification Boundary" body-class="p-4 text-sm text-content-muted">The private print view is not an FBR-certified regulatory PDF. A QR is shown only if genuine provider content exists. Buyer registration lookup and a certified complete HS catalogue remain unavailable. Real provider certification has not been executed.</Panel>
       </template>
     </AsyncSection>
-    <ConfirmDialog :open="action !== null" :title="action === 'retry' ? 'Recover FBR submission?' : 'Submit this FBR invoice?'" :message="action === 'retry' ? 'Use the certified recovery workflow for the original submission attempt. The server will reuse its original identity; an active lease may keep the status pending without sending again.' : 'Transmit this saved draft to the configured FBR environment. This is separate from saving a draft and may create an external submission. If the outcome is uncertain, refresh status and use the certified retry workflow; do not submit a new draft.'" :confirm-label="action === 'retry' ? 'Confirm retry' : 'Confirm submission'" :busy="saving" @cancel="action = null" @confirm="confirm" />
+    <ConfirmDialog :open="action !== null" :title="action === 'delete' ? 'Delete FBR draft?' : action === 'resolve' ? 'Record manual FBR outcome?' : action === 'retry' ? 'Recover FBR submission?' : 'Submit this FBR invoice?'" :message="action === 'delete' ? 'Only an unattempted draft can be deleted. This does not affect Accounting.' : action === 'resolve' ? 'This records the supplied evidence and outcome. It does not itself transmit to the FBR provider.' : action === 'retry' ? 'Use the certified recovery workflow for the original submission attempt. The server will reuse its original identity; an active lease may keep the status pending without sending again.' : 'Transmit this saved draft to the configured FBR environment. This is separate from saving a draft and may create an external submission. If the outcome is uncertain, refresh status and use the certified retry workflow; do not submit a new draft.'" :confirm-label="action === 'delete' ? 'Delete draft' : action === 'resolve' ? 'Record outcome' : action === 'retry' ? 'Confirm retry' : 'Confirm submission'" :busy="saving" @cancel="action = null" @confirm="confirm" />
   </div>
 </template>

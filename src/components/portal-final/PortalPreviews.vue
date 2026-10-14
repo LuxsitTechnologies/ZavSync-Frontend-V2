@@ -14,9 +14,9 @@ const values=ref<Record<string,{data:Preview[];total?:number}>>({});
 const sources=props.requests?[
   {key:'leave',label:'Leave requests',permission:'employee.leave.view',to:'/employee/leaves'},
   {key:'tickets',label:'Tickets',permission:'employee.tickets.view',to:'/employee/tickets'},
-  {key:'assets',label:'Equipment requests',permission:'employee.assets.view',to:'/employee/assets'},
-  {key:'expenses',label:'Expense claims',permission:'employee.expenses.view',to:'/employee/expenses'},
-  {key:'swaps',label:'Shift swaps',permission:'employee.schedule.view',to:'/employee/shift-swaps'},
+  {key:'assets',label:'Equipment Requests',permission:'employee.assets.view',to:'/employee/assets'},
+  {key:'expenses',label:'Expense Claims',permission:'employee.expenses.view',to:'/employee/expenses'},
+  {key:'swaps',label:'Shift Swaps',permission:'employee.schedule.view',to:'/employee/shift-swaps'},
 ]:[
   {key:'announcements',label:'Announcements',permission:'employee.announcements.view',to:'/employee/announcements'},
   {key:'documents',label:'Documents',permission:'employee.documents.view',to:'/employee/documents'},

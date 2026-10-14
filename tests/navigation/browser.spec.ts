@@ -33,12 +33,12 @@ async function setup(page: Page, options: {manage?:boolean;reason?:NavigationRea
     return respond({message:'Unexpected request'},500);
   });
   await page.goto('/settings/navigation');
-  await expect(page.getByRole('article',{name:'FBR Invoicing',exact:true})).toBeVisible();
+  await expect(page.getByRole('article',{name:'FBR Invoice',exact:true})).toBeVisible();
   return {calls,release};
 }
-const fbr=(page:Page)=>page.getByRole('article',{name:'FBR Invoicing',exact:true});
+const fbr=(page:Page)=>page.getByRole('article',{name:'FBR Invoice',exact:true});
 async function expectNav(page: Page, path: string, count: number) {
-  const branch = page.locator('aside').getByRole('button', {name: path === '/fbr-invoicing' ? 'FBR Invoicing' : 'Accounting', exact: true});
+  const branch = page.locator('aside').getByRole('button', {name: path === '/fbr-invoicing' ? 'FBR Invoice' : 'Accounting', exact: true});
   if (count && await branch.count() && await branch.getAttribute('aria-expanded') === 'false') await branch.click();
   await expect(page.locator(`aside a[href="${path}"]`)).toHaveCount(count);
 }
@@ -47,18 +47,18 @@ test('default, show, reload, hide and DELETE reset retain independent states',as
   await expect(fbr(page)).toContainText('Default (inherited)');
   await expectNav(page,'/fbr-invoicing',1);
   await expectNav(page,'/accounting/invoices',1);
-  await page.getByRole('button',{name:'Show FBR Invoicing',exact:true}).click();
+  await page.getByRole('button',{name:'Show FBR Invoice',exact:true}).click();
   await expect(fbr(page)).toContainText('Visible (explicit show)');
   await page.reload(); await expect(fbr(page)).toContainText('Visible (explicit show)');
-  await page.getByRole('button',{name:'Hide FBR Invoicing',exact:true}).click();
+  await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
   await expect(fbr(page)).toContainText('Hidden (explicit hide)');
   await expectNav(page,'/fbr-invoicing',0);
   await expectNav(page,'/accounting/invoices',1);
-  await page.getByRole('button',{name:'Reset FBR Invoicing to default',exact:true}).click();
+  await page.getByRole('button',{name:'Reset FBR Invoice to default',exact:true}).click();
   await expect(fbr(page)).toContainText('Default (inherited)');
   expect(calls.some(c=>c.method==='DELETE'&&c.key==='fbr.invoicing')).toBe(true);
   await page.getByRole('button',{name:'Hide Accounting Invoices',exact:true}).click();
-  await page.getByRole('button',{name:'Show FBR Invoicing',exact:true}).click();
+  await page.getByRole('button',{name:'Show FBR Invoice',exact:true}).click();
   await expectNav(page,'/accounting/invoices',0);
   await expectNav(page,'/fbr-invoicing',1);
 });
@@ -73,7 +73,7 @@ test('company switching preserves default/hide/show and different roles without 
   await setup(page); await expect(fbr(page)).toContainText('Default (inherited)');
   await page.getByLabel('Active company').selectOption('B');
   await expect(fbr(page)).toContainText('Hidden (explicit hide)');
-  await expect(page.getByRole('button',{name:'Show FBR Invoicing',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Show FBR Invoice',exact:true})).toHaveCount(0);
   await expectNav(page,'/fbr-invoicing',0);
   await page.getByLabel('Active company').selectOption('C');
   await expect(fbr(page)).toContainText('Visible (explicit show)');
@@ -81,7 +81,7 @@ test('company switching preserves default/hide/show and different roles without 
 });
 test('late mutation cannot overwrite new company state',async({page})=>{
   const {release,calls}=await setup(page,{late:true});
-  await page.getByRole('button',{name:'Hide FBR Invoicing',exact:true}).click();
+  await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
   await expect.poll(()=>calls.some(c=>c.method==='PUT')).toBe(true);
   await page.getByLabel('Active company').selectOption('C');
   await expect(fbr(page)).toContainText('Visible (explicit show)');
@@ -96,13 +96,13 @@ test('ordinary member sees read-only state with no mutation controls',async({pag
 });
 test('failed mutation reloads authoritative state',async({page})=>{
   const {calls}=await setup(page,{fail:true});
-  await page.getByRole('button',{name:'Hide FBR Invoicing',exact:true}).click();
+  await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('Save failed');
   await expect(fbr(page)).toContainText('Default (inherited)');
   await expect.poll(()=>calls.filter(c=>c.method==='GET').length).toBe(2);
 });
 test('presentation hidden direct route remains authorized',async({page})=>{
-  await setup(page); await page.getByRole('button',{name:'Hide FBR Invoicing',exact:true}).click();
+  await setup(page); await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
   await expect(fbr(page)).toContainText('Hidden (explicit hide)');
   await page.goto('/fbr-invoicing');
   await expect(page.getByText('No FBR invoices',{exact:true})).toBeVisible();
@@ -110,7 +110,7 @@ test('presentation hidden direct route remains authorized',async({page})=>{
 });
 for(const width of [390,768,1440])test(`navigation administration keyboard and responsive ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});await setup(page);
-  const hide=page.getByRole('button',{name:'Hide FBR Invoicing',exact:true});
+  const hide=page.getByRole('button',{name:'Hide FBR Invoice',exact:true});
   await hide.focus();await expect(hide).toBeFocused();await page.keyboard.press('Enter');
   await expect(fbr(page)).toContainText('Hidden (explicit hide)');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);

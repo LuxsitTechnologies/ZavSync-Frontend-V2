@@ -18,6 +18,9 @@ const trail = computed(() => breadcrumbFor(route.path));
 const dark = ref(false);
 const companyStore = useCompanyStore();
 const currentUser = computed(() => companyStore.currentUser);
+const switchableCompanies = computed(() => companyStore.companies.filter(item =>
+  ((item.approval_status === undefined || item.approval_status === "APPROVED") && item.is_active !== false)
+  || item.id === companyStore.activeCompanyId));
 
 function toggleTheme() {
   dark.value = !dark.value;
@@ -27,11 +30,10 @@ async function changeCompany(id:string){try{await companyStore.setCompany(id);if
 async function logout() {
   try {
     await authRepository.logout();
-  } catch {
-    showToast("Session closed locally", "The server could not be reached, so this browser session was cleared.", "info");
-  } finally {
     companyStore.clear();
     await router.replace("/login");
+  } catch {
+    showToast("Sign out could not be confirmed", "The server did not confirm session invalidation. Retry sign out.", "danger");
   }
 }
 </script>
@@ -67,7 +69,7 @@ async function logout() {
         :disabled="companyStore.switching"
         @change="changeCompany(($event.target as HTMLSelectElement).value)"
       >
-        <option v-for="c in companyStore.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+        <option v-for="c in switchableCompanies" :key="c.id" :value="c.id" :disabled="c.approval_status !== undefined && (c.approval_status !== 'APPROVED' || c.is_active === false)">{{ c.name }}{{ c.approval_status && c.approval_status !== 'APPROVED' ? ` (${c.approval_status})` : '' }}</option>
       </select>
 
       <button

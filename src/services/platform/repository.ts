@@ -1,5 +1,5 @@
 import { apiDownload,apiRequest } from "@/services/api/client";
-import type { AuditRecord,CompanyExport,CompanyInvitation,CompanyMembership,CompanySettings,FailedJob,InvitationAssignableRole,NotificationInbox,NotificationPreference,Paginated,PlatformDocument,PlatformNotification,PlatformRole,SecurityPayload,SubscriptionPayload } from "@/types/platform";
+import type { AuditRecord,CompanyExport,CompanyInvitation,CompanyMembership,CompanySettings,FailedJob,InvitationAssignableRole,NotificationInbox,NotificationPreference,Paginated,PlatformDocument,PlatformNotification,PlatformRole,SecurityPayload } from "@/types/platform";
 
 export const platformRepository={
  acceptInvitation:(token:string,input:{name?:string;password?:string})=>apiRequest<{already_accepted:boolean}>("/invitations/accept",{method:"POST",body:{...input,token}}),
@@ -20,10 +20,6 @@ export const platformRepository={
  settings:(companyId:string)=>apiRequest<CompanySettings>("/platform/settings",{companyId}),
  saveSettings:(companyId:string,input:Partial<CompanySettings>)=>apiRequest<CompanySettings>("/platform/settings",{method:"PUT",companyId,body:input}),
  uploadLogo:(companyId:string,file:File)=>{const body=new FormData();body.set('logo',file);return apiRequest<{settings:CompanySettings}>("/platform/settings/logo",{method:'POST',companyId,body})},
- createCompany:(input:{name:string;currency:string;timezone:string;country_code:string;plan_id:number})=>apiRequest<{company:{id:string}}>("/platform/companies",{method:'POST',body:input}),
- subscription:(companyId:string)=>apiRequest<SubscriptionPayload>("/platform/subscription",{companyId}),
- saveSubscription:(companyId:string,input:{plan_id:number;status:string;billing_interval:string;trial_ends_at?:string|null;renews_at?:string|null;ends_at?:string|null})=>apiRequest("/platform/subscription",{method:"PUT",companyId,body:input}),
- setEntitlement:(companyId:string,module:string,is_enabled:boolean)=>apiRequest(`/platform/entitlements/${module}`,{method:"PUT",companyId,body:{is_enabled}}),
  notifications:(companyId:string,signal?:AbortSignal,page=1)=>apiRequest<NotificationInbox>("/platform/notifications",{companyId,signal,query:{page}}),
  readNotification:(companyId:string,id:string,signal?:AbortSignal)=>apiRequest<PlatformNotification>(`/platform/notifications/${id}/read`,{method:"POST",companyId,body:{},signal}),
  readAllNotifications:(companyId:string,signal?:AbortSignal)=>apiRequest<{message:string}>("/platform/notifications/read-all",{method:"POST",companyId,body:{},signal}),

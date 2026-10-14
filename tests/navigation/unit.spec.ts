@@ -1,9 +1,55 @@
 import { test, expect } from "@playwright/test";
-import { navigationForModules, presentationKeyForRoute, moduleForPath, permissionForPath } from "../../src/lib/nav";
+import { activeNavigationPath, navigation, navigationForModules, presentationKeyForRoute, moduleForPath, permissionForPath } from "../../src/lib/nav";
+import { readFileSync } from "node:fs";
 import { visibilityLabel, type EffectiveNavigation } from "../../src/types/navigation";
 import { createPinia, setActivePinia } from "pinia";
 const nav = (keys: string[]): EffectiveNavigation => ({ catalog: [], items: [], visible_keys: keys });
 const paths = (keys: string[]) => JSON.stringify(navigationForModules(['invoicing'], false, ['*'], nav(keys)));
+test('approved FBR name, Title Case HRM labels and distinct icons keep route identities', () => {
+  const items = navigation.flatMap(group => group.items);
+  const fbr = items.find(item => item.to === undefined && item.label === 'FBR Invoice');
+  expect(fbr?.children?.map(item => item.label)).toEqual(['Invoice Register', 'FBR Configuration', 'Migration Administration']);
+  const hrm = items.find(item => item.label === 'HRM');
+  const children = hrm?.children ?? [];
+  for (const label of ['Employee Documents', 'Shift Swaps', 'Equipment Requests', 'Expense Claims', 'Expense Categories']) expect(children.map(item => item.label)).toContain(label);
+  expect(new Set(children.map(item => item.icon)).size).toBe(children.length);
+  expect(presentationKeyForRoute['/hrm/employee-documents']).toBe('hrm.employee_documents');
+});
+test('detail routes keep the most specific navigation child active', () => {
+  expect(activeNavigationPath('/accounting/invoices/invoice-1')).toBe('/accounting/invoices');
+  expect(activeNavigationPath('/crm/companies/customer-1')).toBe('/crm/companies');
+  expect(activeNavigationPath('/fbr-invoicing/invoice-1/edit')).toBe('/fbr-invoicing');
+  expect(activeNavigationPath('/fbr-invoicing/configuration')).toBe('/fbr-invoicing/configuration');
+  expect(activeNavigationPath('/')).toBe('/');
+});
+test('public HTML contains approved social preview metadata before Vue starts', () => {
+  const html = readFileSync('index.html', 'utf8');
+  expect(html).toContain('<title>ZavSync</title>');
+  expect(html).toContain('content="Unified. Intelligent. Synchronized."');
+  expect(html).toContain('property="og:title" content="ZavSync"');
+  expect(html).toContain('name="twitter:title" content="ZavSync"');
+  expect(html).not.toContain('ZavSync — Unified ERP');
+});
+test('Billing navigation requires dedicated billing view permission', () => {
+  const authorized = JSON.stringify(navigationForModules([], false, ['billing.view']));
+  const denied = JSON.stringify(navigationForModules([], false, []));
+  expect(permissionForPath('/billing')).toBe('billing.view');
+  expect(authorized).toContain('"to":"/billing"');
+  expect(denied).not.toContain('"to":"/billing"');
+});
+test('approved login branding keeps native image proportions and tagline on both layouts', () => {
+  const layout = readFileSync('src/components/zs/AuthLayout.vue', 'utf8');
+  const logo = readFileSync('src/components/zs/Logo.vue', 'utf8');
+  for (const asset of ['src/assets/zavsync-logo.png', 'src/assets/zavsync-logo-dark.png']) {
+    const bytes = readFileSync(asset);
+    expect(bytes.toString('ascii', 1, 4)).toBe('PNG');
+    expect(bytes.readUInt32BE(16)).toBeGreaterThan(700);
+    expect(bytes.readUInt32BE(20)).toBeGreaterThan(140);
+  }
+  expect(layout.match(/Unified\. Intelligent\. Synchronized\./g)).toHaveLength(2);
+  expect(logo).toContain('w-auto');
+  expect(layout).toContain('object-contain');
+});
 test('navigation unit: override labels preserve all three states', () => {
   expect(visibilityLabel(null)).toBe('Default (inherited)');
   expect(visibilityLabel(true)).toBe('Visible (explicit show)');
@@ -16,13 +62,27 @@ test('navigation unit: independent keys and effective authority even for platfor
   expect(JSON.stringify(navigationForModules(['invoicing'], true, ['*'], nav([])))).not.toContain('"to":"/fbr-invoicing"');
   expect(moduleForPath('/fbr-invoicing')).toBe('invoicing');
   expect(permissionForPath('/fbr-invoicing')).toBe('pakistan_fbr.view');
+  expect(presentationKeyForRoute['/accounting/fbr']).toBe('accounting.fbr_status');
+  expect(paths(['accounting.invoices'])).not.toContain('"to":"/accounting/fbr"');
+  expect(paths(['accounting.fbr_status'])).toContain('"to":"/accounting/fbr"');
+});
+test('backend parent visibility controls presentation without granting child authority', () => {
+  const effective: EffectiveNavigation = {
+    ...nav(['accounting.invoices', 'accounting.fbr_status']),
+    parents: [{key:'finance.accounting',label:'Accounting',child_keys:['accounting.invoices','accounting.fbr_status'],visible_child_keys:[],effective_visible:false}],
+  };
+  const hidden = JSON.stringify(navigationForModules(['invoicing'], false, ['*'], effective));
+  expect(hidden).not.toContain('"label":"Accounting"');
+  effective.parents![0].effective_visible = true;
+  const shown = JSON.stringify(navigationForModules(['invoicing'], false, ['accounting.view'], effective));
+  expect(shown).toContain('"to":"/accounting/fbr"');
 });
 test('navigation unit: all mapped modules retain backend-default visible items', () => {
   const result = JSON.stringify(navigationForModules(['invoicing','accounting','receivables','payables','inventory','procurement','banking','budgeting','payroll','crm','outreach','ai'], false, ['*'], nav(Object.values(presentationKeyForRoute))));
   for (const route of Object.keys(presentationKeyForRoute)) expect(result).toContain(`"to":"${route}"`);
   expect(result).toContain('Dashboard');
   expect(presentationKeyForRoute['/hrm/leave']).toBe('hrm.leave');
-  expect(Object.values(presentationKeyForRoute)).toHaveLength(65);
+  expect(Object.values(presentationKeyForRoute)).toHaveLength(66);
 });
 test('navigation unit: switching hides old state and rejects stale updates', async () => {
   const { createServer } = await import("vite");

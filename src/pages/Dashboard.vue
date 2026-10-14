@@ -13,34 +13,45 @@ import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import { setPageMeta } from "@/lib/page-meta";
 import { invoicesRepository } from "@/services/accounting/invoices.repository";
 import { receivablesRepository } from "@/services/accounting/receivables.repository";
+import { dashboardRepository } from "@/services/platform/dashboard.repository";
 import { useCompanyStore } from "@/stores/company";
+import type { DashboardLayout } from "@/types/dashboardLayout";
 
 setPageMeta("Dashboard", "Live operational and financial summary for the active company.");
 
 const company = useCompanyStore();
 const canViewAccounting = computed(
   () =>
-    company.activeCompanyId.length > 0 &&
+    !company.switching && company.activeCompanyId.length > 0 &&
     company.hasPermission("accounting.view") &&
     company.hasModule("invoicing"),
 );
 const canCreateInvoice = computed(
   () => canViewAccounting.value && company.hasPermission("accounting.create"),
 );
+const canViewLayout = computed(() => !company.switching && !!company.activeCompanyId && ["accounting.view", "platform.settings.view", "platform.settings.manage"].some(permission => company.hasPermission(permission)));
+const layoutState = useAsyncData<DashboardLayout | null>(
+  () => canViewLayout.value ? dashboardRepository.get(company.activeCompanyId) : Promise.resolve(null),
+  { watch: [() => company.contextVersion, () => company.switching] },
+);
+const visibleWidgets = computed(() => layoutState.data.value?.widgets.filter(widget => widget.effective_visible).map(widget => widget.key) ?? []);
+const usesInvoices = computed(() => visibleWidgets.value.some(key => ["revenue", "outstanding", "overdue", "invoiced_collected", "pending_attention", "recent_invoices"].includes(key)));
+const usesPayments = computed(() => visibleWidgets.value.some(key => ["collected", "invoiced_collected"].includes(key)));
+const columnClass = computed(() => ({ 1: "xl:grid-cols-1", 2: "xl:grid-cols-2", 3: "xl:grid-cols-3", 4: "xl:grid-cols-4" }[layoutState.data.value?.columns as 1|2|3|4] ?? "xl:grid-cols-4"));
 
 const invoiceState = useAsyncData(
   () =>
-    canViewAccounting.value
+    canViewAccounting.value && usesInvoices.value
       ? invoicesRepository.list(company.activeCompanyId)
       : Promise.resolve([]),
-  { watch: [() => company.contextVersion] },
+  { watch: [() => company.contextVersion, () => company.switching, () => layoutState.data.value] },
 );
 const paymentState = useAsyncData(
   () =>
-    canViewAccounting.value && company.hasModule("receivables")
+    canViewAccounting.value && company.hasModule("receivables") && usesPayments.value
       ? receivablesRepository.payments(company.activeCompanyId)
       : Promise.resolve([]),
-  { watch: [() => company.contextVersion] },
+  { watch: [() => company.contextVersion, () => company.switching, () => layoutState.data.value] },
 );
 
 const invoices = computed(() => invoiceState.data.value ?? []);
@@ -130,6 +141,9 @@ const liveKpis = computed(() => [
     note: "Open past due date",
   },
 ]);
+const orderedWidgets = computed(() => (layoutState.data.value?.widgets ?? [])
+  .filter(widget => widget.effective_visible)
+  .map(widget => ({ ...widget, kpi: liveKpis.value.find(kpi => kpi.key === widget.key) })));
 const revenueSeries = computed(() =>
   Array.from({ length: 6 }, (_, index) => monthAtOffset(index - 5)).map((date) => {
     const key = monthKey(date);
@@ -180,8 +194,9 @@ function formatKpi(value: number, format: "money" | "number"): string {
       title="Dashboard"
       :description="company.activeCompany ? `Live workspace for ${company.activeCompany.name}` : 'No company workspace is available'"
     >
-      <template v-if="canCreateInvoice" #actions>
-        <RouterLink
+      <template v-if="canCreateInvoice || canViewLayout" #actions>
+        <RouterLink v-if="canViewLayout" to="/dashboard/customize" class="mr-2 inline-flex h-control items-center rounded-md border border-line-strong px-3 text-sm">Customize Dashboard</RouterLink>
+        <RouterLink v-if="canCreateInvoice"
           to="/accounting/invoices"
           class="inline-flex h-control items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
         >
@@ -205,101 +220,48 @@ function formatKpi(value: number, format: "money" | "number"): string {
       </p>
     </div>
 
-    <template v-else>
-      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div v-for="kpi in liveKpis" :key="kpi.key" class="panel p-4">
-          <p class="label-caps">{{ kpi.label }}</p>
-          <p class="num mt-2 text-2xl font-semibold text-content">
-            {{ formatKpi(kpi.value, kpi.format) }}
+    <div v-else-if="layoutState.loading.value" class="panel p-6" role="status">Loading dashboard layout…</div>
+    <div v-else-if="layoutState.error.value" class="panel p-6" role="alert">{{ layoutState.error.value.message }} <button type="button" class="text-content-brand underline" @click="layoutState.refresh">Retry</button></div>
+    <div v-else-if="!layoutState.data.value" class="panel p-6">Dashboard layout is unavailable.</div>
+    <div v-else-if="!orderedWidgets.length" class="panel p-6">No dashboard widgets are available for this company and membership.</div>
+    <div v-else-if="(usesInvoices && invoiceState.loading.value) || (usesPayments && paymentState.loading.value)" class="panel p-6" role="status">Loading authoritative dashboard data…</div>
+    <div v-else-if="(usesInvoices && invoiceState.error.value) || (usesPayments && paymentState.error.value)" class="panel p-6" role="alert">{{ invoiceState.error.value?.message ?? paymentState.error.value?.message }} <button type="button" class="text-content-brand underline" @click="invoiceState.refresh(); paymentState.refresh()">Retry</button></div>
+    <div v-else class="grid gap-4 sm:grid-cols-2" :class="columnClass">
+      <template v-for="widget in orderedWidgets" :key="widget.key">
+        <div v-if="widget.kpi" class="panel p-4">
+          <p class="label-caps">{{ widget.kpi.label }}</p>
+          <p class="num mt-2 text-2xl font-semibold text-content">{{ formatKpi(widget.kpi.value, widget.kpi.format) }}</p>
+          <p v-if="widget.kpi.delta !== null" class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium" :class="widget.kpi.delta >= 0 ? 'text-success-strong' : 'text-danger-strong'">
+            <ArrowUpRight v-if="widget.kpi.delta >= 0" class="size-3.5" /><ArrowDownRight v-else class="size-3.5" />
+            {{ Math.abs(widget.kpi.delta) }}% {{ widget.kpi.note }}
           </p>
-          <p
-            v-if="kpi.delta !== null"
-            class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium"
-            :class="kpi.delta >= 0 ? 'text-success-strong' : 'text-danger-strong'"
-          >
-            <ArrowUpRight v-if="kpi.delta >= 0" class="size-3.5" />
-            <ArrowDownRight v-else class="size-3.5" />
-            {{ Math.abs(kpi.delta) }}% {{ kpi.note }}
-          </p>
-          <p v-else class="mt-1.5 text-xs text-content-muted">{{ kpi.note }}</p>
+          <p v-else class="mt-1.5 text-xs text-content-muted">{{ widget.kpi.note }}</p>
         </div>
-      </div>
-
-      <div class="mt-4 grid gap-4 xl:grid-cols-3">
-        <div class="panel p-4 xl:col-span-2">
+        <div v-else-if="widget.key === 'invoiced_collected'" class="panel p-4 sm:col-span-2">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-md font-semibold text-content">Invoiced vs collected</h2>
-              <p class="text-xs text-content-muted">Last 6 months, {{ currency }} millions</p>
-            </div>
-            <div class="flex items-center gap-3 text-xs text-content-secondary">
-              <span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-chart-1" /> Invoiced</span>
-              <span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-chart-2" /> Collected</span>
-            </div>
+            <div><h2 class="text-md font-semibold text-content">Invoiced vs collected</h2><p class="text-xs text-content-muted">Last 6 months, {{ currency }} millions</p></div>
+            <div class="flex items-center gap-3 text-xs text-content-secondary"><span>Invoiced</span><span>Collected</span></div>
           </div>
-          <div class="mt-4">
-            <AreaChart :data="revenueSeries" x-key="month" :series="series" :height="256" />
-          </div>
+          <div class="mt-4"><AreaChart :data="revenueSeries" x-key="month" :series="series" :height="256" /></div>
         </div>
-
-        <div class="panel p-4">
+        <div v-else-if="widget.key === 'pending_attention'" class="panel p-4">
           <h2 class="text-md font-semibold text-content">Pending attention</h2>
-          <p v-if="pendingApprovals.length === 0" class="mt-3 text-sm text-content-muted">
-            No failed or rejected FBR submissions.
-          </p>
-          <ul v-else class="mt-3 space-y-2">
-            <li
-              v-for="item in pendingApprovals"
-              :key="item.id"
-              class="rounded-md border border-line p-3"
-            >
-              <p class="label-caps">{{ item.type }}</p>
-              <p class="mt-1 text-sm font-medium text-content">{{ item.subject }}</p>
-              <p class="text-2xs text-content-muted">{{ item.meta }}</p>
-            </li>
-          </ul>
+          <p v-if="pendingApprovals.length === 0" class="mt-3 text-sm text-content-muted">No failed or rejected FBR submissions.</p>
+          <ul v-else class="mt-3 space-y-2"><li v-for="item in pendingApprovals" :key="item.id" class="rounded-md border border-line p-3"><p class="label-caps">{{ item.type }}</p><p class="mt-1 text-sm font-medium text-content">{{ item.subject }}</p><p class="text-2xs text-content-muted">{{ item.meta }}</p></li></ul>
         </div>
-      </div>
-
-      <div class="panel mt-4 overflow-x-auto">
-        <div class="flex items-center justify-between border-b border-line px-4 py-3">
-          <h2 class="text-md font-semibold text-content">Recent invoices</h2>
-          <RouterLink to="/accounting/invoices" class="text-sm font-medium text-content-brand hover:underline">
-            View all
-          </RouterLink>
+        <div v-else-if="widget.key === 'recent_invoices'" class="panel overflow-x-auto sm:col-span-2 xl:col-span-full">
+          <div class="flex items-center justify-between border-b border-line px-4 py-3"><h2 class="text-md font-semibold text-content">Recent invoices</h2><RouterLink to="/accounting/invoices" class="text-sm font-medium text-content-brand hover:underline">View all</RouterLink></div>
+          <table class="w-full min-w-[720px]">
+            <thead><tr class="table-head"><th class="px-4 py-2.5 text-left">Invoice</th><th class="px-4 py-2.5 text-left">Client</th><th class="px-4 py-2.5 text-left">Issued</th><th class="px-4 py-2.5 text-right">Total</th><th class="px-4 py-2.5 text-left">Status</th></tr></thead>
+            <tbody>
+              <tr v-if="invoiceState.loading.value"><td colspan="5" class="px-4 py-8 text-center text-sm text-content-muted">Loading invoices…</td></tr>
+              <tr v-else-if="invoiceState.error.value"><td colspan="5" class="px-4 py-8 text-center text-sm text-danger-strong">{{ invoiceState.error.value.message }}</td></tr>
+              <tr v-else-if="recent.length === 0"><td colspan="5" class="px-4 py-8 text-center text-sm text-content-muted">No invoices yet.</td></tr>
+              <tr v-for="invoice in recent" :key="invoice.id" class="table-row-zs"><td class="num px-4 font-medium text-content">{{ invoice.invoice_number }}</td><td class="px-4 text-content-secondary">{{ invoice.customer_name }}</td><td class="num px-4 text-content-muted">{{ shortDate(invoice.invoice_date) }}</td><td class="num px-4 text-right text-content">{{ formatMoney(invoice.total, currency) }}</td><td class="px-4"><StatusBadge :status="invoice.payment_status" /></td></tr>
+            </tbody>
+          </table>
         </div>
-        <table class="w-full min-w-[720px]">
-          <thead>
-            <tr class="table-head">
-              <th class="px-4 py-2.5 text-left">Invoice</th>
-              <th class="px-4 py-2.5 text-left">Client</th>
-              <th class="px-4 py-2.5 text-left">Issued</th>
-              <th class="px-4 py-2.5 text-right">Total</th>
-              <th class="px-4 py-2.5 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="invoiceState.loading.value">
-              <td colspan="5" class="px-4 py-8 text-center text-sm text-content-muted">Loading invoices…</td>
-            </tr>
-            <tr v-else-if="invoiceState.error.value">
-              <td colspan="5" class="px-4 py-8 text-center text-sm text-danger-strong">
-                {{ invoiceState.error.value.message }}
-              </td>
-            </tr>
-            <tr v-else-if="recent.length === 0">
-              <td colspan="5" class="px-4 py-8 text-center text-sm text-content-muted">No invoices yet.</td>
-            </tr>
-            <tr v-for="invoice in recent" :key="invoice.id" class="table-row-zs">
-              <td class="num px-4 font-medium text-content">{{ invoice.invoice_number }}</td>
-              <td class="px-4 text-content-secondary">{{ invoice.customer_name }}</td>
-              <td class="num px-4 text-content-muted">{{ shortDate(invoice.invoice_date) }}</td>
-              <td class="num px-4 text-right text-content">{{ formatMoney(invoice.total, currency) }}</td>
-              <td class="px-4"><StatusBadge :status="invoice.payment_status" /></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </template>
+      </template>
+    </div>
   </AppShell>
 </template>

@@ -11,6 +11,8 @@ async function setup(page: Page, grants = permissions) {
   let roleFailure = false;
   let roleEmpty = false;
   let formatFailure = false;
+  const numberFormats: Record<string, string> = {};
+  const profile = { id: "A", name: "Company A", company_size: null, province_code: null, currency: "PKR", timezone: "Asia/Karachi", approval_status: "APPROVED", is_active: true, profile_version: 1, email: "company-a@example.invalid", phone: null as string | null, address: null, tax_identifier: "1234567", fbr_credential_configured: false, created_at: "2026-01-01T00:00:00Z" };
   const roles = [
     { id: 1, company_id: "A", name: "Viewer", archived_at: null, permissions: [{ id: 1, name: "platform.users.view" }] },
     { id: 2, company_id: "A", name: "Payroll administrator", archived_at: null, permissions: [{ id: 2, name: "payroll.manage" }] },
@@ -27,11 +29,20 @@ async function setup(page: Page, grants = permissions) {
     if (path.endsWith("/auth/switch-company")) return respond({ company: company(String(body.company_id), grants) });
     if (path.endsWith("/platform/notifications")) return respond({ unread_count: 0, notifications: { data: [], current_page: 1, last_page: 1, total: 0 } });
     if (path.endsWith("/platform/notification-preferences")) return respond([]);
+    if (path.endsWith("/auth/onboarding/plans")) return respond({ plans: [], trial_days_after_approval: 14, checkout_available: false, catalogue_approved: true, pricing_certified: true });
+    if (path.endsWith("/platform/company-profile")) {
+      if (method === "GET") return respond(profile);
+      writes.push({ path, company: active, body });
+      profile.phone = body.phone as string | null;
+      profile.profile_version += 1;
+      return respond(profile);
+    }
     if (path.endsWith("/platform/settings")) {
-      if (method === "GET") return respond({ ...settings, company_id: active });
+      if (method === "GET") return respond({ ...settings, company_id: active, phone: active === "A" ? profile.phone : null, number_format: numberFormats[active] ?? settings.number_format });
       writes.push({ path, company: active, body });
       if (formatFailure) return respond({ message: "Validation failed", errors: { number_format: ["Choose a supported number format"] } }, 422);
-      return respond({ ...settings, ...body, website: body.website === "example.com" ? "https://example.com" : body.website });
+      if (typeof body.number_format === "string") numberFormats[active] = body.number_format;
+      return respond({ ...settings, ...body, phone: active === "A" ? profile.phone : null, number_format: numberFormats[active] ?? settings.number_format, website: body.website === "example.com" ? "https://example.com" : body.website });
     }
     if (path.endsWith("/platform/users")) return respond({ data: [], current_page: 1, last_page: 1, total: 0 });
     if (path.endsWith("/payroll/employees")) return respond(active === "A" ? [
@@ -92,20 +103,31 @@ test("website accepts authoritative HTTPS and number formats retain boolean-free
   const { writes } = await setup(page);
   await page.goto("/settings");
   await page.getByLabel("Website").fill("example.com");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
   await expect(page.getByLabel("Website")).toHaveValue("https://example.com");
   await page.getByRole("button", { name: "Regional" }).click();
   await page.getByLabel("Number format").selectOption("1.234,56");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
   await expect.poll(() => writes.length).toBe(2);
-  expect(writes[1]).toMatchObject({ company: "A", body: { phone: null, number_format: "1.234,56" } });
-  await page.getByRole("button", { name: "Company", exact: true }).last().click();
-  await page.getByLabel("Phone").fill("+92 300 1234567");
+  expect(writes[1]).toMatchObject({ path: "/api/v1/platform/settings", company: "A", body: { number_format: "1.234,56" } });
+  expect(typeof writes[1]!.body.number_format).toBe("string");
+  expect(writes[1]!.body).not.toHaveProperty("phone");
+  await page.goto("/companies");
+  const profilePanel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Company Profile", exact: true }) });
+  await expect(profilePanel.getByLabel("Phone")).toHaveValue("");
+  await profilePanel.getByLabel("Phone").fill("+92 300 1234567");
+  await profilePanel.getByRole("button", { name: "Save Profile" }).click();
+  await expect.poll(() => writes.length).toBe(3);
+  expect(writes[2]).toMatchObject({ path: "/api/v1/platform/company-profile", company: "A", body: { phone: "+92 300 1234567", profile_version: 1 } });
+  await expect(profilePanel.getByLabel("Phone")).toHaveValue("+92 300 1234567");
+  await page.goto("/settings");
+  await expect(page.getByLabel("Phone")).toHaveValue("+92 300 1234567");
   await page.getByRole("button", { name: "Regional" }).click();
   await page.getByLabel("Number format").selectOption("1,234.56");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect.poll(() => writes.length).toBe(3);
-  expect(writes[2]).toMatchObject({ company: "A", body: { phone: "+92 300 1234567", number_format: "1,234.56" } });
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
+  await expect.poll(() => writes.length).toBe(4);
+  expect(writes[3]).toMatchObject({ path: "/api/v1/platform/settings", company: "A", body: { number_format: "1,234.56" } });
+  expect(writes[3]!.body).not.toHaveProperty("phone");
 });
 
 test("number-format validation stays attached to number format, not phone", async ({ page }) => {
@@ -114,7 +136,7 @@ test("number-format validation stays attached to number format, not phone", asyn
   await page.goto("/settings");
   await page.getByRole("button", { name: "Regional" }).click();
   await page.getByLabel("Number format").selectOption("1.234,56");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Choose a supported number format" })).toBeVisible();
   await expect(page.getByLabel("Number format")).toHaveAttribute("aria-invalid", "true");
   await page.getByRole("button", { name: "Company", exact: true }).last().click();
@@ -135,6 +157,25 @@ test("customer phone validates digits while contact person remains text", async 
   await page.getByRole("button", { name: "Save customer" }).click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0]).toMatchObject({ company: "A", body: { phone: "+92 (300) 123-4567", contact_person: "Ayesha Khan" } });
+});
+
+for (const width of [390, 768, 1440]) test(`customer form stays centered, scrollable and keyboard-safe at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 700 });
+  await setup(page, [...permissions, "accounting.view", "accounting.create"]);
+  await page.goto("/accounting/customers");
+  const trigger = page.getByRole("button", { name: "New customer" });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "New customer" });
+  await expect(dialog).toBeVisible();
+  const bounds = await dialog.locator("aside").boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(Math.abs(bounds!.x + bounds!.width / 2 - width / 2)).toBeLessThan(2);
+  expect(bounds!.height).toBeLessThanOrEqual(700);
+  await dialog.getByLabel("Notes").scrollIntoViewIfNeeded();
+  await expect(dialog.getByRole("button", { name: "Save customer" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
 });
 
 test("authorized HRM Employees lookup finds a UUID without exposing other companies", async ({ page }) => {

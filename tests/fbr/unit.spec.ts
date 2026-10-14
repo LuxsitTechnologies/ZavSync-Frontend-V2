@@ -26,8 +26,8 @@ test("navigation separates permissions and entitlement from Native Accounting", 
   expect(permissionForPath("/fbr-invoicing/configuration")).toBe("fbr.configuration.view");
   expect(permissionForPath("/fbr-invoicing/migrations/run-1")).toBe("migration.view");
   expect(permissionForPath("/accounting/invoices")).toBe("accounting.view");
-  expect(JSON.stringify(navigationForModules(["invoicing"], false, ["pakistan_fbr.view"]))).toContain('FBR Invoicing');
-  expect(JSON.stringify(navigationForModules([], false, permissions))).not.toContain('FBR Invoicing');
+  expect(JSON.stringify(navigationForModules(["invoicing"], false, ["pakistan_fbr.view"]))).toContain('FBR Invoice');
+  expect(JSON.stringify(navigationForModules([], false, permissions))).not.toContain('FBR Invoice');
 });
 
 test("static Accounting firewall disallows accounting repositories, API literals and key persistence", () => {

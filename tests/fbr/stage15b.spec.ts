@@ -113,7 +113,7 @@ test("create preserves exact amounts, excludes scenario and reviews server total
     if (path === "/pakistan-fbr/invoices" && route.request().method() === "POST") { await fulfill(route, { json: { data: invoice() }, status: 201 }); return true; } return false;
   }});
   await page.goto("/fbr-invoicing/new"); await fillDraft(page);
-  await page.getByRole("button", { name: "Save draft and review" }).click();
+  await page.getByRole("button", { name: "Save Draft" }).click();
   await expect(page.getByTestId("total-total")).toHaveText("PKR 1150.04");
   const saved = state.requests.find(r => r.method === "POST")!;
   expect(saved.body.lines[0]).toMatchObject({ sales_tax: 15001, extra_tax: 1, further_tax: 2, st_withheld: 333 });
@@ -127,7 +127,7 @@ test("uncertain create locks payload and reuses original key", async ({ page }) 
   const state = await setup(page, { handler: async (route, path) => {
     if (path === "/pakistan-fbr/invoices" && route.request().method() === "POST") { count++; await fulfill(route, count === 1 ? { status: 503, json: { message: "Unavailable" } } : { json: { data: invoice() } }); return true; } return false;
   }});
-  await page.goto("/fbr-invoicing/new"); await fillDraft(page); await page.getByRole("button", { name: "Save draft and review" }).click();
+  await page.goto("/fbr-invoicing/new"); await fillDraft(page); await page.getByRole("button", { name: "Save Draft" }).click();
   await expect(page.getByLabel("Buyer name", { exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Retry same save" }).click(); await expect(page).toHaveURL(/invoice-1$/);
   const posts = state.requests.filter(r => r.method === "POST"); expect(posts).toHaveLength(2); expect(posts[0]!.key).toBe(posts[1]!.key); expect(posts[0]!.body).toEqual(posts[1]!.body);
@@ -138,7 +138,7 @@ test("edit uses PATCH and preserves explicit amounts", async ({ page }) => {
     if (path.endsWith("/invoice-1") && route.request().method() === "PATCH") { await fulfill(route, { json: { data: invoice() } }); return true; } return false;
   }});
   await page.goto("/fbr-invoicing/invoice-1/edit"); await expect(page.getByLabel("Extra tax (PKR)", { exact: true })).toHaveValue("0.01");
-  await page.getByRole("button", { name: "Save draft and review" }).click(); await expect(page).toHaveURL(/invoice-1$/);
+  await page.getByRole("button", { name: "Save Draft" }).click(); await expect(page).toHaveURL(/invoice-1$/);
   expect(state.requests.find(r => r.method === "PATCH")?.body.lines[0].st_withheld).toBe(333);
 });
 
@@ -189,7 +189,7 @@ test("read-only permissions hide mutations and historical evidence requests", as
   await page.goto("/fbr-invoicing/invoice-1"); await expect(page.getByText("Historical evidence requires migration viewing permission.")).toBeVisible();
   expect(state.requests.some(r => r.path.endsWith("/evidence"))).toBe(false);
   await page.goto("/fbr-invoicing/new"); await expect(page.getByRole("alert")).toContainText("requires the invoicing entitlement and permission");
-  await expect(page.getByRole("button", { name: "Save draft and review" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save Draft" })).toHaveCount(0);
 });
 
 for (const reason of ["permission", "entitlement"]) test(`direct routes deny missing ${reason} without FBR requests`, async ({ page }) => {
@@ -204,7 +204,7 @@ test("company switching discards unsaved data and late mutation navigation", asy
   const state = await setup(page, { handler: async (route, path) => {
     if (path === "/pakistan-fbr/invoices" && route.request().method() === "POST") { await gate; await fulfill(route, { json: { data: invoice() } }).catch(() => {}); return true; } return false;
   }});
-  await page.goto("/fbr-invoicing/new"); await fillDraft(page); await page.getByRole("button", { name: "Save draft and review" }).click();
+  await page.goto("/fbr-invoicing/new"); await fillDraft(page); await page.getByRole("button", { name: "Save Draft" }).click();
   await expect.poll(() => state.requests.some(r => r.method === "POST")).toBe(true);
   await page.getByLabel("Active company").selectOption("B"); await expect(page.getByLabel("Buyer name", { exact: true })).toHaveValue("");
   release(); await expect(page).toHaveURL(/\/new$/);
@@ -216,14 +216,19 @@ test("unavailable provider, print and QR are honest", async ({ page }) => {
   await setup(page, { record: invoice({ capabilities: { provider_submission_enabled: false, retry_recovery: false } }) });
   await page.goto("/fbr-invoicing/invoice-1"); await expect(page.getByText("Provider submission is unavailable", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Submit to FBR" })).toHaveCount(0);
-  await expect(page.getByText("Regulatory printing, QR codes", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Certification Boundary" })).toBeVisible();
+  await expect(page.getByText("The private print view is not an FBR-certified regulatory PDF.", { exact: false })).toBeVisible();
+  await expect(page.getByText("A QR is shown only if genuine provider content exists.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Not returned", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("img", { name: /QR/i })).toHaveCount(0);
+  await expect(page.getByRole("main").locator("canvas")).toHaveCount(0);
 });
 
 test("validation errors preserve editable form and display safe text", async ({ page }) => {
   await setup(page, { handler: async (route, path) => {
     if (path === "/pakistan-fbr/invoices" && route.request().method() === "POST") { await fulfill(route, { status: 422, json: { message: "Check invoice", errors: { "lines.0.extra_tax": ["Invalid exact tax"] } } }); return true; } return false;
   }});
-  await page.goto("/fbr-invoicing/new"); await fillDraft(page); await page.getByRole("button", { name: "Save draft and review" }).click();
+  await page.goto("/fbr-invoicing/new"); await fillDraft(page); await page.getByRole("button", { name: "Save Draft" }).click();
   await expect(page.getByRole("alert").first()).toContainText("Check invoice"); await expect(page.getByLabel("Buyer name", { exact: true })).toBeEnabled();
 });
 

@@ -4,6 +4,7 @@ import {useCompanyStore} from "@/stores/company";
 
 const routes: RouteRecordRaw[] = [
   { path: "/", name: "dashboard", component: () => import("@/pages/Dashboard.vue") },
+  { path: "/dashboard/customize", name: "dashboard-customization", component: () => import("@/pages/DashboardCustomization.vue") },
 
   // Employee self-service is part of this authenticated V2 application.
   { path: "/employee/documents", component: () => import("@/pages/employee/EmployeeResources.vue") },
@@ -43,7 +44,7 @@ const routes: RouteRecordRaw[] = [
   { path: "/hrm/leave", component: () => import("@/pages/HrmLeave.vue") },
 
   // Dedicated FBR Invoicing
-  ...["/fbr-invoicing", "/fbr-invoicing/new", "/fbr-invoicing/configuration", "/fbr-invoicing/migrations", "/fbr-invoicing/migrations/:run", "/fbr-invoicing/:id/edit", "/fbr-invoicing/:id"].map(path => ({ path, component: () => import("@/pages/FbrInvoicing.vue") })),
+  ...["/fbr-invoicing", "/fbr-invoicing/new", "/fbr-invoicing/configuration", "/fbr-invoicing/portal-settings", "/fbr-invoicing/migrations", "/fbr-invoicing/migrations/:run", "/fbr-invoicing/:id/edit", "/fbr-invoicing/:id/print", "/fbr-invoicing/:id/credit-notes/:credit/print", "/fbr-invoicing/:id"].map(path => ({ path, component: () => import("@/pages/FbrInvoicing.vue") })),
 
   // Accounting
   { path: "/accounting/invoices", component: () => import("@/pages/AccountingInvoices.vue") },
@@ -141,6 +142,8 @@ const routes: RouteRecordRaw[] = [
   { path: "/knowledge/chat/:threadId", component: () => import("@/pages/KnowledgeChat.vue") },
   { path: "/copilot", component: () => import("@/pages/Copilot.vue") },
   { path: "/settings/navigation", component: () => import("@/pages/NavigationSettings.vue") },
+  { path: "/billing", component: () => import("@/pages/Billing.vue") },
+  { path: "/companies", component: () => import("@/pages/Companies.vue") },
   { path: "/settings", component: () => import("@/pages/Settings.vue") },
   { path: "/profile", component: () => import("@/pages/UserProfile.vue") },
   { path: "/users/:membership/employee-link", component: () => import("@/pages/EmployeeLinkSettings.vue") },
@@ -152,6 +155,8 @@ const routes: RouteRecordRaw[] = [
 
   // Auth
   { path: "/login", component: () => import("@/pages/Login.vue") },
+  { path: "/register", component: () => import("@/pages/Register.vue") },
+  { path: "/verify-email/:id/:hash", component: () => import("@/pages/VerifyEmail.vue") },
   { path: "/forgot-password", component: () => import("@/pages/ForgotPassword.vue") },
   { path: "/set-password", component: () => import("@/pages/SetPassword.vue") },
   { path: "/accept-invitation", component: () => import("@/pages/SetPassword.vue") },
@@ -166,16 +171,21 @@ export const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const publicPaths = new Set(["/login", "/forgot-password", "/set-password", "/accept-invitation"]);
+  const publicPaths = new Set(["/login", "/register", "/forgot-password", "/set-password", "/accept-invitation"]);
   const company = useCompanyStore();
-  if (publicPaths.has(to.path)) {
+  if (publicPaths.has(to.path) || to.path.startsWith("/verify-email/")) {
     return company.authenticated && to.path === "/login" ? "/" : true;
   }
   if (!company.authenticated) {
     return { path: "/login", query: { redirect: to.fullPath } };
   }
   if (to.path === "/profile") return true;
-  if (!company.activeCompanyId) return to.path === "/" ? true : "/";
+  if (to.path === "/companies") return true;
+  if (company.activeCompany?.approval_status && (company.activeCompany.approval_status !== "APPROVED" || company.activeCompany.is_active === false)) return "/companies";
+  if (!company.activeCompanyId) return "/companies";
+  if (to.path === "/dashboard/customize") {
+    return ["accounting.view", "platform.settings.view", "platform.settings.manage"].some(permission => company.hasPermission(permission)) ? true : "/";
+  }
 
   // The dedicated module renders explicit permission/entitlement states.
   if (to.path.startsWith("/fbr-invoicing")) return true;

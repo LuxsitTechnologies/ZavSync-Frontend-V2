@@ -16,6 +16,8 @@ export interface CompanyOption {
   roles?: string[];
   permissions?: string[];
   modules?: string[];
+  approval_status?: "PENDING" | "APPROVED" | "REJECTED";
+  is_active?: boolean;
   effective_navigation?: EffectiveNavigation;
 }
 
@@ -25,6 +27,7 @@ export const useCompanyStore = defineStore("company", () => {
     id?: number;
     name: string;
     email: string;
+    email_verified?: boolean;
     role?: string;
     is_platform_admin?: boolean;
   }>({ name: "", email: "", is_platform_admin: false });
@@ -48,7 +51,8 @@ export const useCompanyStore = defineStore("company", () => {
     companies.value = payload.companies;
     currentUser.value = payload.user;
     const stored = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-    activeCompanyId.value = stored && companies.value.some((company) => company.id === stored) ? stored : (companies.value[0]?.id ?? "");
+    activeCompanyId.value = stored && companies.value.some((company) => company.id === stored && company.approval_status !== "REJECTED")
+      ? stored : (companies.value.find((company) => company.approval_status === "APPROVED" && company.is_active !== false)?.id ?? companies.value[0]?.id ?? "");
     currentUser.value.role = companies.value.find((company) => company.id === activeCompanyId.value)?.roles?.join(", ") ?? "";
     contextVersion.value += 1;
     initialized.value = true;

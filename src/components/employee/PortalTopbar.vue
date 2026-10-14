@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
-import { Bell, ChevronRight, Menu, Moon, Sun } from "lucide-vue-next";
+import { Bell, ChevronRight, LayoutDashboard, Menu, Moon, Sun } from "lucide-vue-next";
 
 import { initials } from "@/lib/format";
 import { moduleForPath, permissionForPath } from "@/lib/nav";
@@ -16,9 +16,10 @@ const router = useRouter();
 const menuButton = ref<HTMLButtonElement | null>(null);
 const dark = ref(document.documentElement.classList.contains("dark"));
 const name = computed(() => portal.employee?.employee?.full_name ?? company.currentUser.name);
-const resources: Record<string,string> = {"/employee/requests": "Requests", "/employee/documents": "Documents", "/employee/announcements": "Announcements", "/employee/directory": "Directory", "/employee/teams": "My Team", "/employee/schedule": "Published schedule", "/employee/shift-swaps": "Shift swaps", "/employee/assets": "Equipment requests", "/employee/expenses": "Expense claims"};
+const resources: Record<string,string> = {"/employee/requests": "Requests", "/employee/documents": "Documents", "/employee/announcements": "Announcements", "/employee/directory": "Directory", "/employee/teams": "My Team", "/employee/schedule": "Published schedule", "/employee/shift-swaps": "Shift Swaps", "/employee/assets": "Equipment Requests", "/employee/expenses": "Expense Claims"};
 const breadcrumb = computed(() => resources[route.path] ?? (route.path === "/employee/tasks" ? "My Tasks" : route.path === "/employee/tickets" ? "My Tickets" : route.path === "/employee/leaves" ? "Leaves" : route.path === "/employee/calendar" ? "Calendar" : route.path === "/employee/profile" ? "My Profile" : route.path === "/employee/notifications" ? "Notifications" : route.path.startsWith("/employee/payroll/") ? "Payslip" : route.path === "/employee/payroll" ? "My Payroll" : "Dashboard"));
 const unread = computed(() => portal.inbox?.unread_count ?? 0);
+const canReturnToDashboard = computed(() => !company.switching && company.hasPermission("accounting.view") && company.hasModule("invoicing"));
 const switchError = ref("");
 
 function focusMenu(): void { menuButton.value?.focus(); }
@@ -49,6 +50,7 @@ async function switchCompany(id: string): Promise<void> {
       <span class="text-content-muted">{{ breadcrumb }}</span>
     </nav>
     <div class="ml-auto flex min-w-0 items-center gap-2">
+      <RouterLink v-if="canReturnToDashboard" to="/" class="grid size-8 shrink-0 place-items-center rounded-md text-content-secondary hover:bg-surface-hover" aria-label="Back to Dashboard" title="Back to Dashboard"><LayoutDashboard class="size-4" /></RouterLink>
       <select :value="company.activeCompanyId" class="field w-28 min-w-0 sm:w-44" aria-label="Active company" :disabled="company.switching" @change="switchCompany(($event.target as HTMLSelectElement).value)">
         <option v-for="item in company.companies" :key="item.id" :value="item.id">{{ item.name }}</option>
       </select>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import type { FbrListFilters } from "@/types/fbr";
 import { useAsyncData } from "@/composables/useAsyncData";
 import { fbrRepository } from "@/services/fbr/repository";
 import { money } from "./form";
@@ -11,20 +12,36 @@ import Pagination from "@/components/zs/Pagination.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 const { company, companyId } = useFbrContext();
 const page = ref(1), perPage = ref(25), historical = ref("");
+const search = ref(""), status = ref(""), documentState = ref(""), dateFrom = ref(""), dateTo = ref("");
+const sortBy = ref<FbrListFilters["sort_by"]>("invoice_date"), sortOrder = ref<"asc" | "desc">("desc");
+const filters = ref<FbrListFilters>({});
 watch([perPage, historical], () => { page.value = 1; }, { flush: "sync" });
-const { data, loading, error, refresh } = useAsyncData(() => fbrRepository.list(companyId, page.value, perPage.value, historical.value), { watch: [page, perPage, historical] });
+const { data, loading, error, refresh } = useAsyncData(() => fbrRepository.list(companyId, page.value, perPage.value, historical.value, filters.value), { watch: [page, perPage, historical, filters] });
+function applyFilters(): void {
+  page.value = 1;
+  filters.value = { search: search.value.trim() || undefined, fbr_status: status.value || undefined,
+    document_state: documentState.value || undefined, date_from: dateFrom.value || undefined,
+    date_to: dateTo.value || undefined, sort_by: sortBy.value, sort_order: sortOrder.value };
+}
 const columns = [{ key: "number", header: "Invoice" }, { key: "buyer", header: "Buyer" }, { key: "date", header: "Date" }, { key: "total", header: "Total", class: "num" }, { key: "state", header: "Document / FBR status" }, { key: "reference", header: "FBR reference" }];
 </script>
 <template>
-  <Panel title="Invoice register">
-    <template #actions><RouterLink v-if="company.hasPermission('pakistan_fbr.manage')" to="/fbr-invoicing/new" class="text-sm text-content-brand">Create draft</RouterLink></template>
-    <p class="px-4 pt-4 text-sm text-content-secondary">Pakistan FBR invoice drafts, submission states and historical FBR records appear here. Native Accounting invoices have a separate register and separate FBR status page.</p>
-    <div class="flex flex-wrap items-end gap-3 p-4">
+  <Panel title="Invoice Register">
+    <template #actions><RouterLink v-if="company.hasPermission('pakistan_fbr.manage')" to="/fbr-invoicing/new" class="text-sm text-content-brand">Create Invoice</RouterLink></template>
+    <p class="px-4 pt-4 text-sm text-content-secondary">FBR Invoice drafts, submission states and historical FBR records appear here. Native Accounting invoices have a separate register and separate FBR status page.</p>
+    <form class="flex flex-wrap items-end gap-3 p-4" @submit.prevent="applyFilters">
       <label><span class="label-caps">Records</span><select v-model="historical" class="field mt-1"><option value="">All invoices</option><option value="0">New V2 invoices</option><option value="1">Historical V1 invoices</option></select></label>
       <label><span class="label-caps">Per page</span><select v-model.number="perPage" class="field mt-1"><option :value="10">10</option><option :value="25">25</option><option :value="50">50</option><option :value="100">100</option></select></label>
+      <label><span class="label-caps">Search invoice or buyer</span><input v-model="search" class="field mt-1" maxlength="120" /></label>
+      <label><span class="label-caps">FBR status</span><select v-model="status" class="field mt-1"><option value="">Any status</option><option v-for="item in ['not_submitted','pending','uncertain','submitted','accepted','rejected','failed']" :key="item" :value="item">{{ item }}</option></select></label>
+      <label><span class="label-caps">Document state</span><select v-model="documentState" class="field mt-1"><option value="">Any state</option><option value="DRAFT">Draft</option><option value="ISSUED">Issued</option></select></label>
+      <label><span class="label-caps">From date</span><input v-model="dateFrom" class="field mt-1" type="date" /></label>
+      <label><span class="label-caps">To date</span><input v-model="dateTo" class="field mt-1" type="date" :min="dateFrom" /></label>
+      <label><span class="label-caps">Sort by</span><select v-model="sortBy" class="field mt-1"><option value="invoice_date">Invoice date</option><option value="created_at">Created</option><option value="invoice_number">Invoice number</option><option value="total">Total</option><option value="fbr_status">FBR status</option></select></label>
+      <label><span class="label-caps">Order</span><select v-model="sortOrder" class="field mt-1"><option value="desc">Newest / high first</option><option value="asc">Oldest / low first</option></select></label>
+      <ZButton type="submit" :disabled="loading">Apply Filters</ZButton>
       <ZButton variant="outline" :disabled="loading" @click="refresh">Refresh</ZButton>
-    </div>
-    <p class="px-4 pb-3 text-xs text-content-muted">Search, status and date filters are not yet available.</p>
+    </form>
     <AsyncSection :loading="loading" :error="error" :empty="data?.data.length === 0" empty-title="No FBR invoices" empty-message="No invoices match this record selection." @retry="refresh">
       <DataTable :rows="data?.data ?? []" :columns="columns">
         <template #number="{ row }"><RouterLink :to="`/fbr-invoicing/${row.id}`" class="text-content-brand">{{ row.invoice_number }}</RouterLink><span v-if="row.is_historical" class="block text-xs">Historical · read-only</span></template>

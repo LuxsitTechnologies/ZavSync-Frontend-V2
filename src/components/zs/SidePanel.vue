@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Right-hand drawer used for create/edit/view flows across accounting. */
+/** Responsive centered dialog used for create/edit/view flows. */
 import { nextTick, onBeforeUnmount, ref, useId, watch } from "vue";
 import { X } from "lucide-vue-next";
 
@@ -64,15 +64,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" :aria-labelledby="titleId">
+    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" role="dialog" aria-modal="true" :aria-labelledby="titleId">
       <button type="button" class="absolute inset-0 bg-black/40" tabindex="-1" aria-label="Close panel" @click="$emit('close')" />
       <aside
         ref="panel"
         tabindex="-1"
-        class="relative flex h-full w-full flex-col border-l border-line bg-surface shadow-xl"
-        :class="width === 'lg' ? 'sm:w-[42rem]' : 'sm:w-[28rem]'"
+        class="relative flex max-h-[calc(100dvh-1rem)] w-full min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-xl sm:max-h-[calc(100dvh-2rem)]"
+        :class="width === 'lg' ? 'max-w-3xl' : 'max-w-xl'"
       >
-        <header class="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+        <header class="flex shrink-0 items-start justify-between gap-3 border-b border-line px-4 py-3">
           <div>
             <h2 :id="titleId" class="text-sm font-semibold text-content">{{ title }}</h2>
             <p v-if="description" class="mt-0.5 text-xs text-content-muted">{{ description }}</p>
@@ -93,7 +93,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
         <footer
           v-if="$slots.footer"
-          class="flex flex-wrap items-center justify-end gap-2 border-t border-line px-4 py-3"
+          class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line px-4 py-3"
         >
           <slot name="footer" />
         </footer>

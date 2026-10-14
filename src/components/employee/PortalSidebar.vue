@@ -13,6 +13,7 @@ defineEmits<{ navigate: [] }>();
 const company = useCompanyStore();
 const portal = useEmployeePortalStore();
 const unread = computed(() => portal.inbox?.unread_count ?? 0);
+const canReturnToDashboard = computed(() => !company.switching && company.hasPermission("accounting.view") && company.hasModule("invoicing"));
 const groups = [
   { label: "Overview", items: [
     { label: "Dashboard", to: "/employee", icon: LayoutDashboard },
@@ -32,9 +33,9 @@ const groups = [
     { label: "Directory", to: "/employee/directory", icon: FolderOpen, permission: "employee.directory.view", navigation: "employee.directory" },
     { label: "My Team", to: "/employee/teams", icon: FolderOpen, permission: "employee.teams.view", navigation: "employee.teams" },
     { label: "Published schedule", to: "/employee/schedule", icon: FolderOpen, permission: "employee.schedule.view", navigation: "employee.schedule" },
-    { label: "Shift swaps", to: "/employee/shift-swaps", icon: FolderOpen, permission: "employee.schedule.view", navigation: "employee.shift_swaps" },
-    { label: "Equipment requests", to: "/employee/assets", icon: FolderOpen, permission: "employee.assets.view", navigation: "employee.assets" },
-    { label: "Expense claims", to: "/employee/expenses", icon: FolderOpen, permission: "employee.expenses.view", navigation: "employee.expenses" }
+    { label: "Shift Swaps", to: "/employee/shift-swaps", icon: FolderOpen, permission: "employee.schedule.view", navigation: "employee.shift_swaps" },
+    { label: "Equipment Requests", to: "/employee/assets", icon: FolderOpen, permission: "employee.assets.view", navigation: "employee.assets" },
+    { label: "Expense Claims", to: "/employee/expenses", icon: FolderOpen, permission: "employee.expenses.view", navigation: "employee.expenses" }
   ] },
   { label: "Account", items: [{ label: "Notifications", to: "/employee/notifications", icon: Bell }] },
 ] as const;
@@ -46,6 +47,8 @@ const groups = [
       <RouterLink to="/employee" aria-label="Employee Portal home" class="flex items-center" @click="$emit('navigate')"><Logo class="h-5" /></RouterLink>
     </div>
     <nav aria-label="Employee Portal" class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+      <RouterLink v-if="canReturnToDashboard" to="/" class="nav-item" @click="$emit('navigate')"><LayoutDashboard class="size-4 shrink-0" :stroke-width="1.75" /><span>Back to Dashboard</span></RouterLink>
+      <p v-else class="px-2.5 text-xs text-content-muted">Company Dashboard data is unavailable for this membership.</p>
       <div v-for="group in groups" :key="group.label" class="space-y-0.5">
         <p class="label-caps px-2.5 pb-1.5 text-sidebar-label">{{ group.label }}</p>
         <template v-for="item in group.items" :key="item.label">

@@ -51,6 +51,14 @@ import {
   Library,
   MessageSquareText,
   Bot,
+  Megaphone,
+  Clock3,
+  GitPullRequestArrow,
+  PackagePlus,
+  Tags,
+  IdCard,
+  Ticket,
+  CalendarDays,
 } from "lucide-vue-next";
 import type { Component } from "vue";
 
@@ -63,6 +71,7 @@ export interface NavItem {
   module?: string;
   platformAdmin?: boolean;
   permission?: string;
+  presentationParentKey?: string;
 }
 
 export interface NavGroup {
@@ -80,23 +89,23 @@ export const navigation: NavGroup[] = [
     label: "People",
     items: [
       {
-        label: "HRM", module:"payroll",
+        label: "HRM", module:"payroll", presentationParentKey: "people.hrm",
         icon: Users,
         children: [
-          { label: "Employee documents", to: "/hrm/employee-documents", icon: Users, permission: "employee.documents.admin.view" },
-          { label: "Announcements", to: "/hrm/announcements", icon: Users, permission: "announcements.view" },
-          { label: "Teams", to: "/hrm/teams", icon: Users, permission: "teams.view" },
-          { label: "Shifts", to: "/hrm/shifts", icon: Users, permission: "schedules.view" },
-          { label: "Rotas", to: "/hrm/rotas", icon: Users, permission: "schedules.view" },
-          { label: "Shift swaps", to: "/hrm/shift-swaps", icon: Users, permission: "schedules.view" },
-          { label: "Equipment requests", to: "/hrm/asset-requests", icon: Users, permission: "assets.view" },
-          { label: "Expense claims", to: "/hrm/expenses", icon: Users, permission: "expenses.view" },
-          { label: "Expense categories", to: "/hrm/expense-categories", icon: Users, permission: "expenses.categories.manage" },
-          { label: "Employees", to: "/hrm/employees", icon: Users },
+          { label: "Employee Documents", to: "/hrm/employee-documents", icon: FileText, permission: "employee.documents.admin.view" },
+          { label: "Announcements", to: "/hrm/announcements", icon: Megaphone, permission: "announcements.view" },
+          { label: "Teams", to: "/hrm/teams", icon: UsersRound, permission: "teams.view" },
+          { label: "Shifts", to: "/hrm/shifts", icon: Clock3, permission: "schedules.view" },
+          { label: "Rotas", to: "/hrm/rotas", icon: CalendarRange, permission: "schedules.view" },
+          { label: "Shift Swaps", to: "/hrm/shift-swaps", icon: GitPullRequestArrow, permission: "schedules.view" },
+          { label: "Equipment Requests", to: "/hrm/asset-requests", icon: PackagePlus, permission: "assets.view" },
+          { label: "Expense Claims", to: "/hrm/expenses", icon: Receipt, permission: "expenses.view" },
+          { label: "Expense Categories", to: "/hrm/expense-categories", icon: Tags, permission: "expenses.categories.manage" },
+          { label: "Employees", to: "/hrm/employees", icon: IdCard },
           { label: "Attendance", to: "/hrm/attendance", icon: CalendarCheck, permission: "attendance.view" },
-          { label: "Tasks", to: "/hrm/tasks", icon: Users, permission: "tasks.view" },
-          { label: "Tickets", to: "/hrm/tickets", icon: Users, permission: "tickets.view" },
-          { label: "Leave", to: "/hrm/leave", icon: CalendarCheck, permission: "leave.view" },
+          { label: "Tasks", to: "/hrm/tasks", icon: ListTodo, permission: "tasks.view" },
+          { label: "Tickets", to: "/hrm/tickets", icon: Ticket, permission: "tickets.view" },
+          { label: "Leave", to: "/hrm/leave", icon: CalendarDays, permission: "leave.view" },
         ],
       },
     ],
@@ -105,21 +114,21 @@ export const navigation: NavGroup[] = [
     label: "Finance",
     items: [
       {
-        label: "FBR Invoicing",
-        icon: ReceiptText, module: "invoicing",
+        label: "FBR Invoice",
+        icon: ReceiptText, module: "invoicing", presentationParentKey: "finance.fbr",
         children: [
-          { label: "Pakistan FBR invoice register", to: "/fbr-invoicing", icon: FileText },
-          { label: "FBR configuration", to: "/fbr-invoicing/configuration", icon: Settings2 },
-          { label: "Migration administration", to: "/fbr-invoicing/migrations", icon: History },
+          { label: "Invoice Register", to: "/fbr-invoicing", icon: FileText },
+          { label: "FBR Configuration", to: "/fbr-invoicing/configuration", icon: Settings2 },
+          { label: "Migration Administration", to: "/fbr-invoicing/migrations", icon: History },
         ],
       },
       {
         label: "Accounting",
-        icon: Calculator,
+        icon: Calculator, presentationParentKey: "finance.accounting",
         children: [
           { label: "Invoices", to: "/accounting/invoices", icon: FileText, module:"invoicing" },
           { label: "Customers", to: "/accounting/customers", icon: Building2, module:"receivables" },
-          { label: "Accounting invoice FBR status", to: "/accounting/fbr", icon: Landmark, module:"invoicing" },
+          { label: "Accounting Invoice FBR Status", to: "/accounting/fbr", icon: Landmark, module:"invoicing" },
           { label: "Chart of Accounts", to: "/accounting/chart-of-accounts", icon: BookOpen, module:"accounting" },
           { label: "General Ledger", to: "/accounting/general-ledger", icon: ScrollText, module:"accounting" },
           { label: "Journals", to: "/accounting/journals", icon: NotebookPen, module:"accounting" },
@@ -135,7 +144,7 @@ export const navigation: NavGroup[] = [
         ],
       },
       {
-        label: "Payroll", module:"payroll",
+        label: "Payroll", module:"payroll", presentationParentKey: "finance.payroll",
         icon: Wallet,
         children: [
           { label: "Payroll Dashboard", to: "/payroll", icon: BarChart3 },
@@ -154,7 +163,7 @@ export const navigation: NavGroup[] = [
       { label: "Inventory", to: "/inventory", icon: Boxes, module:"inventory" },
       { label: "Purchases", to: "/purchases", icon: ShoppingCart, module:"procurement" },
       {
-        label: "CRM", module:"crm",
+        label: "CRM", module:"crm", presentationParentKey: "operations.crm",
         icon: Building2,
         children: [
           { label: "Overview", to: "/crm", icon: LayoutDashboard },
@@ -175,7 +184,7 @@ export const navigation: NavGroup[] = [
     label: "Intelligence",
     items: [
       {
-        label: "ZavSync AI", module:"ai",
+        label: "ZavSync AI", module:"ai", presentationParentKey: "intelligence.ai",
         icon: Sparkles,
         children: [
           { label: "Ask ZavSync", to: "/ai", icon: Sparkles, permission: "ai.copilot.use" },
@@ -190,7 +199,7 @@ export const navigation: NavGroup[] = [
         ],
       },
       {
-        label: "Knowledge", module:"ai",
+        label: "Knowledge", module:"ai", presentationParentKey: "intelligence.knowledge",
         icon: Library,
         children: [
           { label: "Documents", to: "/knowledge/documents", icon: FileText, permission: "ai.knowledge.view" },
@@ -199,7 +208,7 @@ export const navigation: NavGroup[] = [
         ],
       },
       {
-        label: "Outreach", module:"outreach",
+        label: "Outreach", module:"outreach", presentationParentKey: "intelligence.outreach",
         icon: Mail,
         children: [
           { label: "Providers & Senders", to: "/outreach/integrations", icon: Settings2, permission: "outreach.providers.manage" },
@@ -213,8 +222,10 @@ export const navigation: NavGroup[] = [
   {
     label: "Administration",
     items: [
+      { label: "Companies", to: "/companies", icon: Settings },
       { label: "Users & Invitations", to: "/users", icon: Users, permission: "platform.users.view" },
-      { label: "Navigation visibility", to: "/settings/navigation", icon: Settings2 },
+      { label: "Navigation Visibility", to: "/settings/navigation", icon: Settings2 },
+      { label: "Billing", to: "/billing", icon: CreditCard, permission: "billing.view" },
       { label: "Settings", to: "/settings", icon: Settings, permission: "platform.settings.view" },
       { label: "Roles & Permissions", to: "/roles", icon: ShieldCheck, permission: "platform.roles.view" },
       { label: "Audit Log", to: "/audit-log", icon: History, permission: "platform.audit.view" },
@@ -244,6 +255,7 @@ export const presentationKeyForRoute: Record<string, string> = {
   "/fbr-invoicing/configuration": "fbr.configuration",
   "/fbr-invoicing/migrations": "fbr.migrations",
   "/accounting/invoices": "accounting.invoices",
+  "/accounting/fbr": "accounting.fbr_status",
   "/accounting/chart-of-accounts": "accounting.chart",
   "/accounting/general-ledger": "accounting.ledger",
   "/accounting/journals": "accounting.journals",
@@ -293,8 +305,17 @@ export const presentationKeyForRoute: Record<string, string> = {
   "/outreach/tracking": "outreach.tracking",
 };
 
+/** Resolve detail and edit URLs to the most specific visible navigation route. */
+export function activeNavigationPath(path: string): string | null {
+  const routes = navigation.flatMap(group => group.items.flatMap(item => item.children ?? [item]))
+    .flatMap(item => item.to ? [item.to] : []);
+  return routes.filter(to => path === to || (to !== "/" && path.startsWith(`${to}/`)))
+    .sort((left, right) => right.length - left.length)[0] ?? null;
+}
+
 export function navigationForModules(modules:string[],isPlatformAdmin=false,permissions:string[]=[],effective?:EffectiveNavigation):NavGroup[]{
   const filter=(items:NavItem[]):NavItem[]=>items.flatMap(item=>{
+    if (effective?.parents && item.presentationParentKey && effective.parents.some(parent => parent.key === item.presentationParentKey && !parent.effective_visible)) return [];
     const key = item.to ? presentationKeyForRoute[item.to] : undefined;
     if (effective && key && !effective.visible_keys.includes(key)) return [];
     if(item.module&&!modules.includes(item.module))return [];
@@ -310,6 +331,7 @@ export function navigationForModules(modules:string[],isPlatformAdmin=false,perm
 
 /** Minimum read permission required to enter each production area. */
 export function permissionForPath(path: string): string | null {
+  if (path === "/billing") return "billing.view";
   if (path === "/hrm/employee-documents") return "employee.documents.admin.view";
   if (path === "/hrm/announcements") return "announcements.view";
   if (path === "/hrm/teams") return "teams.view";
@@ -336,6 +358,7 @@ export function permissionForPath(path: string): string | null {
   if (path === "/hrm/leave") return "leave.view";
   if (path === "/hrm/attendance") return "attendance.view";
   if (path === "/fbr-invoicing/configuration") return "fbr.configuration.view";
+  if (path === "/fbr-invoicing/portal-settings") return "portal.settings.view";
   if (path.startsWith("/fbr-invoicing/migrations")) return "migration.view";
   if (path === "/fbr-invoicing/new" || (path.startsWith("/fbr-invoicing/") && path.endsWith("/edit"))) return "pakistan_fbr.manage";
   if (path.startsWith("/fbr-invoicing")) return "pakistan_fbr.view";

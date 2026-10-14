@@ -4,6 +4,8 @@ export interface FbrBuyer {
   type: "Registered" | "Unregistered";
   province: string;
   address: string | null;
+  email?: string | null;
+  phone?: string | null;
 }
 export interface FbrLineInput {
   description: string;
@@ -11,6 +13,7 @@ export interface FbrLineInput {
   unit: string;
   quantity_milli: number;
   unit_price: number;
+  taxable_amount?: number | null;
   discount: number;
   tax_rate_bps: number;
   fbr_rate_id: string;
@@ -62,14 +65,32 @@ export interface FbrInvoice extends Omit<FbrDraft, "lines"> {
   withholding_tax: number;
   total: number;
   historical_amount_paid: number | null;
-  capabilities: { retry_recovery: boolean; provider_submission_enabled: boolean; regulatory_print_status: string };
+  capabilities: { retry_recovery: boolean; provider_submission_enabled: boolean; regulatory_print_status: string; delete_draft?: boolean; reconciliation_required?: boolean; internal_credit_note?: boolean; print_data?: boolean; certified_print_qr?: boolean; qr_content?: string | null };
+  seller_snapshot?: Record<string, string | null> | null;
+  buyer_verification?: { status: string; provider: string | null };
+  credit_note?: { id: string; number: string; state: string } | null;
+  fully_credited?: boolean;
   historical?: { legacy_status: string; accounting_state: string; reconciliation_state: string };
   migration_metadata?: Record<string, unknown>;
   lines?: FbrLine[];
   created_at: string;
   updated_at: string;
 }
+export interface FbrCreditNote {
+  id: string; invoice_id: string; credit_note_number: string; state: string; reason: string;
+  issued_on: string; original_invoice_number: string; original_fbr_reference_number: string | null;
+  fbr_reference_number: string | null; taxable_amount: number; sales_tax: number; extra_tax: number;
+  further_tax: number; st_withheld: number; total: number; fully_credited: boolean;
+  provider_submission: string; accounting_integration: string;
+  capabilities: { edit_reason: boolean; delete: boolean; submit: boolean; reconcile: boolean };
+  lines: Array<{ id: string; invoice_line_id: string; source_snapshot: Record<string, unknown>; taxable_amount: number; sales_tax: number; extra_tax: number; further_tax: number; st_withheld: number; total: number }>;
+}
 export interface FbrPage { data: FbrInvoice[]; meta: { current_page: number; last_page: number; total: number } }
+export interface FbrListFilters {
+  search?: string; fbr_status?: string; document_state?: string; date_from?: string; date_to?: string;
+  sort_by?: "invoice_date" | "created_at" | "invoice_number" | "total" | "fbr_status";
+  sort_order?: "asc" | "desc";
+}
 export interface FbrAttempt {
   id: string; status: string; reference_number: string | null; error_message: string | null;
   response_metadata: unknown; created_at: string; completed_at: string | null;

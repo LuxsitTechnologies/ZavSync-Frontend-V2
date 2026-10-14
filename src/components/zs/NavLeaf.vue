@@ -2,11 +2,11 @@
 import { computed } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
-import type { NavItem } from "@/lib/nav";
+import { activeNavigationPath, type NavItem } from "@/lib/nav";
 
 const props = defineProps<{ item: NavItem }>();
 const route = useRoute();
-const active = computed(() => props.item.to === route.path);
+const active = computed(() => props.item.to === activeNavigationPath(route.path));
 </script>
 
 <template>

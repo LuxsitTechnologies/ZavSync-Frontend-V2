@@ -10,7 +10,7 @@ const employee = (id: string, status = "active") => ({
   location: "Lahore", base_salary: "SENSITIVE-SALARY", employee_bank_reference: "SENSITIVE-BANK",
 });
 
-async function setup(page: Page, options: { authenticated?: boolean; permissions?: string[]; status?: string; slowEmployee?: boolean; slowNotifications?: boolean } = {}) {
+async function setup(page: Page, options: { authenticated?: boolean; permissions?: string[]; modules?: string[]; companyBPermissions?: string[]; companyBModules?: string[]; status?: string; slowEmployee?: boolean; slowNotifications?: boolean } = {}) {
   const calls: Call[] = [];
   observed.set(page, calls);
   const permissions = options.permissions ?? ["employee.self.view"];
@@ -19,7 +19,7 @@ async function setup(page: Page, options: { authenticated?: boolean; permissions
   const employeeGate = new Promise<void>(resolve => { releaseEmployee = resolve; });
   const notificationsGate = new Promise<void>(resolve => { releaseNotifications = resolve; });
   const read = new Set<string>();
-  const company = (id: string) => ({ id, name: `Company ${id}`, roles: [], permissions, modules: [], effective_navigation: { catalog: [], items: [], visible_keys: [] } });
+  const company = (id: string) => ({ id, name: `Company ${id}`, roles: [], permissions: id === "B" ? options.companyBPermissions ?? permissions : permissions, modules: id === "B" ? options.companyBModules ?? options.modules ?? [] : options.modules ?? [], effective_navigation: { catalog: [], items: [], visible_keys: [] } });
   await page.route("**/api/v1/**", async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -76,6 +76,36 @@ test("platform admin without self permission never requests employee identity", 
   await page.goto("/employee");
   await expect(page.getByText(/Employee self-service is unavailable/)).toBeVisible();
   expect(calls.some(call => call.path.endsWith("/employee/me"))).toBe(false);
+});
+
+test("authorized Employee Portal return keeps the company and session", async ({ page }) => {
+  const { calls } = await setup(page, { permissions: ["employee.self.view", "accounting.view"], modules: ["payroll", "invoicing"] });
+  await page.goto("/employee");
+  const returnLink = page.getByRole("navigation", { name: "Employee Portal" }).getByRole("link", { name: "Back to Dashboard" });
+  await expect(returnLink).toBeVisible();
+  await expect(page.locator('header a[aria-label="Back to Dashboard"]')).toBeVisible();
+  await returnLink.click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByLabel("Active company")).toHaveValue("A");
+  expect(calls.some(call => /\/auth\/(login|logout)$/.test(call.path))).toBe(false);
+});
+
+test("Employee Portal return is withheld when the company cannot show the normal dashboard", async ({ page }) => {
+  const { calls } = await setup(page, { permissions: ["employee.self.view"], modules: ["payroll"] });
+  await page.goto("/employee");
+  await expect(page.getByRole("link", { name: "Back to Dashboard" })).toHaveCount(0);
+  await expect(page.getByText("Company Dashboard data is unavailable for this membership.")).toBeVisible();
+  expect(calls.some(call => call.path.endsWith("/accounting/invoices"))).toBe(false);
+});
+
+test("Employee Portal return follows the new company's permissions", async ({ page }) => {
+  const { calls } = await setup(page, { permissions: ["employee.self.view", "accounting.view"], modules: ["payroll", "invoicing"], companyBPermissions: ["employee.self.view"], companyBModules: ["payroll"] });
+  await page.goto("/employee");
+  await expect(page.getByRole("navigation", { name: "Employee Portal" }).getByRole("link", { name: "Back to Dashboard" })).toBeVisible();
+  await page.getByLabel("Active company").selectOption("B");
+  await expect(page.getByRole("link", { name: "Back to Dashboard" })).toHaveCount(0);
+  await expect(page.getByText("Company Dashboard data is unavailable for this membership.")).toBeVisible();
+  expect(calls.some(call => call.company === "B" && call.path.endsWith("/accounting/invoices"))).toBe(false);
 });
 
 test("unlinked and resigned records show distinct truthful states", async ({ page }) => {

@@ -9,11 +9,13 @@ export interface AuthCompany {
   roles: string[];
   permissions: string[];
   modules: string[];
+  approval_status?: "PENDING" | "APPROVED" | "REJECTED";
+  is_active?: boolean;
   effective_navigation?: EffectiveNavigation;
 }
 
 export interface AuthPayload {
-  user: { id: number; name: string; email: string; is_platform_admin: boolean };
+  user: { id: number; name: string; email: string; email_verified?: boolean; is_platform_admin: boolean };
   companies: AuthCompany[];
 }
 
