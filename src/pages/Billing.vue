@@ -5,6 +5,7 @@ import PageHeader from "@/components/zs/PageHeader.vue";
 import Panel from "@/components/zs/Panel.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import { formatMoney } from "@/lib/money";
+import { labelize } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import { ApiError } from "@/services/api/client";
 import { billingRepository } from "@/services/platform/billing.repository";
@@ -30,6 +31,13 @@ const plans = computed(() => Array.from(new Set((catalogue.value?.prices ?? [])
 const availablePrice = computed(() => catalogue.value?.prices.find(row => row.kind === "plan" && row.code === plan.value && row.billing_interval === interval.value));
 const componentPrices = computed(() => catalogue.value?.prices.filter(row => row.kind === componentKind.value && row.billing_interval === (componentKind.value === "seat" ? "monthly" : interval.value)) ?? []);
 const providerReady = computed(() => catalogue.value?.provider_ready === true && summary.value?.provider_ready === true);
+const commercialState = computed(() => ({ TRIAL: "Trial", ACTIVE: "Active", PAST_DUE_GRACE: "Payment grace period", READ_ONLY: "Read-only" }[summary.value?.commercial.state ?? ""] ?? labelize(summary.value?.commercial.state ?? "Unknown")));
+const annualSaving = computed(() => {
+  const monthly = catalogue.value?.prices.find(row => row.kind === "plan" && row.code === plan.value && row.billing_interval === "monthly")?.unit_amount_minor;
+  const annual = catalogue.value?.prices.find(row => row.kind === "plan" && row.code === plan.value && row.billing_interval === "annual")?.unit_amount_minor;
+  return monthly && annual ? Math.round((1 - annual / (monthly * 12)) * 100) : null;
+});
+const paymentError = computed(() => error.value?.errorCode === "BILLING_PROVIDER_NOT_CONFIGURED" ? "Online payments are not available yet." : error.value?.message);
 function current(id: string, version: number, token: number): boolean {
   return !company.switching && company.activeCompanyId === id && company.contextVersion === version && generation === token;
 }
@@ -80,7 +88,7 @@ async function run(label: string, request: (id: string) => Promise<unknown>, onR
       const result = await request(id);
       if (!current(id, version, token)) return;
       onResult?.(result);
-      notice.value = label + " accepted by server. Payment and entitlement states remain provider-authoritative.";
+      notice.value = label + " request received. Check the updated status before taking another action.";
     } catch (cause) { if (current(id, version, token)) error.value = cause instanceof ApiError ? cause : new ApiError(label + " failed."); }
     if (current(id, version, token) && notice.value) {
       try { await refresh(id, version, token); }
@@ -137,19 +145,21 @@ onBeforeUnmount(() => { generation++; keys.clear(); });
 
 <template>
   <AppShell>
-    <PageHeader title="Billing" :description="`Selected company: ${company.activeCompany?.name ?? 'None'}`" />
-    <p class="mb-4 text-sm text-content-secondary">Prices, usage and commercial states are server-owned. A successful Stripe return URL never proves payment or activates a module.</p>
+    <PageHeader title="Billing & Subscription" :description="`Selected company: ${company.activeCompany?.name ?? 'None'}`" />
+    <p class="mb-4 text-sm text-content-secondary">Review your plan, usage, payments and billing history.</p>
     <p v-if="!company.activeCompanyId" role="status" class="panel p-4">Select an approved company.</p>
     <p v-else-if="loading" role="status" class="panel p-4">Loading company billing…</p>
     <div v-else-if="loadError" role="alert" class="panel p-4">{{ loadError.message }} <ZButton variant="outline" @click="load">Retry</ZButton></div>
     <div v-else-if="summary && catalogue && usage && history" class="space-y-4">
-      <div v-if="error" role="alert" class="panel p-4 text-danger">{{ error.message }}<p v-if="error.kind === 'network' || error.kind === 'server'" class="text-sm">Outcome may be uncertain. The same selection keeps its idempotency key; reconcile any pending attempt before starting another purchase.</p></div>
+      <div v-if="error" role="alert" class="panel p-4 text-danger">{{ paymentError }}<p v-if="error.kind === 'network' || error.kind === 'server'" class="text-sm">If a payment was started, check its status before trying again.</p></div>
       <p v-if="notice" role="status" class="panel p-4">{{ notice }} <ZButton v-if="notice.includes('could not reload')" variant="outline" :disabled="busy" @click="load">Reload Billing</ZButton></p>
-      <p v-if="summary.commercial.state === 'READ_ONLY' || summary.commercial.state === 'PAST_DUE_GRACE'" role="status" class="panel p-4">Commercial state: {{ summary.commercial.state }}. Backend entitlements govern write access.</p>
+      <p v-if="summary.commercial.state === 'READ_ONLY' || summary.commercial.state === 'PAST_DUE_GRACE'" role="status" class="panel p-4">Your subscription is {{ commercialState.toLowerCase() }}. Review payment status or contact your company owner.</p>
       <div class="grid gap-4 lg:grid-cols-2">
         <Panel title="Current Plan" body-class="space-y-2 p-4">
-          <p>State: <strong>{{ summary.commercial.state }}</strong></p>
-          <p v-if="summary.subscription">{{ summary.subscription.plan ?? 'Legacy' }} · {{ summary.subscription.billing_interval }} · {{ summary.subscription.status }}</p><p v-else>No base subscription is recorded.</p>
+          <p>Status: <strong>{{ commercialState }}</strong></p>
+          <p v-if="summary.subscription">Plan: <strong>{{ labelize(summary.subscription.plan ?? 'Legacy') }}</strong> · {{ labelize(summary.subscription.billing_interval) }} billing · {{ labelize(summary.subscription.status) }}</p><p v-else>No base subscription is recorded.</p>
+          <p v-if="summary.subscription?.renews_at">Renewal date: {{ summary.subscription.renews_at }}</p>
+          <p>Included modules: {{ company.activeModules.map(labelize).join(', ') || 'None' }}</p>
           <p v-if="summary.commercial.trial_ends_at">Trial ends: {{ summary.commercial.trial_ends_at }}</p>
           <p v-if="summary.commercial.paid_period_ends_at">Paid through: {{ summary.commercial.paid_period_ends_at }}</p>
           <p v-if="summary.subscription?.cancel_at_period_end_at">Cancellation scheduled: {{ summary.subscription.cancel_at_period_end_at }}</p>
@@ -172,12 +182,13 @@ onBeforeUnmount(() => { generation++; keys.clear(); });
           <ZButton v-if="manage" :disabled="busy || !/^[A-Z]{2}$/.test(country)" @click="run('Country confirmation', id => billingRepository.confirmCountry(id, country))">Confirm Country</ZButton>
         </div>
         <template v-else>
-          <p>{{ catalogue.country_code }} · {{ catalogue.billing_currency }} · Provider {{ providerReady ? 'configured' : 'unavailable' }} · Prices exclude provider-calculated tax.</p>
+          <p>{{ catalogue.country_code }} · {{ catalogue.billing_currency }} · {{ providerReady ? 'Online payments available' : 'Online payments are not available yet.' }} Prices exclude any tax calculated at checkout.</p>
           <div class="grid gap-3 sm:grid-cols-3"><article v-for="candidate in plans" :key="candidate" class="rounded-md border border-line p-3"><h2 class="font-semibold capitalize">{{ candidate }}</h2><p>{{ amount(catalogue.prices.find(row => row.kind === 'plan' && row.code === candidate && row.billing_interval === interval)?.unit_amount_minor) }} / {{ interval }}</p><p class="text-xs">{{ catalogue.included_limits[candidate].users }} users · {{ catalogue.included_limits[candidate].employees }} employees · {{ catalogue.included_limits[candidate].storage_mb }} MB</p></article></div>
-          <div class="flex flex-wrap gap-2"><label>Plan <select v-model="plan" class="field ml-1"><option v-for="candidate in plans" :key="candidate" :value="candidate">{{ candidate }}</option></select></label><label>Interval <select v-model="interval" class="field ml-1"><option value="monthly">Monthly</option><option value="annual">Annual</option></select></label></div>
+          <div class="flex flex-wrap gap-2"><label>Plan <select v-model="plan" class="field ml-1"><option v-for="candidate in plans" :key="candidate" :value="candidate">{{ labelize(candidate) }}</option></select></label><label>Billing period <select v-model="interval" class="field ml-1"><option value="monthly">Monthly</option><option value="annual">Annual</option></select></label></div>
+          <p v-if="annualSaving !== null && annualSaving > 0" class="text-sm text-content-secondary">Annual billing saves {{ annualSaving }}% compared with 12 monthly payments for this plan.</p>
           <div class="flex flex-wrap gap-2"><ZButton variant="outline" :disabled="busy" @click="preview">Get Server Quote</ZButton><ZButton v-if="manage && summary.subscription?.status !== 'ACTIVE' && availablePrice?.checkout_available" :disabled="busy" @click="checkout">Start Plan Checkout</ZButton><ZButton v-if="manage && summary.subscription?.status === 'ACTIVE' && availablePrice?.checkout_available && summary.subscription.plan !== plan" :disabled="busy" @click="changePlan">Request Plan Change</ZButton></div>
           <div v-if="quote" role="status" class="rounded-md border border-line p-3"><p>Server quote: {{ quote.plan }} / {{ quote.billing_interval }}</p><p v-for="line in quote.lines" :key="line.kind + line.code">{{ line.kind }} {{ line.code }} × {{ line.quantity }}: {{ amount(line.total_minor, quote.currency) }}</p><p>Subtotal {{ amount(quote.subtotal_minor, quote.currency) }} · Discount {{ amount(quote.discount_minor, quote.currency) }} · Tax {{ amount(quote.tax_minor, quote.currency) }} · Total before final provider tax {{ amount(quote.total_minor, quote.currency) }}</p></div>
-          <p v-if="!providerReady">Checkout is unavailable until the provider is configured.</p>
+          <p v-if="!providerReady" role="status">Online payments are not available yet. You can still review plans and usage.</p>
         </template>
       </Panel>
       <Panel title="Add-ons and Seats" body-class="space-y-3 p-4">

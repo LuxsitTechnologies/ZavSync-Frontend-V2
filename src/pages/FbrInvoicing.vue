@@ -23,9 +23,9 @@ const screen = computed(() => route.path.endsWith("/portal-settings") ? PortalSe
 <template>
   <AppShell>
     <PageHeader class="print:hidden" title="FBR Invoice" description="Dedicated FBR documents, drafts and submission evidence." />
-    <nav class="mb-4 flex flex-wrap gap-4 text-sm text-content-brand print:hidden" aria-label="FBR Invoice">
+    <nav v-if="company.hasModule('invoicing')" class="mb-4 flex flex-wrap gap-4 text-sm text-content-brand print:hidden" aria-label="FBR Invoice">
       <RouterLink v-if="company.hasPermission('pakistan_fbr.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.invoicing'))" to="/fbr-invoicing">Invoice Register</RouterLink>
-      <RouterLink v-if="company.hasPermission('fbr.configuration.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.configuration'))" to="/fbr-invoicing/configuration">FBR Configuration</RouterLink>
+      <RouterLink v-if="company.hasPermission('pakistan_fbr.manage') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.invoicing'))" to="/fbr-invoicing/new">Create Invoice</RouterLink>
       <RouterLink v-if="company.hasPermission('portal.settings.view')" to="/fbr-invoicing/portal-settings">Portal Settings</RouterLink>
       <RouterLink v-if="company.hasPermission('migration.view') && (!company.effectiveNavigation || company.effectiveNavigation.visible_keys.includes('fbr.migrations'))" to="/fbr-invoicing/migrations">Migration Administration</RouterLink>
     </nav>

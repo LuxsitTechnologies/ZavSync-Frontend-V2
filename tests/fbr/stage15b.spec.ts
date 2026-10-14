@@ -77,6 +77,8 @@ async function fillDraft(page: Page) {
   await page.getByLabel("Unit price (PKR)", { exact: true }).fill("1000.00");
   await page.getByLabel("Sales tax rate (%)", { exact: true }).fill("18");
   await enterReference(page, "FBR rate metadata", "fixture-rate");
+  await expect(page.getByLabel("Exact sales tax (PKR)", { exact: true })).toBeHidden();
+  await page.getByText("Advanced Tax Details", { exact: true }).click();
   await enterReference(page, "SRO schedule", "fixture-schedule");
   await enterReference(page, "SRO item", "fixture-item");
   await page.getByLabel("Exact sales tax (PKR)", { exact: true }).fill("150.01");
@@ -88,6 +90,10 @@ async function fillDraft(page: Page) {
 test("register uses dedicated pagination and historical filtering", async ({ page }) => {
   const state = await setup(page); await page.goto("/fbr-invoicing");
   await expect(page.getByRole("link", { name: "PKF-00000001" })).toBeVisible();
+  const invoiceRow = page.getByRole("row").filter({ has: page.getByRole("link", { name: "PKF-00000001" }) });
+  await expect(invoiceRow.getByText("Draft", { exact: true })).toBeVisible();
+  await expect(invoiceRow.getByText("Not Submitted", { exact: true })).toBeVisible();
+  await expect(invoiceRow).not.toContainText("not_submitted");
   const records = page.getByRole("combobox", { name: "Records", exact: true });
   const perPage = page.getByRole("combobox", { name: "Per page", exact: true });
   await expect(records).toHaveAccessibleName("Records");
@@ -216,9 +222,9 @@ test("unavailable provider, print and QR are honest", async ({ page }) => {
   await setup(page, { record: invoice({ capabilities: { provider_submission_enabled: false, retry_recovery: false } }) });
   await page.goto("/fbr-invoicing/invoice-1"); await expect(page.getByText("Provider submission is unavailable", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Submit to FBR" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Certification Boundary" })).toBeVisible();
-  await expect(page.getByText("The private print view is not an FBR-certified regulatory PDF.", { exact: false })).toBeVisible();
-  await expect(page.getByText("A QR is shown only if genuine provider content exists.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "FBR verification" })).toBeVisible();
+  await expect(page.getByText("The print view is a private copy.", { exact: false })).toBeVisible();
+  await expect(page.getByText("An FBR QR appears only after verified FBR details are available.", { exact: false })).toBeVisible();
   await expect(page.getByText("Not returned", { exact: true })).toBeVisible();
   await expect(page.getByRole("main").getByRole("img", { name: /QR/i })).toHaveCount(0);
   await expect(page.getByRole("main").locator("canvas")).toHaveCount(0);
@@ -249,7 +255,8 @@ test("migration reconciliation and confirmed exception resolution use dedicated 
     if (path.endsWith("/exceptions")) { await fulfill(route, { json: { data: [exception] } }); return true; }
     if (path.endsWith("/migration-exceptions/ex-1")) { exception.resolution_state = "RESOLVED"; await fulfill(route, { json: { data: exception } }); return true; } return false;
   }});
-  await page.goto("/fbr-invoicing/migrations/run-1"); await page.getByRole("button", { name: "Review exception" }).click(); await page.getByLabel("Resolution note").fill("Reviewed source evidence");
+  await page.goto("/fbr-invoicing/migrations/run-1"); await expect(page.getByRole("heading", { name: "Migration Administration" })).toBeVisible();
+  await page.getByRole("button", { name: "Review exception" }).click(); await page.getByLabel("Resolution note").fill("Reviewed source evidence");
   await page.getByRole("button", { name: "Save resolution" }).click(); await page.getByRole("button", { name: "Confirm resolution" }).click();
   await expect(page.getByText("invoice / v1 · RESOLVED")).toBeVisible();
   expect(state.requests.find(r => r.method === "PATCH")?.body).toEqual({ resolution_state: "RESOLVED", resolution_note: "Reviewed source evidence" }); expect(state.unexpected).toEqual([]);
@@ -289,7 +296,18 @@ test("configuration and migration viewing permissions do not grant mutation auth
   }});
   await page.goto("/fbr-invoicing/configuration"); await expect(page.getByLabel("Company FBR token (replacement)", { exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Save configuration" })).toHaveCount(0);
-  await page.goto("/fbr-invoicing/migrations/run-1"); await expect(page.getByText("MISMATCH", { exact: false })).toBeVisible();
+  await page.goto("/fbr-invoicing/migrations/run-1"); await expect(page.getByRole("heading", { name: "Migration Administration" })).toBeVisible();
+  await expect(page.getByText("MISMATCH", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Review exception" })).toHaveCount(0);
   expect(state.requests.every(request => request.method === "GET")).toBe(true);
+  expect(state.unexpected).toEqual([]);
+});
+
+test("ordinary FBR viewing does not expose migration administration or request its data", async ({ page }) => {
+  const state = await setup(page, { permissions: ["pakistan_fbr.view"] });
+  await page.goto("/fbr-invoicing/migrations/run-1");
+  await expect(page.getByRole("alert")).toContainText("requires the invoicing entitlement and permission");
+  await expect(page.getByRole("link", { name: "Migration Administration" })).toHaveCount(0);
+  expect(state.requests.some(request => request.path.includes("/migrations"))).toBe(false);
+  expect(state.requests.some(request => request.method !== "GET")).toBe(false);
 });

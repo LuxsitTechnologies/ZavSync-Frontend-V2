@@ -44,7 +44,7 @@ void load();
       <p>Taxable {{ money(data.taxable_amount) }} · Sales tax {{ money(data.sales_tax) }} · Extra tax {{ money(data.extra_tax) }} · Further tax {{ money(data.further_tax) }} · Withheld {{ money(data.st_withheld) }}</p>
       <p class="font-semibold">Full Reversal Total: {{ money(data.total) }}</p>
       <p v-if="!data.verification.qr_content">No certified FBR QR was returned.</p>
-      <p class="text-xs">This private print view is not a certified regulatory PDF. No Accounting journal or payment is created.</p>
+      <p class="text-xs">Private copy — this is not an FBR-certified PDF.</p>
     </Panel>
   </div>
 </template>

@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
 import { moduleForPath, permissionForPath } from "@/lib/nav";
 import {useCompanyStore} from "@/stores/company";
+import { identityRepository } from "@/services/identity.repository";
+import { employeeOnlyCandidate } from "@/lib/employeeLanding";
 
 const routes: RouteRecordRaw[] = [
   { path: "/", name: "dashboard", component: () => import("@/pages/Dashboard.vue") },
@@ -170,7 +172,7 @@ export const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const publicPaths = new Set(["/login", "/register", "/forgot-password", "/set-password", "/accept-invitation"]);
   const company = useCompanyStore();
   if (publicPaths.has(to.path) || to.path.startsWith("/verify-email/")) {
@@ -183,6 +185,14 @@ router.beforeEach((to) => {
   if (to.path === "/companies") return true;
   if (company.activeCompany?.approval_status && (company.activeCompany.approval_status !== "APPROVED" || company.activeCompany.is_active === false)) return "/companies";
   if (!company.activeCompanyId) return "/companies";
+  if (to.path === "/" && employeeOnlyCandidate(company)) {
+    const id = company.activeCompanyId, version = company.contextVersion;
+    try {
+      const identity = await identityRepository.employee(id);
+      if (!company.switching && company.activeCompanyId === id && company.contextVersion === version && identity.linked) return "/employee";
+    } catch { /* Keep the company route available for access guidance when identity cannot load. */ }
+    if (!company.authenticated) return "/login";
+  }
   if (to.path === "/dashboard/customize") {
     return ["accounting.view", "platform.settings.view", "platform.settings.manage"].some(permission => company.hasPermission(permission)) ? true : "/";
   }

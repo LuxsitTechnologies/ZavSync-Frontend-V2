@@ -38,8 +38,7 @@ const { saving, error, fieldErrors, run } = useMutation(async () => {
   }
 });
 function save() { if (!saving.value && current()) void run(); }
-const amountFields = [
-  { key: "unit_price", label: "Unit price (PKR)", required: true },
+const advancedAmountFields = [
   { key: "taxable_amount", label: "Exact taxable amount override (PKR)", required: false },
   { key: "discount", label: "Discount (PKR)", required: true },
   { key: "sales_tax", label: "Exact sales tax (PKR)", required: false },
@@ -71,22 +70,31 @@ const amountFields = [
           <FbrReferenceInput v-model="form.origin_province" label="Origin province" category="PROVINCE" :references="refs.data.value ?? []" required />
           <FbrReferenceInput v-model="form.destination_province" label="Destination province" category="PROVINCE" :references="refs.data.value ?? []" required />
         </Panel>
-        <p class="text-xs text-content-muted">Reference suggestions show server-provided codes and provenance. Certified regulatory catalogs and automatic registration verification are unavailable. Enter approved values where suggestions are unavailable.</p>
+        <p class="text-xs text-content-muted">Search the local HS catalogue and available reference lists. Buyer registration has not been verified with FBR.</p>
         <p v-if="refs.loading.value" role="status">Loading reference suggestions…</p>
         <FbrError :error="refs.error.value" />
         <ZButton v-if="refs.error.value" variant="outline" @click="refs.refresh">Retry reference data</ZButton>
         <p v-if="!company.hasPermission('fbr.configuration.view')" class="text-xs text-content-muted">Reference suggestions require reference-data viewing permission.</p>
-        <Panel v-for="(line, index) in form.lines" :key="index" :title="`Line ${index + 1}`" body-class="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+        <Panel v-for="(line, index) in form.lines" :key="index" :title="`Line ${index + 1}`" body-class="space-y-4 p-4">
           <template #actions><ZButton variant="ghost" :disabled="form.lines.length === 1" :aria-label="`Remove line ${index + 1}`" @click="form.lines.splice(index, 1)">Remove line</ZButton></template>
-          <Field v-model="line.description" label="Description" aria-label="Description" required maxlength="2000" :error="fieldErrors[`lines.${index}.description`]" />
-          <FbrReferenceInput v-model="line.hs_code" label="HS code" category="HS_CODE" :references="refs.data.value ?? []" required />
-          <FbrReferenceInput v-model="line.unit" label="UOM" category="UOM" :references="refs.data.value ?? []" required />
-          <Field v-model="line.quantity" label="Quantity" aria-label="Quantity" inputmode="decimal" required hint="Up to 3 decimal places." :error="fieldErrors[`lines.${index}.quantity_milli`]" />
-          <Field v-for="amount in amountFields" :key="amount.key" v-model="line[amount.key]" :label="amount.label" :aria-label="amount.label" inputmode="decimal" :required="amount.required" :error="fieldErrors[`lines.${index}.${amount.key}`]" :hint="amount.key === 'sales_tax' ? 'Positive amount overrides the rate. Blank or zero uses the backend rate calculation.' : amount.key === 'taxable_amount' ? 'Positive amount overrides quantity × unit price. Clear to derive on the server.' : amount.key === 'st_withheld' ? 'Reported separately; does not reduce the invoice total.' : 'Up to 2 decimal places.'" />
-          <Field v-model="line.rate" label="Sales tax rate (%)" aria-label="Sales tax rate (%)" inputmode="decimal" required :error="fieldErrors[`lines.${index}.tax_rate_bps`]" />
-          <FbrReferenceInput v-model="line.fbr_rate_id" label="FBR rate metadata" category="RATE" :references="refs.data.value ?? []" required />
-          <FbrReferenceInput v-model="line.sro_schedule_id" label="SRO schedule" category="SRO_SCHEDULE" :references="refs.data.value ?? []" />
-          <FbrReferenceInput v-model="line.sro_item_id" label="SRO item" category="SRO_ITEM" :references="refs.data.value ?? []" />
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="sm:col-span-2"><Field v-model="line.description" label="Description" aria-label="Description" required maxlength="2000" :error="fieldErrors[`lines.${index}.description`]" /></div>
+            <FbrReferenceInput v-model="line.hs_code" label="HS code" category="HS_CODE" :references="refs.data.value ?? []" required />
+            <FbrReferenceInput v-model="line.unit" label="UOM" category="UOM" :references="refs.data.value ?? []" required />
+            <Field v-model="line.quantity" label="Quantity" aria-label="Quantity" inputmode="decimal" required hint="Up to 3 decimal places." :error="fieldErrors[`lines.${index}.quantity_milli`]" />
+            <Field v-model="line.unit_price" label="Unit price (PKR)" aria-label="Unit price (PKR)" inputmode="decimal" required :error="fieldErrors[`lines.${index}.unit_price`]" />
+            <Field v-model="line.rate" label="Sales tax rate (%)" aria-label="Sales tax rate (%)" inputmode="decimal" required :error="fieldErrors[`lines.${index}.tax_rate_bps`]" />
+            <FbrReferenceInput v-model="line.fbr_rate_id" label="FBR rate metadata" category="RATE" :references="refs.data.value ?? []" required />
+            <div class="rounded-md bg-surface-sunken p-2 text-sm"><span class="label-caps">Tax</span><p>Confirmed after save</p></div>
+            <div class="rounded-md bg-surface-sunken p-2 text-sm"><span class="label-caps">Line Total</span><p>Confirmed after save</p></div>
+          </div>
+          <details class="rounded-md border border-line p-3"><summary class="cursor-pointer font-medium">Advanced Tax Details</summary>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Field v-for="amount in advancedAmountFields" :key="amount.key" v-model="line[amount.key]" :label="amount.label" :aria-label="amount.label" inputmode="decimal" :required="amount.required" :error="fieldErrors[`lines.${index}.${amount.key}`]" :hint="amount.key === 'sales_tax' ? 'Enter an exact amount to override the rate.' : amount.key === 'taxable_amount' ? 'Enter an exact amount to override quantity × unit price.' : amount.key === 'st_withheld' ? 'Reported separately from the invoice total.' : 'Up to 2 decimal places.'" />
+              <FbrReferenceInput v-model="line.sro_schedule_id" label="SRO schedule" category="SRO_SCHEDULE" :references="refs.data.value ?? []" />
+              <FbrReferenceInput v-model="line.sro_item_id" label="SRO item" category="SRO_ITEM" :references="refs.data.value ?? []" />
+            </div>
+          </details>
         </Panel>
         <ZButton variant="outline" :disabled="form.lines.length >= 500" @click="form.lines.push(blankLine())">Add line</ZButton>
         <Field v-model="form.notes" label="Notes" aria-label="Notes" maxlength="5000" />

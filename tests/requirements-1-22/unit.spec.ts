@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createServer } from "vite";
+import { formatMoney, formatMoneyCompact } from "../../src/lib/money";
 
 test("final backend repositories retain separate company, billing and FBR authorities", async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, appType: "custom" });
@@ -60,4 +61,24 @@ test("managed billing, Portal Settings and invoice printing keep private authori
   expect(portal).toContain('credential.value = ""');
   expect(printing).toContain("data.verification.qr_content");
   expect(printing).not.toMatch(/qr-code-styling|QRCode\.toCanvas|data:image\/png;base64/);
+});
+
+test("DEV acceptance copy keeps calendar states and employee list customer-facing", () => {
+  const calendar = readFileSync("src/pages/AiCalendar.vue", "utf8");
+  const internal = readFileSync("src/components/ai/InternalCalendar.vue", "utf8");
+  const employees = readFileSync("src/pages/HrmEmployees.vue", "utf8");
+  const login = readFileSync("src/pages/Login.vue", "utf8");
+  const router = readFileSync("src/router/index.ts", "utf8");
+  expect(calendar).toContain("Calendar integration not connected");
+  expect(calendar).not.toContain("Safety boundary");
+  expect(internal).not.toContain("(UTC date)");
+  expect(employees).not.toContain("UUID {{ employee.id }}");
+  expect(employees).toContain("{{ employee.full_name }}");
+  expect(login).toContain("Your account automatically opens the workspace you have access to.");
+  expect(router).toContain("employeeOnlyCandidate(company)");
+});
+
+test("business currency displays use the currency code consistently", () => {
+  expect(formatMoney(118000, "PKR")).toMatch(/^PKR\s+1,180\.00$/);
+  expect(formatMoneyCompact(118000, "PKR")).toMatch(/^PKR\s+/);
 });

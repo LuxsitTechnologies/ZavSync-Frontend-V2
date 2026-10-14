@@ -59,7 +59,10 @@ test("company switching invalidates tenant UI and enforces module entitlements",
   const creation = page.locator("section").filter({ has: page.getByRole("heading", { name: "New Company", exact: true }) });
   await creation.getByLabel("Company name").fill(newCompanyName);
   await creation.getByLabel("Company contact email").fill("stage14-isolation@example.invalid");
-  await creation.getByLabel("Province code").fill("SINDH");
+  await creation.getByRole("combobox", { name: "Country", exact: true }).selectOption({ label: "Pakistan" });
+  const province = creation.getByRole("combobox", { name: "Province", exact: true });
+  await expect(province).toBeVisible();
+  await province.selectOption({ label: "Sindh" });
   await creation.getByLabel("NTN / CNIC").fill("1234567");
   await creation.getByLabel("Plan").selectOption({ label: "Starter" });
   const [created] = await Promise.all([
@@ -72,18 +75,25 @@ test("company switching invalidates tenant UI and enforces module entitlements",
   const newCompanyOption = page.getByLabel("Active company").locator(`option[value="${createdCompany.id}"]`);
   await expect(newCompanyOption).toHaveCount(0);
   const pending = page.locator("section").filter({ has: page.getByRole("heading", { name: "My Pending Companies" }) });
-  await expect(pending.getByText(`${newCompanyName} · PENDING`, { exact: false })).toBeVisible();
+  await expect(pending.getByText(`${newCompanyName} · Pending approval`, { exact: false })).toBeVisible();
 
   const administration = page.locator("section").filter({ has: page.getByRole("heading", { name: "Platform Company Administration" }) });
   await expect(page.getByText("Loading company information…")).toHaveCount(0);
   await administration.getByLabel("Search").fill(newCompanyName);
   await administration.getByRole("button", { name: "Search" }).click();
-  const companyRow = administration.getByText(`${newCompanyName} · PENDING · Active`, { exact: true }).locator("..");
+  const companyRow = administration.getByRole("article", { name: newCompanyName, exact: true });
   await expect(companyRow).toBeVisible();
-  await companyRow.getByRole("button", { name: "View Profile", exact: true }).click();
+  await expect(companyRow.getByText("Pending approval", { exact: true })).toBeVisible();
+  await expect(companyRow.getByText("Active", { exact: true })).toBeVisible();
+  const [viewed] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith(`/api/v1/platform/admin/companies/${createdCompany.id}`) && response.request().method() === "GET"),
+    companyRow.getByRole("button", { name: "View Profile", exact: true }).click(),
+  ]);
+  expect((await viewed.json() as { profile_version: number }).profile_version).toBe(1);
   const profile = page.locator("section").filter({ has: page.getByRole("heading", { name: "Company Profile" }) });
   await expect(profile.getByLabel("Company name")).toHaveValue(newCompanyName);
-  await expect(profile.getByText("PENDING · Active · Version 1")).toBeVisible();
+  await expect(profile.getByText("Pending approval", { exact: true })).toBeVisible();
+  await expect(profile.getByText("Active", { exact: true })).toBeVisible();
   const [approved] = await Promise.all([
     page.waitForResponse(response => response.url().endsWith(`/api/v1/platform/admin/companies/${createdCompany.id}/approval`) && response.request().method() === "POST"),
     profile.getByRole("button", { name: "Approve" }).click(),

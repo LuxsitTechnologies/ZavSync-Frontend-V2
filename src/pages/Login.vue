@@ -68,7 +68,7 @@ async function onSubmit() {
         {{ loading ? "Signing in…" : "Sign in" }}
       </ZButton>
       <ValidationMessage :message="error" />
-      <p class="text-xs text-content-muted">Company and Employee Portal use the same account. Access to an employee profile also requires a company membership and an explicit employee link.</p>
+      <p class="text-xs text-content-muted">Your account automatically opens the workspace you have access to.</p>
     </form>
 
     <template #footer>

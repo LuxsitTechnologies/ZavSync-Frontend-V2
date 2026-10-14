@@ -80,7 +80,7 @@ onBeforeUnmount(() => { generation++; });
 <template>
   <AppShell>
     <PageHeader title="Dashboard Customization" :description="`Selected company: ${company.activeCompany?.name ?? 'None'}`" />
-    <p class="mb-4 text-sm text-content-secondary">Saved order and visibility belong to this company. A widget can appear only when its underlying permission and commercial entitlement also allow it.</p>
+    <p class="mb-4 text-sm text-content-secondary">Choose which widgets appear on this company's dashboard.</p>
     <p v-if="!canView" role="status" class="panel p-4">Dashboard layout is unavailable for this membership.</p>
     <AsyncSection v-else :loading="loading" :error="error" :empty="!layout" empty-title="No Dashboard Layout" @retry="load">
       <div v-if="layout" class="grid gap-4 lg:grid-cols-[1fr_20rem]">

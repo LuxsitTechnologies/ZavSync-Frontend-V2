@@ -80,6 +80,7 @@ export function formatMoney(value: Money, currency = "PKR"): string {
   return new Intl.NumberFormat("en-PK", {
     style: "currency",
     currency,
+    currencyDisplay: "code",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(toMajor(Math.trunc(value)));
@@ -90,6 +91,7 @@ export function formatMoneyCompact(value: Money, currency = "PKR"): string {
   return new Intl.NumberFormat("en-PK", {
     style: "currency",
     currency,
+    currencyDisplay: "code",
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(toMajor(Math.trunc(value)));

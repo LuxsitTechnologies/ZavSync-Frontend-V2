@@ -71,6 +71,24 @@ test("linked employee sees server identity and honest unavailable dashboard", as
   expect(calls.some(call => call.path.endsWith("/employee/me") && call.company === "A")).toBe(true);
 });
 
+test("linked dual-role user can enter the Employee Portal from the company workspace", async ({ page }) => {
+  const { calls } = await setup(page, { permissions: ["employee.self.view", "accounting.view"], modules: ["payroll", "invoicing"] });
+  await page.goto("/");
+  const entry = page.getByRole("link", { name: "Employee Portal", exact: true });
+  await expect(entry).toBeVisible();
+  await entry.click();
+  await expect(page).toHaveURL(/\/employee$/);
+  await expect(page.getByRole("main").getByText("Employee A", { exact: true })).toBeVisible();
+  expect(calls.some(call => call.path.endsWith("/employee/me") && call.company === "A")).toBe(true);
+});
+
+test("unlinked user is not offered the Employee Portal entry", async ({ page }) => {
+  await setup(page, { permissions: ["employee.self.view", "accounting.view"], modules: ["payroll", "invoicing"] });
+  await page.goto("/");
+  await page.getByLabel("Active company").selectOption("C");
+  await expect(page.getByRole("link", { name: "Employee Portal", exact: true })).toHaveCount(0);
+});
+
 test("platform admin without self permission never requests employee identity", async ({ page }) => {
   const { calls } = await setup(page, { permissions: [] });
   await page.goto("/employee");

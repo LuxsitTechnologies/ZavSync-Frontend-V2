@@ -8,7 +8,9 @@ const paths = (keys: string[]) => JSON.stringify(navigationForModules(['invoicin
 test('approved FBR name, Title Case HRM labels and distinct icons keep route identities', () => {
   const items = navigation.flatMap(group => group.items);
   const fbr = items.find(item => item.to === undefined && item.label === 'FBR Invoice');
-  expect(fbr?.children?.map(item => item.label)).toEqual(['Invoice Register', 'FBR Configuration', 'Migration Administration']);
+  expect(fbr?.children?.map(item => item.label)).toEqual(['Invoice Register', 'Create Invoice', 'Portal Settings', 'Migration Administration']);
+  expect(fbr?.children?.find(item => item.label === 'Migration Administration')?.permission).toBe('migration.view');
+  expect(fbr?.children?.some(item => item.label === 'FBR Configuration')).toBe(false);
   const hrm = items.find(item => item.label === 'HRM');
   const children = hrm?.children ?? [];
   for (const label of ['Employee Documents', 'Shift Swaps', 'Equipment Requests', 'Expense Claims', 'Expense Categories']) expect(children.map(item => item.label)).toContain(label);
@@ -19,7 +21,8 @@ test('detail routes keep the most specific navigation child active', () => {
   expect(activeNavigationPath('/accounting/invoices/invoice-1')).toBe('/accounting/invoices');
   expect(activeNavigationPath('/crm/companies/customer-1')).toBe('/crm/companies');
   expect(activeNavigationPath('/fbr-invoicing/invoice-1/edit')).toBe('/fbr-invoicing');
-  expect(activeNavigationPath('/fbr-invoicing/configuration')).toBe('/fbr-invoicing/configuration');
+  expect(activeNavigationPath('/fbr-invoicing/configuration')).toBe('/fbr-invoicing');
+  expect(activeNavigationPath('/fbr-invoicing/portal-settings')).toBe('/fbr-invoicing/portal-settings');
   expect(activeNavigationPath('/')).toBe('/');
 });
 test('public HTML contains approved social preview metadata before Vue starts', () => {
@@ -35,7 +38,25 @@ test('Billing navigation requires dedicated billing view permission', () => {
   const denied = JSON.stringify(navigationForModules([], false, []));
   expect(permissionForPath('/billing')).toBe('billing.view');
   expect(authorized).toContain('"to":"/billing"');
+  expect(authorized).toContain('Billing & Subscription');
   expect(denied).not.toContain('"to":"/billing"');
+});
+test('Portal Settings is the normal FBR configuration destination with separate view authority', () => {
+  const authorized = JSON.stringify(navigationForModules(['invoicing'], false, ['pakistan_fbr.view', 'portal.settings.view']));
+  const denied = JSON.stringify(navigationForModules(['invoicing'], false, ['pakistan_fbr.view']));
+  expect(permissionForPath('/fbr-invoicing/portal-settings')).toBe('portal.settings.view');
+  expect(permissionForPath('/fbr-invoicing/configuration')).toBe('fbr.configuration.view');
+  expect(authorized).toContain('"to":"/fbr-invoicing/portal-settings"');
+  expect(denied).not.toContain('"to":"/fbr-invoicing/portal-settings"');
+  expect(authorized).not.toContain('"to":"/fbr-invoicing/configuration"');
+  expect(authorized).not.toContain('"to":"/fbr-invoicing/migrations"');
+});
+test('Migration Administration requires migration viewing permission, not platform-admin status', () => {
+  const viewer = JSON.stringify(navigationForModules(['invoicing'], false, ['migration.view'], nav(['fbr.migrations'])));
+  const ordinary = JSON.stringify(navigationForModules(['invoicing'], false, ['pakistan_fbr.view'], nav(['fbr.migrations'])));
+  expect(permissionForPath('/fbr-invoicing/migrations/run-1')).toBe('migration.view');
+  expect(viewer).toContain('"to":"/fbr-invoicing/migrations"');
+  expect(ordinary).not.toContain('"to":"/fbr-invoicing/migrations"');
 });
 test('approved login branding keeps native image proportions and tagline on both layouts', () => {
   const layout = readFileSync('src/components/zs/AuthLayout.vue', 'utf8');
@@ -77,12 +98,22 @@ test('backend parent visibility controls presentation without granting child aut
   const shown = JSON.stringify(navigationForModules(['invoicing'], false, ['accounting.view'], effective));
   expect(shown).toContain('"to":"/accounting/fbr"');
 });
-test('navigation unit: all mapped modules retain backend-default visible items', () => {
+test('navigation unit: customer entries follow effective module visibility while legacy FBR configuration stays routable', () => {
   const result = JSON.stringify(navigationForModules(['invoicing','accounting','receivables','payables','inventory','procurement','banking','budgeting','payroll','crm','outreach','ai'], false, ['*'], nav(Object.values(presentationKeyForRoute))));
-  for (const route of Object.keys(presentationKeyForRoute)) expect(result).toContain(`"to":"${route}"`);
+  for (const route of Object.keys(presentationKeyForRoute).filter(route => route !== '/fbr-invoicing/configuration')) expect(result).toContain(`"to":"${route}"`);
+  expect(result).not.toContain('"to":"/fbr-invoicing/configuration"');
+  expect(result).toContain('"to":"/fbr-invoicing/migrations"');
+  expect(result).toContain('"to":"/fbr-invoicing/portal-settings"');
   expect(result).toContain('Dashboard');
   expect(presentationKeyForRoute['/hrm/leave']).toBe('hrm.leave');
-  expect(Object.values(presentationKeyForRoute)).toHaveLength(66);
+  expect(Object.values(presentationKeyForRoute)).toHaveLength(67);
+});
+test('withheld modules stay absent for a new managed company even when visibility suggests otherwise', () => {
+  const effective = nav(['procurement.purchases', 'outreach.providers', 'fbr.invoicing']);
+  const result = JSON.stringify(navigationForModules(['invoicing', 'payroll'], false, ['*'], effective));
+  expect(result).not.toContain('"to":"/purchases"');
+  expect(result).not.toContain('"to":"/outreach/integrations"');
+  expect(result).toContain('"to":"/fbr-invoicing"');
 });
 test('navigation unit: switching hides old state and rejects stale updates', async () => {
   const { createServer } = await import("vite");

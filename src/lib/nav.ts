@@ -118,8 +118,9 @@ export const navigation: NavGroup[] = [
         icon: ReceiptText, module: "invoicing", presentationParentKey: "finance.fbr",
         children: [
           { label: "Invoice Register", to: "/fbr-invoicing", icon: FileText },
-          { label: "FBR Configuration", to: "/fbr-invoicing/configuration", icon: Settings2 },
-          { label: "Migration Administration", to: "/fbr-invoicing/migrations", icon: History },
+          { label: "Create Invoice", to: "/fbr-invoicing/new", icon: PlusCircle, permission: "pakistan_fbr.manage" },
+          { label: "Portal Settings", to: "/fbr-invoicing/portal-settings", icon: Settings2, permission: "portal.settings.view" },
+          { label: "Migration Administration", to: "/fbr-invoicing/migrations", icon: History, permission: "migration.view" },
         ],
       },
       {
@@ -225,7 +226,7 @@ export const navigation: NavGroup[] = [
       { label: "Companies", to: "/companies", icon: Settings },
       { label: "Users & Invitations", to: "/users", icon: Users, permission: "platform.users.view" },
       { label: "Navigation Visibility", to: "/settings/navigation", icon: Settings2 },
-      { label: "Billing", to: "/billing", icon: CreditCard, permission: "billing.view" },
+      { label: "Billing & Subscription", to: "/billing", icon: CreditCard, permission: "billing.view" },
       { label: "Settings", to: "/settings", icon: Settings, permission: "platform.settings.view" },
       { label: "Roles & Permissions", to: "/roles", icon: ShieldCheck, permission: "platform.roles.view" },
       { label: "Audit Log", to: "/audit-log", icon: History, permission: "platform.audit.view" },
@@ -252,6 +253,7 @@ export const presentationKeyForRoute: Record<string, string> = {
   "/hrm/tasks": "hrm.tasks",
   "/hrm/tickets": "hrm.tickets",
   "/fbr-invoicing": "fbr.invoicing",
+  "/fbr-invoicing/new": "fbr.invoicing",
   "/fbr-invoicing/configuration": "fbr.configuration",
   "/fbr-invoicing/migrations": "fbr.migrations",
   "/accounting/invoices": "accounting.invoices",

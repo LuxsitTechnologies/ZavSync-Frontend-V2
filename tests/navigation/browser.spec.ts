@@ -1,15 +1,17 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { EffectiveNavigation, NavigationItem, NavigationReason } from '../../src/types/navigation';
 const base = (key: string, label: string, override: boolean | null, reason: NavigationReason | null = null): NavigationItem => ({key,label,group:'Finance',order:0,module_key:'invoicing',required_permission:key==='fbr.invoicing'?'pakistan_fbr.view':'accounting.view',platform_active:reason!=='PLATFORM_INACTIVE',entitled:reason!=='NOT_ENTITLED',authorized:reason!=='NOT_AUTHORIZED',visibility_override:override,presentation_visible:override!==false,effective_visible:!reason&&override!==false,unavailable_reason:reason??(override===false?'HIDDEN_BY_COMPANY':null)});
-async function setup(page: Page, options: {manage?:boolean;reason?:NavigationReason;late?:boolean;fail?:boolean;admin?:boolean}={}) {
+async function setup(page: Page, options: {manage?:boolean;reason?:NavigationReason;late?:boolean;lateRead?:boolean;fail?:boolean;admin?:boolean}={}) {
   const overrides: Record<string, boolean|null> = {A:null,B:false,C:true};
-  let accounting: boolean|null=null;
+  const accounting: Record<string, boolean|null> = {'accounting.invoices':null,'accounting.fbr_status':null};
   const calls: {method:string;company:string;key:string;body:any}[]=[];
   let release=()=>{};
   const gate=new Promise<void>(resolve=>{release=resolve;});
+  let releaseRead=()=>{};
+  const readGate=new Promise<void>(resolve=>{releaseRead=resolve;});
   const state=(id:string):EffectiveNavigation=> {
-    const items=[base('fbr.invoicing','FBR Invoicing',overrides[id]!,options.reason),base('accounting.invoices','Accounting Invoices',accounting)];
-    return {catalog:[{key:'invoicing',name:'Invoicing',is_active:true,entitled:true}],items,visible_keys:items.filter(i=>i.effective_visible).map(i=>i.key)};
+    const items=[base('fbr.invoicing','FBR Invoicing',overrides[id]!,options.reason),{...base('accounting.invoices','Accounting Invoices',accounting['accounting.invoices']),parent_key:'finance.accounting'},{...base('accounting.fbr_status','Accounting FBR Status',accounting['accounting.fbr_status']),parent_key:'finance.accounting'}];
+    return {catalog:[{key:'invoicing',name:'Invoicing',is_active:true,entitled:true}],items,parents:[{key:'finance.accounting',label:'Accounting',child_keys:['accounting.invoices','accounting.fbr_status'],visible_child_keys:items.filter(i=>i.parent_key==='finance.accounting'&&i.effective_visible).map(i=>i.key),effective_visible:items.some(i=>i.parent_key==='finance.accounting'&&i.effective_visible)}],visible_keys:items.filter(i=>i.effective_visible).map(i=>i.key)};
   };
   const company=(id:string)=>({id,name:`Company ${id}`,currency:'PKR',timezone:'UTC',roles:[id==='B'?'reader':'manager'],permissions:['accounting.view','pakistan_fbr.view',...(options.manage===false||id==='B'?[]:['platform.settings.manage'])],modules:['invoicing'],effective_navigation:state(id)});
   await page.route('**/api/v1/**',async route=>{
@@ -21,11 +23,12 @@ async function setup(page: Page, options: {manage?:boolean;reason?:NavigationRea
     if(path.includes('/platform/navigation')) {
       const key=decodeURIComponent(path.split('/').at(-1)!);
       calls.push({method,company:id,key,body:req.postDataJSON()});
+      if(method==='GET' && id==='A' && options.lateRead) await readGate;
       if(method!=='GET') {
         if(options.late)await gate;
         if(options.fail)return respond({message:'Save failed'},503);
         const value=method==='DELETE'?null:req.postDataJSON().is_visible;
-        if(key==='fbr.invoicing')overrides[id]=value;else accounting=value;
+        if(key==='fbr.invoicing')overrides[id]=value;else accounting[key]=value;
       }
       return respond(state(id));
     }
@@ -33,10 +36,11 @@ async function setup(page: Page, options: {manage?:boolean;reason?:NavigationRea
     return respond({message:'Unexpected request'},500);
   });
   await page.goto('/settings/navigation');
-  await expect(page.getByRole('article',{name:'FBR Invoice',exact:true})).toBeVisible();
-  return {calls,release};
+  if (!options.lateRead) await expect(page.getByRole('article',{name:'FBR Invoice',exact:true})).toBeVisible();
+  return {calls,release,releaseRead};
 }
 const fbr=(page:Page)=>page.getByRole('article',{name:'FBR Invoice',exact:true});
+const visibility=(page:Page, name:string)=>page.getByRole('article',{name,exact:true}).getByRole('status',{name:`${name} visibility status`,exact:true});
 async function expectNav(page: Page, path: string, count: number) {
   const branch = page.locator('aside').getByRole('button', {name: path === '/fbr-invoicing' ? 'FBR Invoice' : 'Accounting', exact: true});
   if (count && await branch.count() && await branch.getAttribute('aria-expanded') === 'false') await branch.click();
@@ -44,18 +48,18 @@ async function expectNav(page: Page, path: string, count: number) {
 }
 test('default, show, reload, hide and DELETE reset retain independent states',async({page})=>{
   const {calls}=await setup(page);
-  await expect(fbr(page)).toContainText('Default (inherited)');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Default');
   await expectNav(page,'/fbr-invoicing',1);
   await expectNav(page,'/accounting/invoices',1);
   await page.getByRole('button',{name:'Show FBR Invoice',exact:true}).click();
-  await expect(fbr(page)).toContainText('Visible (explicit show)');
-  await page.reload(); await expect(fbr(page)).toContainText('Visible (explicit show)');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
+  await page.reload(); await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
   await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
-  await expect(fbr(page)).toContainText('Hidden (explicit hide)');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Hidden');
   await expectNav(page,'/fbr-invoicing',0);
   await expectNav(page,'/accounting/invoices',1);
   await page.getByRole('button',{name:'Reset FBR Invoice to default',exact:true}).click();
-  await expect(fbr(page)).toContainText('Default (inherited)');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Default');
   expect(calls.some(c=>c.method==='DELETE'&&c.key==='fbr.invoicing')).toBe(true);
   await page.getByRole('button',{name:'Hide Accounting Invoices',exact:true}).click();
   await page.getByRole('button',{name:'Show FBR Invoice',exact:true}).click();
@@ -64,29 +68,62 @@ test('default, show, reload, hide and DELETE reset retain independent states',as
 });
 for(const reason of ['NOT_ENTITLED','NOT_AUTHORIZED','PLATFORM_INACTIVE'] as const)test(`explicit show cannot overcome ${reason}, including platform admin`,async({page})=>{
   await setup(page,{reason,admin:true});
-  await page.getByLabel('Active company').selectOption('C');
-  await expect(fbr(page)).toContainText('Visible (explicit show)');
+  await page.getByLabel('Company to configure').selectOption('C');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
   await expect(fbr(page)).toContainText(reason==='NOT_ENTITLED'?'Not entitled':reason==='NOT_AUTHORIZED'?'Not authorized':'platform inactive');
   await expectNav(page,'/fbr-invoicing',0);
 });
-test('company switching preserves default/hide/show and different roles without refresh',async({page})=>{
-  await setup(page); await expect(fbr(page)).toContainText('Default (inherited)');
-  await page.getByLabel('Active company').selectOption('B');
-  await expect(fbr(page)).toContainText('Hidden (explicit hide)');
-  await expect(page.getByRole('button',{name:'Show FBR Invoice',exact:true})).toHaveCount(0);
-  await expectNav(page,'/fbr-invoicing',0);
-  await page.getByLabel('Active company').selectOption('C');
-  await expect(fbr(page)).toContainText('Visible (explicit show)');
+test('target-company configuration does not switch active workspace or grant navigation',async({page})=>{
+  const {calls}=await setup(page); await expect(visibility(page,'FBR Invoice')).toHaveText('Default');
+  await expect(page.getByLabel('Company to configure').locator('option[value="B"]')).toHaveCount(0);
+  await page.getByLabel('Company to configure').selectOption('C');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
+  await expect(page.getByLabel('Active company')).toHaveValue('A');
+  await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Hidden');
+  expect(calls.some(call => call.method === 'PUT' && call.company === 'C' && call.key === 'fbr.invoicing')).toBe(true);
   await expectNav(page,'/fbr-invoicing',1);
+  await page.getByLabel('Active company').selectOption('B');
+  await expect(page.getByLabel('Company to configure')).toHaveValue('C');
+  await expectNav(page,'/fbr-invoicing',0);
+});
+test('hierarchical parent controls write individual child preferences without granting access',async({page})=>{
+  const {calls}=await setup(page);
+  const accounting=page.getByRole('region',{name:'Accounting navigation'});
+  await expect(accounting.getByRole('article')).toHaveCount(2);
+  await accounting.getByRole('button',{name:'Hide all Accounting'}).click();
+  await expect(visibility(page,'Accounting Invoices')).toHaveText('Hidden');
+  await expect(visibility(page,'Accounting FBR Status')).toHaveText('Hidden');
+  const parentWrites=calls.filter(call=>call.method==='PUT');
+  expect(parentWrites).toHaveLength(2);
+  expect(parentWrites.map(call=>({company:call.company,key:call.key,value:call.body?.is_visible})).sort((a,b)=>a.key.localeCompare(b.key))).toEqual([
+    {company:'A',key:'accounting.fbr_status',value:false},
+    {company:'A',key:'accounting.invoices',value:false},
+  ]);
+  await expectNav(page,'/accounting/invoices',0);
+  await expectNav(page,'/fbr-invoicing',1);
+  await accounting.getByRole('button',{name:'Show Accounting Invoices',exact:true}).click();
+  await expect(visibility(page,'Accounting Invoices')).toHaveText('Shown');
+  await expect(visibility(page,'Accounting FBR Status')).toHaveText('Hidden');
+  await expectNav(page,'/accounting/invoices',1);
 });
 test('late mutation cannot overwrite new company state',async({page})=>{
   const {release,calls}=await setup(page,{late:true});
   await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
   await expect.poll(()=>calls.some(c=>c.method==='PUT')).toBe(true);
-  await page.getByLabel('Active company').selectOption('C');
-  await expect(fbr(page)).toContainText('Visible (explicit show)');
-  release(); await expect(fbr(page)).toContainText('Visible (explicit show)');
-  await expectNav(page,'/fbr-invoicing',1);
+  await page.getByLabel('Company to configure').selectOption('C');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
+  release(); await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
+  await expect(page.getByLabel('Active company')).toHaveValue('A');
+});
+test('late target-company read cannot replace a newly selected target',async({page})=>{
+  const {calls,releaseRead}=await setup(page,{lateRead:true});
+  await expect.poll(()=>calls.some(call=>call.method==='GET'&&call.company==='A')).toBe(true);
+  await page.getByLabel('Company to configure').selectOption('C');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
+  releaseRead();
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Shown');
+  await expect(page.getByLabel('Active company')).toHaveValue('A');
 });
 test('ordinary member sees read-only state with no mutation controls',async({page})=>{
   const {calls}=await setup(page,{manage:false});
@@ -98,12 +135,12 @@ test('failed mutation reloads authoritative state',async({page})=>{
   const {calls}=await setup(page,{fail:true});
   await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('Save failed');
-  await expect(fbr(page)).toContainText('Default (inherited)');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Default');
   await expect.poll(()=>calls.filter(c=>c.method==='GET').length).toBe(2);
 });
 test('presentation hidden direct route remains authorized',async({page})=>{
   await setup(page); await page.getByRole('button',{name:'Hide FBR Invoice',exact:true}).click();
-  await expect(fbr(page)).toContainText('Hidden (explicit hide)');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Hidden');
   await page.goto('/fbr-invoicing');
   await expect(page.getByText('No FBR invoices',{exact:true})).toBeVisible();
   await expectNav(page,'/fbr-invoicing',0);
@@ -112,6 +149,6 @@ for(const width of [390,768,1440])test(`navigation administration keyboard and r
   await page.setViewportSize({width,height:900});await setup(page);
   const hide=page.getByRole('button',{name:'Hide FBR Invoice',exact:true});
   await hide.focus();await expect(hide).toBeFocused();await page.keyboard.press('Enter');
-  await expect(fbr(page)).toContainText('Hidden (explicit hide)');
+  await expect(visibility(page,'FBR Invoice')).toHaveText('Hidden');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });

@@ -44,7 +44,7 @@ const navigation=computed(()=>company.switching ? [] : navigationForModules(comp
     <div class="border-t border-sidebar-border p-3">
       <div class="rounded-md bg-surface-sunken p-3">
         <p class="text-xs font-semibold text-content">Company workspace</p>
-        <p class="mt-1 text-xs text-content-muted">Permissions and subscribed modules are enforced.</p>
+        <p class="mt-1 text-xs text-content-muted">Your tools for the selected company.</p>
       </div>
     </div>
   </aside>

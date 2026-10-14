@@ -162,8 +162,8 @@ onBeforeUnmount(() => { generation++; controller?.abort(); });
       <p v-if="!allowed" role="status" class="text-sm">Internal calendar access is unavailable for this membership or plan.</p>
       <template v-else>
         <form class="flex flex-wrap items-end gap-3" @submit.prevent="applyRange">
-          <label class="text-sm">From (UTC date)<input v-model="from" type="date" class="field mt-1 block" required /></label>
-          <label class="text-sm">To (UTC date)<input v-model="to" type="date" class="field mt-1 block" required /></label>
+          <label class="text-sm">From<input v-model="from" type="date" class="field mt-1 block" required /></label>
+          <label class="text-sm">To<input v-model="to" type="date" class="field mt-1 block" required /></label>
           <ZButton type="submit">Show Events</ZButton>
           <ZButton variant="outline" @click="openCreate">Schedule Event</ZButton>
         </form>

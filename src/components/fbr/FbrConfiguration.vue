@@ -52,7 +52,7 @@ function save() { if (!mutation.saving.value && current()) void mutation.run(); 
           <label><span class="label-caps">Environment</span><select v-model="form.environment" class="field mt-1.5"><option>SANDBOX</option><option>PRODUCTION</option></select></label>
           <Field v-model="credential" label="Company FBR token (replacement)" aria-label="Company FBR token (replacement)" type="password" autocomplete="new-password" minlength="8" maxlength="4000" hint="Leave blank to retain the token in the same environment. Changing environment without a replacement clears it. The saved token is never shown again." />
         </fieldset>
-        <p class="text-xs text-content-muted">Province must match an active server reference code. Catalog content is not certified regulatory data.</p>
+        <p class="text-xs text-content-muted">Choose an available province. Reference lists are maintained locally.</p>
         <FbrError :error="refs.error.value" />
         <ZButton v-if="refs.error.value" variant="outline" @click="refs.refresh">Retry reference data</ZButton>
         <ZButton v-if="company.hasPermission('fbr.configuration.manage')" type="submit" :disabled="mutation.saving.value">Save configuration</ZButton>

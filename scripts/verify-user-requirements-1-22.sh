@@ -3,7 +3,7 @@ set -euo pipefail
 
 frontend_dir="/Users/humzamazhar/Documents/Codex/ZavSync-Frontend-V2"
 backend_dir="/Users/humzamazhar/Documents/ChatGPT/ZavSync-Backend-V2"
-expected_frontend="8465a37b43ea89425aee573075a3dbc55ec8a29d"
+expected_frontend="d395331441343959577edc7f2ca636c84751a7db"
 expected_backend="e93e998ae6cfbcb675805e1006791106260100b4"
 
 fail() { printf 'VERIFICATION FAILED: %s\n' "$*" >&2; exit 1; }

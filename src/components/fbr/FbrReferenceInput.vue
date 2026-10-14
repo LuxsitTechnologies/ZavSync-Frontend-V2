@@ -31,16 +31,16 @@ watch([() => company.contextVersion, () => props.modelValue], () => { generation
   <label class="block">
     <span class="label-caps">{{ label }}</span>
     <input :id="inputId" class="field mt-1.5" :list="`${inputId}-options`" :value="modelValue" :required="required" :disabled="disabled" :aria-invalid="!!error" :aria-describedby="error ? `${inputId}-error` : undefined" @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)" />
-    <datalist :id="`${inputId}-options`"><option v-for="row in values" :key="row.id" :value="row.code">{{ row.label }} — {{ row.source }} / {{ row.source_version }}</option></datalist>
+    <datalist :id="`${inputId}-options`"><option v-for="row in values" :key="row.id" :value="row.code">{{ row.label }}</option></datalist>
     <span v-if="error" :id="`${inputId}-error`" class="text-xs text-danger">{{ error }}</span>
   </label>
     <span v-if="category === 'HS_CODE' && company.hasPermission('fbr.configuration.view')" class="mt-1 flex flex-wrap items-center gap-2 text-xs">
       <button type="button" class="text-content-brand underline" :disabled="searching || modelValue.trim().length < 2" @click="search(1)">Search Local HS Catalogue</button>
       <button v-if="searchPage < lastPage" type="button" class="text-content-brand underline" :disabled="searching" @click="search(searchPage + 1)">Next results</button>
-      <span v-if="searched.length" role="status">{{ searched.length }} server result(s), page {{ searchPage }} of {{ lastPage }}.</span>
+      <span v-if="searched.length" role="status">{{ searched.length }} result(s), page {{ searchPage }} of {{ lastPage }}.</span>
       <span v-if="searchError" role="alert">{{ searchError.message }}</span>
     </span>
     <ul v-if="category === 'HS_CODE' && searched.length" class="mt-1 max-h-40 overflow-y-auto rounded-md border border-line text-xs">
-      <li v-for="row in searched" :key="row.id"><button type="button" class="w-full px-2 py-1 text-left hover:bg-surface-hover" @click="$emit('update:modelValue', row.code)">{{ row.code }} — {{ row.label }} ({{ row.source }} / {{ row.source_version }})</button></li>
+      <li v-for="row in searched" :key="row.id"><button type="button" class="w-full px-2 py-1 text-left hover:bg-surface-hover" @click="$emit('update:modelValue', row.code)">{{ row.code }} — {{ row.label }}</button></li>
     </ul>
 </template>

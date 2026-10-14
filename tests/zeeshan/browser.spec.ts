@@ -7,6 +7,7 @@ const settings = { company_id: "A", legal_name: "Company A", trading_name: null,
 async function setup(page: Page, grants = permissions) {
   const writes: Array<{ path: string; company: string; body: Record<string, unknown> }> = [];
   const reads: Array<{ path: string; company: string }> = [];
+  const employeeReads: string[] = [];
   const roleReads: Array<{ path: string; company: string }> = [];
   let roleFailure = false;
   let roleEmpty = false;
@@ -45,10 +46,13 @@ async function setup(page: Page, grants = permissions) {
       return respond({ ...settings, ...body, phone: active === "A" ? profile.phone : null, number_format: numberFormats[active] ?? settings.number_format, website: body.website === "example.com" ? "https://example.com" : body.website });
     }
     if (path.endsWith("/platform/users")) return respond({ data: [], current_page: 1, last_page: 1, total: 0 });
-    if (path.endsWith("/payroll/employees")) return respond(active === "A" ? [
+    if (path.endsWith("/payroll/employees")) {
+      employeeReads.push(active);
+      return respond(active === "A" ? [
       { id: "11111111-1111-4111-8111-111111111111", employee_code: "EMP-001", full_name: "Employee One", email: null, department: "Operations", designation: "Operator", employment_type: "full_time", joining_date: "2026-01-01", status: "active" },
       { id: "22222222-2222-4222-8222-222222222222", employee_code: "EMP-002", full_name: "Employee Two", email: null, department: "Operations", designation: "Operator", employment_type: "full_time", joining_date: "2026-01-01", status: "active" },
     ] : [{ id: "33333333-3333-4333-8333-333333333333", employee_code: "EMP-003", full_name: "Company B Employee", email: null, department: "Operations", designation: "Operator", employment_type: "full_time", joining_date: "2026-01-01", status: "active" }]);
+    }
     if (path.endsWith("/payroll/components") || path.endsWith("/accounting/financial-accounts")) return respond([]);
     if (path.endsWith("/accounting/customers")) {
       if (method === "GET") return respond([]);
@@ -71,7 +75,7 @@ async function setup(page: Page, grants = permissions) {
     }
     return respond({ message: "Unexpected API request" }, 500);
   });
-  return { writes, reads, roleReads, setRoleFailure: (value: boolean) => { roleFailure = value; }, setRoleEmpty: (value: boolean) => { roleEmpty = value; }, setFormatFailure: (value: boolean) => { formatFailure = value; } };
+  return { writes, reads, employeeReads, roleReads, setRoleFailure: (value: boolean) => { roleFailure = value; }, setRoleEmpty: (value: boolean) => { roleEmpty = value; }, setFormatFailure: (value: boolean) => { formatFailure = value; } };
 }
 
 test("shared sign-in maps safe errors and sends the selected remember value", async ({ page }) => {
@@ -87,7 +91,7 @@ test("shared sign-in maps safe errors and sends the selected remember value", as
     return route.fulfill({ status: 404, json: { message: "Not found" } });
   });
   await page.goto("/login");
-  await expect(page.getByText("Company and Employee Portal use the same account.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Your account automatically opens the workspace you have access to.", { exact: true })).toBeVisible();
   await page.getByLabel("Work email").fill("qa@example.invalid");
   await page.getByLabel("Password").fill("secret");
   await page.getByLabel("Keep me signed in").uncheck();
@@ -179,16 +183,29 @@ for (const width of [390, 768, 1440]) test(`customer form stays centered, scroll
 });
 
 test("authorized HRM Employees lookup finds a UUID without exposing other companies", async ({ page }) => {
-  await setup(page, [...permissions, "payroll.view"]);
+  const { employeeReads } = await setup(page, [...permissions, "payroll.view"]);
   await page.goto("/hrm/employees");
-  await expect(page.getByText("UUID 11111111-1111-4111-8111-111111111111")).toBeVisible();
+  const rows = page.locator("tbody tr");
+  for (const value of ["EMP-001", "Operations", "Operator"]) await expect(rows.filter({ hasText: "Employee One" })).toContainText(value);
+  for (const value of ["EMP-002", "Operations", "Operator"]) await expect(rows.filter({ hasText: "Employee Two" })).toContainText(value);
+  await page.getByLabel("Search employees").fill("11111111-1111-4111-8111-111111111111");
+  await expect(rows).toHaveCount(1);
+  for (const value of ["Employee One", "EMP-001", "Operations", "Operator"]) await expect(rows).toContainText(value);
+  await expect(page.getByText("11111111-1111-4111-8111-111111111111")).toHaveCount(0);
   await page.getByLabel("Search employees").fill("22222222-2222-4222-8222-222222222222");
-  await expect(page.getByText("UUID 22222222-2222-4222-8222-222222222222")).toBeVisible();
-  await expect(page.getByText("UUID 11111111-1111-4111-8111-111111111111")).toHaveCount(0);
+  await expect(rows).toHaveCount(1);
+  for (const value of ["Employee Two", "EMP-002", "Operations", "Operator"]) await expect(rows).toContainText(value);
+  await expect(rows.filter({ hasText: "Employee One" })).toHaveCount(0);
+  await expect(page.getByText("22222222-2222-4222-8222-222222222222")).toHaveCount(0);
   await page.getByLabel("Active company").selectOption("B");
   await page.getByLabel("Search employees").fill("");
-  await expect(page.getByText("UUID 33333333-3333-4333-8333-333333333333")).toBeVisible();
-  await expect(page.getByText("UUID 22222222-2222-4222-8222-222222222222")).toHaveCount(0);
+  await expect(rows).toHaveCount(1);
+  for (const value of ["Company B Employee", "EMP-003", "Operations", "Operator"]) await expect(rows).toContainText(value);
+  await expect(rows.filter({ hasText: "Employee One" })).toHaveCount(0);
+  await expect(rows.filter({ hasText: "Employee Two" })).toHaveCount(0);
+  await expect(page.getByText("33333333-3333-4333-8333-333333333333")).toHaveCount(0);
+  expect(employeeReads).toContain("A");
+  expect(employeeReads).toContain("B");
 });
 
 test("invitation roles expose retry and only assignable company roles", async ({ page }) => {

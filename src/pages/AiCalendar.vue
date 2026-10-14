@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarClock, ShieldCheck } from "lucide-vue-next";
+import { CalendarClock } from "lucide-vue-next";
 
 import InternalCalendar from "@/components/ai/InternalCalendar.vue";
 import AppShell from "@/components/zs/AppShell.vue";
@@ -23,8 +23,8 @@ const events = useAsyncData(() => aiRepository.calendarEvents(company.activeComp
     <PageHeader title="Smart Agenda" description="Organize private internal events and inspect separately synchronized provider events."/>
     <div class="mb-4"><InternalCalendar title="My Internal Calendar" /></div>
     <div class="grid gap-4 xl:grid-cols-[1fr_20rem]">
-      <Panel title="Provider Calendar Events"><AsyncSection :loading="events.loading.value" :error="events.error.value" :empty="!(events.data.value?.data.length)" empty-title="No synchronized provider events" :empty-message="capability.data.value?.message ?? 'No authoritative provider calendar source is connected.'" @retry="events.refresh"><div class="divide-y divide-line"><div v-for="event in events.data.value?.data ?? []" :key="String(event.id)" class="p-4"><p class="text-sm font-medium text-content">{{String(event.title)}}</p><p class="mt-1 text-xs text-content-secondary">{{new Date(String(event.starts_at)).toLocaleString()}}–{{new Date(String(event.ends_at)).toLocaleString()}}</p></div></div></AsyncSection></Panel>
-      <div class="space-y-4"><Panel title="Provider capability"><div class="p-4"><div class="flex items-center gap-2"><CalendarClock class="size-4 text-content-brand"/><StatusBadge :status="capability.data.value?.status ?? 'NOT_CONFIGURED'"/></div><p class="mt-3 text-xs leading-5 text-content-secondary">{{capability.data.value?.message ?? 'Checking provider capability…'}}</p><p class="mt-2 text-2xs text-content-muted">Provider: {{capability.data.value?.provider ?? 'None'}}</p></div></Panel><Panel title="Safety boundary"><div class="flex gap-2 p-4 text-xs text-content-secondary"><ShieldCheck class="size-4 shrink-0 text-success"/>ZavSync does not fabricate events or claim synchronization when OAuth/provider infrastructure is absent.</div></Panel></div>
+      <Panel title="Connected Calendar Events"><AsyncSection :loading="events.loading.value" :error="events.error.value" :empty="!(events.data.value?.data.length)" empty-title="No connected calendar events" empty-message="Calendar integration not connected. Internal ZavSync events are still available." @retry="events.refresh"><div class="divide-y divide-line"><div v-for="event in events.data.value?.data ?? []" :key="String(event.id)" class="p-4"><p class="text-sm font-medium text-content">{{String(event.title)}}</p><p class="mt-1 text-xs text-content-secondary">{{new Date(String(event.starts_at)).toLocaleString()}}–{{new Date(String(event.ends_at)).toLocaleString()}}</p></div></div></AsyncSection></Panel>
+      <Panel title="Calendar integration"><div class="p-4"><div class="flex items-center gap-2"><CalendarClock class="size-4 text-content-brand"/><StatusBadge :status="capability.data.value?.status ?? 'NOT_CONFIGURED'" :label="capability.data.value?.status === 'AVAILABLE' ? 'Connected' : 'Not connected'"/></div><p class="mt-3 text-sm text-content-secondary">{{ capability.data.value?.status === 'AVAILABLE' ? 'Connected calendar events appear here.' : 'Internal ZavSync events are still available.' }}</p></div></Panel>
     </div>
   </AppShell>
 </template>

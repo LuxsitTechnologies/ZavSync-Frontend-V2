@@ -5,6 +5,7 @@ import { ChevronRight, LogOut, Menu, Moon, Sun, UserRound } from "lucide-vue-nex
 
 import { breadcrumbFor,moduleForPath,permissionForPath } from "@/lib/nav";
 import { useCompanyStore } from "@/stores/company";
+import { useEmployeePortalStore } from "@/stores/employeePortal";
 import { initials } from "@/lib/format";
 import NotificationCenter from "./NotificationCenter.vue";
 import {showToast} from "@/composables/useToast";
@@ -17,6 +18,7 @@ const router=useRouter();
 const trail = computed(() => breadcrumbFor(route.path));
 const dark = ref(false);
 const companyStore = useCompanyStore();
+const employeePortal = useEmployeePortalStore();
 const currentUser = computed(() => companyStore.currentUser);
 const switchableCompanies = computed(() => companyStore.companies.filter(item =>
   ((item.approval_status === undefined || item.approval_status === "APPROVED") && item.is_active !== false)
@@ -84,7 +86,7 @@ async function logout() {
 
       <NotificationCenter/>
 
-      <RouterLink v-if="companyStore.activeCompanyId && companyStore.hasModule('payroll') && companyStore.hasPermission('employee.self.view')" to="/employee" class="grid size-8 place-items-center rounded-md text-content-secondary hover:bg-surface-hover" aria-label="Employee Portal" title="Employee Portal for the selected company"><UserRound class="size-4" /></RouterLink>
+      <RouterLink v-if="!companyStore.switching && companyStore.hasModule('payroll') && employeePortal.employee?.linked" to="/employee" class="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-content-brand hover:bg-surface-hover" aria-label="Employee Portal" title="Employee Portal for the selected company"><UserRound class="size-4" /><span class="hidden sm:inline">Employee Portal</span></RouterLink>
 
       <button
         type="button"

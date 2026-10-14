@@ -17,6 +17,13 @@ const company = useCompanyStore();
 const plans = ref<OnboardingPlans | null>(null), admin = ref<CompanyProfilePage | null>(null), profile = ref<CompanyProfile | null>(null);
 const profileMode = ref<"own" | "pending" | "admin">("own"), search = ref(""), adminPage = ref(1);
 const create = reactive<NewCompanyInput>({ name: "", company_size: null, province_code: null, email: null, phone: null, address: null, tax_identifier: null, currency: "PKR", timezone: "Asia/Karachi", country_code: "PK", plan_id: 0, fbr_token: "", fbr_environment: "SANDBOX" });
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+const countries = Array.from({ length: 26 * 26 }, (_, index) => String.fromCharCode(65 + Math.floor(index / 26), 65 + index % 26))
+  .map(code => ({ code, name: regionNames.of(code) ?? code })).filter(item => item.name !== item.code)
+  .sort((a, b) => a.name.localeCompare(b.name));
+const pakistanProvinces = [{ code: "SINDH", name: "Sindh" }, { code: "PUNJAB", name: "Punjab" }, { code: "KPK", name: "Khyber Pakhtunkhwa" }, { code: "BALOCHISTAN", name: "Balochistan" }];
+const timezones = Intl.supportedValuesOf("timeZone").map(code => ({ code, name: code.replaceAll("_", " ").replaceAll("/", " — ") }));
+watch(() => create.country_code, code => { create.currency = code === "PK" ? "PKR" : "USD"; });
 const edit = reactive<CompanyProfileInput>({ name: "", company_size: null, province_code: null, email: null, phone: null, address: null, tax_identifier: null });
 const creating = ref(false), loading = ref(false), saving = ref(false), error = ref<ApiError | null>(null), message = ref("");
 const planError = ref<ApiError | null>(null);
@@ -146,7 +153,7 @@ onBeforeUnmount(() => { generation++; createKey = null; create.fbr_token = ""; }
 <template>
   <AppShell>
     <PageHeader title="Companies" :description="`Selected company: ${company.activeCompany?.name ?? 'None'}`" />
-    <p class="mb-4 text-sm text-content-secondary">Creating a company submits it for approval. Approval and activity are separate; deactivation preserves its records. Billing and FBR credentials have their own controlled workflows.</p>
+    <p class="mb-4 text-sm text-content-secondary">Create a company, then complete its profile before approval.</p>
     <p v-if="error" role="alert" class="panel mb-4 p-4 text-danger">{{ error.message }} <ZButton variant="outline" @click="load">Reload</ZButton></p>
     <p v-if="message" role="status" class="panel mb-4 p-4">{{ message }}</p>
     <p v-if="loading" role="status">Loading company information…</p>
@@ -156,14 +163,16 @@ onBeforeUnmount(() => { generation++; createKey = null; create.fbr_token = ""; }
         <p v-if="!company.currentUser.email_verified" role="status">Verify your account email before creating a company. <ZButton variant="outline" @click="companyRepository.resendVerification().then(() => { message = 'If verification is pending, a new email has been sent.' }).catch(cause => { error = cause instanceof ApiError ? cause : new ApiError('Could not resend verification.') })">Resend Verification Email</ZButton></p>
         <form class="space-y-3" @submit.prevent="createCompany">
           <Field v-model="create.name" label="Company name" required :error="error?.fields.name" />
-          <div class="grid gap-3 sm:grid-cols-2"><Field v-model="create.country_code" label="Country code" required :error="error?.fields.country_code" /><Field v-model="create.currency" label="Base currency" required :error="error?.fields.currency" /></div>
-          <Field v-model="create.timezone" label="Company timezone" required :error="error?.fields.timezone" />
+          <div class="grid gap-3 sm:grid-cols-2"><label class="block">Country<select v-model="create.country_code" class="field mt-1 block w-full" required><option v-for="item in countries" :key="item.code" :value="item.code">{{ item.name }}</option></select></label><label class="block">Base currency<input class="field mt-1 block w-full" :value="create.currency === 'PKR' ? 'PKR — Pakistani Rupee' : 'USD — US Dollar'" readonly /><span class="mt-1 block text-xs text-content-muted">Based on the selected billing country.</span></label></div>
+          <p v-if="error?.fields.country_code || error?.fields.currency" role="alert" class="text-xs text-danger">{{ error?.fields.country_code ?? error?.fields.currency }}</p>
+          <label class="block">Company timezone<select v-model="create.timezone" class="field mt-1 block w-full" required><option v-for="item in timezones" :key="item.code" :value="item.code">{{ item.name }}</option></select></label>
           <Field v-model="create.company_size" label="Company size" :error="error?.fields.company_size" />
           <label class="block">Plan <select v-model.number="create.plan_id" class="field mt-1 block w-full" required><option v-for="item in plans?.plans ?? []" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
           <p v-if="error?.fields.plan_id" role="alert" class="text-xs text-danger">{{ error.fields.plan_id }}</p>
           <Field v-model="create.email" label="Company contact email" type="email" :error="error?.fields.email" />
           <Field v-model="create.phone" label="Phone" :error="error?.fields.phone" />
-          <Field v-model="create.province_code" label="Province code" :error="error?.fields.province_code" />
+          <label v-if="create.country_code === 'PK'" class="block">Province<select v-model="create.province_code" class="field mt-1 block w-full"><option :value="null">Select province</option><option v-for="item in pakistanProvinces" :key="item.code" :value="item.code">{{ item.name }}</option></select></label>
+          <Field v-else v-model="create.province_code" label="Province or region" :error="error?.fields.province_code" />
           <Field v-model="create.tax_identifier" label="NTN / CNIC" :error="error?.fields.tax_identifier" />
           <label class="block">Registered address <textarea v-model="create.address" class="field mt-1 block w-full" :aria-invalid="!!error?.fields.address"></textarea></label>
           <details><summary class="cursor-pointer">Optional FBR credential at creation</summary><div class="mt-2 space-y-2"><p class="text-xs">Requires a numeric 7- or 13-digit NTN/CNIC, an active province code and seller address. The credential is write-only and starts unverified.</p><label class="block">FBR environment <select v-model="create.fbr_environment" class="field mt-1 block"><option value="SANDBOX">Sandbox</option><option value="PRODUCTION">Production</option></select></label><label class="block">FBR token <input v-model="create.fbr_token" class="field mt-1 block w-full" type="password" autocomplete="off" /></label><p v-if="error?.fields.fbr_token" role="alert" class="text-xs text-danger">{{ error.fields.fbr_token }}</p></div></details>
@@ -174,12 +183,12 @@ onBeforeUnmount(() => { generation++; createKey = null; create.fbr_token = ""; }
       <Panel title="Company Profile" body-class="space-y-3 p-4">
         <p v-if="!profile">Select an accessible approved or pending company to see its profile.</p>
         <template v-else>
-          <p>{{ profile.approval_status }} · {{ profile.is_active ? 'Active' : 'Inactive' }} · Version {{ profile.profile_version }}</p>
-          <p>FBR credential: {{ profile.fbr_credential_configured ? 'Configured' : 'Not configured' }}. Secret values are never shown.</p>
+          <div class="flex flex-wrap gap-2"><span class="zs-badge badge-neutral">{{ profile.approval_status === 'APPROVED' ? 'Approved' : profile.approval_status === 'PENDING' ? 'Pending approval' : 'Rejected' }}</span><span class="zs-badge" :class="profile.is_active ? 'badge-success' : 'badge-neutral'">{{ profile.is_active ? 'Active' : 'Inactive' }}</span></div>
           <form class="space-y-3" @submit.prevent="save">
             <Field v-model="edit.name" label="Company name" required :disabled="!canEdit" :error="error?.fields.name" />
             <Field v-model="edit.company_size" label="Company size" :disabled="!canEdit" />
-            <Field v-model="edit.province_code" label="Province code" :disabled="!canEdit" :error="error?.fields.province_code" />
+            <label v-if="profile.currency === 'PKR'" class="block">Province<select v-model="edit.province_code" class="field mt-1 block w-full" :disabled="!canEdit"><option :value="null">Select province</option><option v-for="item in pakistanProvinces" :key="item.code" :value="item.code">{{ item.name }}</option><option v-if="edit.province_code && !pakistanProvinces.some(item => item.code === edit.province_code)" :value="edit.province_code">{{ edit.province_code }}</option></select></label>
+            <Field v-else v-model="edit.province_code" label="Province or region" :disabled="!canEdit" :error="error?.fields.province_code" />
             <Field v-model="edit.email" label="Company contact email" type="email" :disabled="!canEdit" :error="error?.fields.email" />
             <Field v-model="edit.phone" label="Phone" :disabled="!canEdit" />
             <label class="block">Registered address <textarea v-model="edit.address" class="field mt-1 block w-full" :disabled="!canEdit"></textarea></label>
@@ -196,13 +205,13 @@ onBeforeUnmount(() => { generation++; createKey = null; create.fbr_token = ""; }
     </div>
     <Panel v-if="company.companies.some(item => item.approval_status === 'PENDING' || item.approval_status === 'REJECTED')" title="My Pending Companies" body-class="space-y-2 p-4" class="mt-4">
       <div v-for="item in company.companies.filter(entry => entry.approval_status === 'PENDING' || entry.approval_status === 'REJECTED')" :key="item.id" class="flex flex-wrap justify-between gap-2 border-b border-line py-2">
-        <p>{{ item.name }} · {{ item.approval_status }}. Approval starts the trial only once; rejected companies remain available for founder profile corrections.</p>
+        <p>{{ item.name }} · {{ item.approval_status === 'PENDING' ? 'Pending approval' : 'Rejected' }}. You can review and correct this company's profile.</p>
         <ZButton variant="outline" @click="openProfile(item.id, 'pending')">View Pending Profile</ZButton>
       </div>
     </Panel>
     <Panel v-if="canAdmin" title="Platform Company Administration" body-class="space-y-3 p-4" class="mt-4">
       <form class="flex gap-2" @submit.prevent="list(1)"><label>Search <input v-model="search" class="field ml-2" /></label><ZButton type="submit">Search</ZButton></form>
-      <div v-for="item in admin?.data ?? []" :key="item.id" class="flex flex-wrap justify-between gap-2 border-b border-line py-2"><p>{{ item.name }} · {{ item.approval_status }} · {{ item.is_active ? 'Active' : 'Inactive' }}</p><ZButton variant="outline" @click="openProfile(item.id, 'admin')">View Profile</ZButton></div>
+      <article v-for="item in admin?.data ?? []" :key="item.id" :aria-label="item.name" class="flex flex-wrap items-center justify-between gap-2 border-b border-line py-2"><div class="flex flex-wrap items-center gap-2"><strong>{{ item.name }}</strong><span class="zs-badge badge-neutral">{{ item.approval_status === 'APPROVED' ? 'Approved' : item.approval_status === 'PENDING' ? 'Pending approval' : 'Rejected' }}</span><span class="zs-badge" :class="item.is_active ? 'badge-success' : 'badge-neutral'">{{ item.is_active ? 'Active' : 'Inactive' }}</span></div><ZButton variant="outline" @click="openProfile(item.id, 'admin')">View Profile</ZButton></article>
       <div class="flex gap-2"><ZButton variant="outline" :disabled="adminPage <= 1" @click="list(adminPage - 1)">Previous</ZButton><span>Page {{ adminPage }} of {{ admin?.last_page ?? 1 }}</span><ZButton variant="outline" :disabled="adminPage >= (admin?.last_page ?? 1)" @click="list(adminPage + 1)">Next</ZButton></div>
     </Panel>
   </AppShell>
