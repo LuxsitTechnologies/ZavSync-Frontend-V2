@@ -5,7 +5,7 @@ import PageHeader from "@/components/zs/PageHeader.vue";
 import Panel from "@/components/zs/Panel.vue";
 import ZButton from "@/components/zs/ZButton.vue";
 import { formatMoney } from "@/lib/money";
-import { labelize } from "@/lib/format";
+import { labelize, shortDate } from "@/lib/format";
 import { setPageMeta } from "@/lib/page-meta";
 import { ApiError } from "@/services/api/client";
 import { billingRepository } from "@/services/platform/billing.repository";
@@ -38,6 +38,21 @@ const annualSaving = computed(() => {
   return monthly && annual ? Math.round((1 - annual / (monthly * 12)) * 100) : null;
 });
 const paymentError = computed(() => error.value?.errorCode === "BILLING_PROVIDER_NOT_CONFIGURED" ? "Online payments are not available yet." : error.value?.message);
+const moduleLabel = (code: string) => ({ ai: "ZavSync AI", crm: "CRM", fbr: "FBR Invoice", hrm: "HRM" }[code.toLowerCase()] ?? labelize(code));
+function displayDate(value: string): string { return shortDate(value); }
+function displayBytes(value: number): string {
+  if (value < 1024) return `${value.toLocaleString()} B`;
+  const unit = Math.min(Math.floor(Math.log(value) / Math.log(1024)), 4);
+  return `${new Intl.NumberFormat("en-PK", { maximumFractionDigits: 1 }).format(value / 1024 ** unit)} ${["B", "KB", "MB", "GB", "TB"][unit]}`;
+}
+function aiUsage(): string {
+  if (!usage.value) return "";
+  const ai = usage.value.ai;
+  const used = ai.used_tokens.toLocaleString();
+  const reserved = ai.reserved_tokens.toLocaleString();
+  if (ai.included_tokens === null) return `${used} tokens used, ${reserved} reserved this period.`;
+  return `${used} tokens used, ${reserved} reserved of ${ai.included_tokens.toLocaleString()} included; ${ai.remaining_tokens?.toLocaleString() ?? "0"} remaining.`;
+}
 function current(id: string, version: number, token: number): boolean {
   return !company.switching && company.activeCompanyId === id && company.contextVersion === version && generation === token;
 }
@@ -153,16 +168,16 @@ onBeforeUnmount(() => { generation++; keys.clear(); });
     <div v-else-if="summary && catalogue && usage && history" class="space-y-4">
       <div v-if="error" role="alert" class="panel p-4 text-danger">{{ paymentError }}<p v-if="error.kind === 'network' || error.kind === 'server'" class="text-sm">If a payment was started, check its status before trying again.</p></div>
       <p v-if="notice" role="status" class="panel p-4">{{ notice }} <ZButton v-if="notice.includes('could not reload')" variant="outline" :disabled="busy" @click="load">Reload Billing</ZButton></p>
-      <p v-if="summary.commercial.state === 'READ_ONLY' || summary.commercial.state === 'PAST_DUE_GRACE'" role="status" class="panel p-4">Your subscription is {{ commercialState.toLowerCase() }}. Review payment status or contact your company owner.</p>
+      <p v-if="summary.commercial.state === 'READ_ONLY' || summary.commercial.state === 'PAST_DUE_GRACE'" role="status" class="panel p-4">Current access is {{ commercialState.toLowerCase() }}. {{ manage ? 'Review payment status and available actions below.' : 'Contact a billing administrator for help.' }}</p>
       <div class="grid gap-4 lg:grid-cols-2">
         <Panel title="Current Plan" body-class="space-y-2 p-4">
-          <p>Status: <strong>{{ commercialState }}</strong></p>
-          <p v-if="summary.subscription">Plan: <strong>{{ labelize(summary.subscription.plan ?? 'Legacy') }}</strong> · {{ labelize(summary.subscription.billing_interval) }} billing · {{ labelize(summary.subscription.status) }}</p><p v-else>No base subscription is recorded.</p>
-          <p v-if="summary.subscription?.renews_at">Renewal date: {{ summary.subscription.renews_at }}</p>
-          <p>Included modules: {{ company.activeModules.map(labelize).join(', ') || 'None' }}</p>
-          <p v-if="summary.commercial.trial_ends_at">Trial ends: {{ summary.commercial.trial_ends_at }}</p>
-          <p v-if="summary.commercial.paid_period_ends_at">Paid through: {{ summary.commercial.paid_period_ends_at }}</p>
-          <p v-if="summary.subscription?.cancel_at_period_end_at">Cancellation scheduled: {{ summary.subscription.cancel_at_period_end_at }}</p>
+          <p>Current access: <strong>{{ commercialState }}</strong></p>
+          <p v-if="summary.subscription">Plan: <strong>{{ labelize(summary.subscription.plan ?? 'Legacy') }}</strong> · {{ labelize(summary.subscription.billing_interval) }} billing · Plan status: {{ labelize(summary.subscription.status) }}</p><p v-else>No base subscription is recorded.</p>
+          <p v-if="summary.subscription?.renews_at">Renewal date: {{ displayDate(summary.subscription.renews_at) }}</p>
+          <p>Included modules: {{ company.activeModules.map(moduleLabel).join(', ') || 'None' }}</p>
+          <p v-if="summary.commercial.trial_ends_at">Trial ends: {{ displayDate(summary.commercial.trial_ends_at) }}</p>
+          <p v-if="summary.commercial.paid_period_ends_at">Paid through: {{ displayDate(summary.commercial.paid_period_ends_at) }}</p>
+          <p v-if="summary.subscription?.cancel_at_period_end_at">Cancellation scheduled: {{ displayDate(summary.subscription.cancel_at_period_end_at) }}</p>
           <p v-if="summary.latest_checkout">Latest checkout: {{ summary.latest_checkout.status }}</p>
           <ZButton v-if="manage && summary.latest_checkout && summary.latest_checkout.status !== 'ACTIVE'" variant="outline" :disabled="busy" @click="run('Checkout reconciliation', id => billingRepository.reconcileCheckout(id, summary!.latest_checkout!.id))">Reconcile Latest Checkout</ZButton>
           <ZButton v-if="manage && providerReady && summary.subscription && !summary.subscription.cancel_at_period_end_at" variant="outline" :disabled="busy" @click="run('Cancellation', id => billingRepository.cancel(id))">Cancel at Period End</ZButton>
@@ -170,8 +185,8 @@ onBeforeUnmount(() => { generation++; keys.clear(); });
         <Panel title="Usage and Limits" body-class="space-y-2 p-4">
           <p>Users: {{ usage.users.reserved_total }} reserved ({{ usage.users.pending_invitations }} invited) / {{ usage.users.capacity ?? 'unlimited' }} <strong v-if="usage.users.over_limit">· Over limit</strong></p>
           <p>Employees: {{ usage.employees.active }} / {{ usage.employees.capacity ?? 'unlimited' }} <strong v-if="usage.employees.over_limit">· Over limit</strong></p>
-          <p>Storage: {{ usage.storage.used_bytes.toLocaleString() }} / {{ usage.storage.included_bytes?.toLocaleString() ?? 'unlimited' }} bytes <strong v-if="usage.storage.over_limit">· Over limit</strong></p>
-          <p>AI {{ usage.ai.period }}: {{ usage.ai.used_tokens }} used + {{ usage.ai.reserved_tokens }} reserved / {{ usage.ai.included_tokens ?? 'not available' }} tokens; {{ usage.ai.remaining_tokens ?? 'not available' }} remaining.</p>
+          <p>Storage: {{ displayBytes(usage.storage.used_bytes) }} / {{ usage.storage.included_bytes === null ? 'unlimited' : displayBytes(usage.storage.included_bytes) }} <strong v-if="usage.storage.over_limit">· Over limit</strong></p>
+          <p>AI usage ({{ usage.ai.period }}): {{ aiUsage() }}</p>
           <p class="text-xs text-content-secondary">Additional storage and paid AI overage are currently unavailable.</p>
         </Panel>
       </div>
@@ -192,11 +207,11 @@ onBeforeUnmount(() => { generation++; keys.clear(); });
         </template>
       </Panel>
       <Panel title="Add-ons and Seats" body-class="space-y-3 p-4">
-        <div v-for="item in summary.components" :key="item.id" class="rounded-md border border-line p-3"><p>{{ item.kind }} · {{ item.code }} × {{ item.quantity }} · {{ item.status }}</p><p>Paid through {{ item.paid_through_at }}<span v-if="item.scheduled_quantity !== null"> · Next cycle {{ item.scheduled_quantity }}</span></p><div v-if="manage && providerReady" class="flex flex-wrap gap-2"><ZButton v-if="!item.cancel_at_period_end_at" variant="outline" :disabled="busy" @click="run('Component cancellation', id => billingRepository.cancelComponent(id, item.id))">Cancel at Paid-Term End</ZButton><template v-if="item.kind === 'seat' && item.quantity > 1"><label>Next-cycle seats <input v-model.number="reduceTarget[item.id]" type="number" min="1" :max="item.quantity - 1" class="field w-24" /></label><ZButton variant="outline" :disabled="busy || !Number.isInteger(reduceTarget[item.id]) || reduceTarget[item.id] < 1 || reduceTarget[item.id] >= item.quantity" @click="reduceSeats(item.id)">Reduce Seats</ZButton></template></div></div>
+        <div v-for="item in summary.components" :key="item.id" class="rounded-md border border-line p-3"><p>{{ labelize(item.kind) }} · {{ moduleLabel(item.code) }} × {{ item.quantity }} · {{ labelize(item.status) }}</p><p>Paid through {{ displayDate(item.paid_through_at) }}<span v-if="item.scheduled_quantity !== null"> · Next cycle {{ item.scheduled_quantity }}</span></p><div v-if="manage && providerReady" class="flex flex-wrap gap-2"><ZButton v-if="!item.cancel_at_period_end_at" variant="outline" :disabled="busy" @click="run('Component cancellation', id => billingRepository.cancelComponent(id, item.id))">Cancel at Paid-Term End</ZButton><template v-if="item.kind === 'seat' && item.quantity > 1"><label>Next-cycle seats <input v-model.number="reduceTarget[item.id]" type="number" min="1" :max="item.quantity - 1" class="field w-24" /></label><ZButton variant="outline" :disabled="busy || !Number.isInteger(reduceTarget[item.id]) || reduceTarget[item.id] < 1 || reduceTarget[item.id] >= item.quantity" @click="reduceSeats(item.id)">Reduce Seats</ZButton></template></div></div>
         <div v-if="manage && providerReady && !catalogue.country_confirmation_required" class="flex flex-wrap gap-2"><label>Kind <select v-model="componentKind" class="field ml-1"><option value="addon">Add-on</option><option value="seat">Seat</option></select></label><label>Item <select v-model="componentCode" class="field ml-1"><option v-for="item in componentPrices" :key="item.code" :value="item.code">{{ item.code }} · {{ amount(item.unit_amount_minor) }}</option></select></label><label v-if="componentKind === 'seat'">Quantity <input v-model.number="quantity" type="number" min="1" max="10000" class="field w-24" /></label><ZButton :disabled="busy || !componentPrices.some(row => row.code === componentCode && row.checkout_available)" @click="buyComponent">Start Separate Checkout</ZButton></div>
       </Panel>
-      <Panel title="Plan Changes" body-class="space-y-2 p-4"><p v-if="!summary.plan_changes.length">No recent changes.</p><div v-for="change in summary.plan_changes" :key="change.id"><p>{{ change.source_plan ?? 'No plan' }} → {{ change.target_plan }} · {{ change.operation }} · {{ change.status }} <span v-if="change.effective_at">· {{ change.effective_at }}</span></p><ZButton v-if="manage && change.status !== 'APPLIED'" variant="outline" :disabled="busy" @click="run('Plan reconciliation', id => billingRepository.reconcilePlanChange(id, change.id))">Reconcile</ZButton></div></Panel>
-      <Panel title="Billing History" body-class="space-y-2 p-4"><p v-if="!history.documents.data.length">No provider documents recorded.</p><div v-for="document in history.documents.data" :key="document.id" class="flex flex-wrap justify-between gap-2 border-b border-line py-2"><p>{{ document.document_type }} · {{ document.provider_status }} · {{ amount(document.total_minor, document.currency) }} · Paid {{ amount(document.paid_minor, document.currency) }} · {{ document.issued_at ?? 'Date unavailable' }}</p><ZButton variant="outline" :disabled="busy" @click="documentLinks(document.id)">Get Document Links</ZButton></div><div class="flex gap-2"><ZButton variant="outline" :disabled="busy || page <= 1" @click="changePage(page - 1)">Previous</ZButton><span>Page {{ page }} of {{ history.documents.last_page }}</span><ZButton variant="outline" :disabled="busy || page >= history.documents.last_page" @click="changePage(page + 1)">Next</ZButton></div><p v-if="invoiceUrl"><a :href="invoiceUrl" target="_blank" rel="noopener noreferrer" class="underline">Open Stripe Invoice</a></p><p v-if="pdfUrl"><a :href="pdfUrl" target="_blank" rel="noopener noreferrer" class="underline">Open Stripe PDF</a></p></Panel>
+      <Panel title="Plan Changes" body-class="space-y-2 p-4"><p v-if="!summary.plan_changes.length">No recent changes.</p><div v-for="change in summary.plan_changes" :key="change.id"><p>{{ change.source_plan ? labelize(change.source_plan) : 'No plan' }} → {{ labelize(change.target_plan) }} · {{ labelize(change.operation) }} · {{ labelize(change.status) }} <span v-if="change.effective_at">· {{ displayDate(change.effective_at) }}</span></p><ZButton v-if="manage && change.status !== 'APPLIED'" variant="outline" :disabled="busy" @click="run('Plan reconciliation', id => billingRepository.reconcilePlanChange(id, change.id))">Reconcile</ZButton></div></Panel>
+      <Panel title="Billing History" body-class="space-y-2 p-4"><p v-if="!history.documents.data.length">No provider documents recorded.</p><div v-for="document in history.documents.data" :key="document.id" class="flex flex-wrap justify-between gap-2 border-b border-line py-2"><p>{{ labelize(document.document_type) }} · {{ labelize(document.provider_status) }} · {{ amount(document.total_minor, document.currency) }} · Paid {{ amount(document.paid_minor, document.currency) }} · {{ document.issued_at ? displayDate(document.issued_at) : 'Date unavailable' }}</p><ZButton variant="outline" :disabled="busy" @click="documentLinks(document.id)">Get Document Links</ZButton></div><div class="flex gap-2"><ZButton variant="outline" :disabled="busy || page <= 1" @click="changePage(page - 1)">Previous</ZButton><span>Page {{ page }} of {{ history.documents.last_page }}</span><ZButton variant="outline" :disabled="busy || page >= history.documents.last_page" @click="changePage(page + 1)">Next</ZButton></div><p v-if="invoiceUrl"><a :href="invoiceUrl" target="_blank" rel="noopener noreferrer" class="underline">Open Stripe Invoice</a></p><p v-if="pdfUrl"><a :href="pdfUrl" target="_blank" rel="noopener noreferrer" class="underline">Open Stripe PDF</a></p></Panel>
       <Panel title="Payment Methods" body-class="space-y-2 p-4"><p>Manage cards only in the provider-hosted payment-method portal. ZavSync never handles card numbers.</p><ZButton v-if="manage && providerReady" variant="outline" :disabled="busy" @click="run('Payment-method portal', id => billingRepository.paymentMethodPortal(id), result => { outbound = safeUrl(result.url); })">Get Portal Link</ZButton><p v-if="outbound"><a :href="outbound" target="_blank" rel="noopener noreferrer" class="underline">Continue to Stripe</a> · Return here and reconcile; do not infer success from the redirect.</p></Panel>
     </div>
   </AppShell>

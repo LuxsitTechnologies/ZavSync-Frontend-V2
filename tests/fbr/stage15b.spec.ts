@@ -10,7 +10,7 @@ test.afterEach(async ({ page }) => {
   expect(observed.get(page) ?? [], "FBR screens must never call Native Accounting APIs").toEqual([]);
 });
 const permissions = ["pakistan_fbr.view", "pakistan_fbr.manage", "pakistan_fbr.submit", "fbr.configuration.view", "fbr.configuration.manage", "migration.view", "migration.manage"];
-const company = (id: string, perms = permissions, modules = ["invoicing"]) => ({ id, name: `Company ${id}`, currency: "PKR", timezone: "Asia/Karachi", roles: [], permissions: perms, modules });
+const company = (id: string, perms = permissions, modules = ["invoicing"], owner = false) => ({ id, name: `Company ${id}`, currency: "PKR", timezone: "Asia/Karachi", roles: [], permissions: perms, modules, is_company_owner: owner });
 const line = { id: "line-1", position: 1, description: "Test item", hs_code: "fixture-hs", unit: "fixture-uom", quantity_milli: 1000, unit_price: 100000, discount: 0, subtotal: 100000, taxable_amount: 100000, tax_rate_bps: 1800, fbr_rate_id: "fixture-rate", sales_tax: 15001, extra_tax: 1, further_tax: 2, st_withheld: 333, sro_schedule_id: null, sro_item_id: null, total: 115004, sales_type: "fixture-sale" };
 const invoice = (extra: Record<string, unknown> = {}) => ({ id: "invoice-1", company_id: "A", invoice_number: "PKF-00000001", domain: "pakistan_fbr", invoice_date: "2026-10-02", due_date: null, invoice_type: "fixture-document", sale_type: "fixture-sale", origin_province: "fixture-province", destination_province: "fixture-province", buyer_snapshot: { name: "Buyer A", registration_number: "1234567", type: "Registered", province: "fixture-province", address: "Address" }, notes: "", document_state: "DRAFT", is_historical: false, editable: true, submission_blocked: false, fbr_status: "not_submitted", fbr_reference_number: null, scenario_id: "SN001", currency: "PKR", subtotal: 100000, discount: 0, taxable_amount: 100000, sales_tax: 15001, extra_tax: 1, further_tax: 2, withholding_tax: 333, total: 115004, historical_amount_paid: null, capabilities: { retry_recovery: false, provider_submission_enabled: true, regulatory_print_status: "STAGING_CERTIFICATION_REQUIRED" }, lines: [line], created_at: "2026-10-02T12:00:00Z", updated_at: "2026-10-02T12:00:00Z", ...extra });
 const referenceFixtures = [
@@ -19,7 +19,7 @@ const referenceFixtures = [
   ["RATE", "fixture-rate"], ["SRO_SCHEDULE", "fixture-schedule"], ["SRO_ITEM", "fixture-item"],
 ].map(([category, code]) => ({ id: code, category, code, label: `Synthetic ${category}`, parent_code: null, metadata: {}, is_active: true, source: "LOCAL_FIXTURE", source_version: "v1", valid_from: null, valid_until: null }));
 type Handler = (route: Route, path: string) => Promise<boolean>;
-async function setup(page: Page, options: { permissions?: string[]; modules?: string[]; handler?: Handler; record?: ReturnType<typeof invoice> } = {}) {
+async function setup(page: Page, options: { permissions?: string[]; modules?: string[]; owner?: boolean; handler?: Handler; record?: ReturnType<typeof invoice> } = {}) {
   const requests: { path: string; method: string; company: string | undefined; key: string | undefined; body: any }[] = [];
   const unexpected: string[] = [];
   const forbidden: string[] = []; observed.set(page, forbidden);
@@ -31,8 +31,8 @@ async function setup(page: Page, options: { permissions?: string[]; modules?: st
     if (path.startsWith("/accounting/")) forbidden.push(path);
     requests.push({ path, method: request.method(), company: request.headers()["x-company-id"], key: request.headers()["idempotency-key"], body: request.postDataJSON() });
     const respond = (body: unknown, status = 200) => fulfill(route, { status, json: body });
-    if (path === "/auth/me") return respond({ user: { id: 1, name: "Test User", email: "test@example.invalid", is_platform_admin: false }, companies: [company("A", options.permissions, options.modules), company("B", options.permissions, options.modules)] });
-    if (path === "/auth/switch-company") return respond({ company: company(request.postDataJSON().company_id, options.permissions, options.modules) });
+    if (path === "/auth/me") return respond({ user: { id: 1, name: "Test User", email: "test@example.invalid", is_platform_admin: false }, companies: [company("A", options.permissions, options.modules, options.owner), company("B", options.permissions, options.modules, options.owner)] });
+    if (path === "/auth/switch-company") return respond({ company: company(request.postDataJSON().company_id, options.permissions, options.modules, options.owner) });
     if (path.includes("notifications")) return respond({ notifications: { data: [] }, unread_count: 0 });
     if (options.handler && await options.handler(route, path)) return;
     const record = options.record ?? invoice();
@@ -310,4 +310,22 @@ test("ordinary FBR viewing does not expose migration administration or request i
   await expect(page.getByRole("link", { name: "Migration Administration" })).toHaveCount(0);
   expect(state.requests.some(request => request.path.includes("/migrations"))).toBe(false);
   expect(state.requests.some(request => request.method !== "GET")).toBe(false);
+});
+
+test("company owner can open the Portal Settings compatibility route without a role permission", async ({ page }) => {
+  const state = await setup(page, { permissions: [], owner: true, handler: async (route, path) => {
+    if (path !== "/pakistan-fbr/portal-settings") return false;
+    await fulfill(route, { json: {
+      company_id: "A",
+      presentation: { version: 1, logo_document_id: null, footer: null, declaration: null, default_notes: null, number_prefix_display: null, show_seller_email: true, show_seller_phone: true, show_seller_address: true },
+      fbr_configuration: { configured: false, credential_configured: false, environment: null, connection_state: null },
+    } });
+    return true;
+  } });
+  await page.goto("/fbr-invoicing/settings");
+  await expect(page).toHaveURL(/\/fbr-invoicing\/portal-settings$/);
+  await expect(page.getByLabel("Invoice Footer")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save Settings" })).toBeVisible();
+  expect(state.requests.filter(request => request.path === "/pakistan-fbr/portal-settings").map(request => request.company)).toEqual(["A"]);
+  expect(state.unexpected).toEqual([]);
 });

@@ -1,231 +1,87 @@
 {
   "schema": 1,
-  "description": "Uncommitted Requirements 1–22 role-model candidate; no final certified commit exists",
+  "description": "Uncommitted DEV acceptance gap candidate; certification and final commit are pending",
   "frontend": {
-    "baseCommit": "5e69750067abeb3db6ea93ab3af543599052e159",
-    "trackedDiffSha256": "7f09b3861751b270c98d2d9971681001aa7d02f7a3ec0150bff7280874f7447d",
+    "baseCommit": "9d704da3c0d90ae77cf4eb003d08ca20016d3d1e",
+    "trackedDiffSha256": "0635da934be40caf5535657eea4cb1cc0c3b21b0ec3722e2e1522a7b42265d7d",
     "inventory": [
       {
-        "path": "docs/qa/user-requirements-1-22-frontend-final.md",
-        "state": "modified",
-        "executable": false,
-        "sha256": "6ccb0eed303f75ab8bbe3e6bbd6591b33e91a12bee47a252209d5ff611af1c2a"
-      },
-      {
         "path": "scripts/verify-role-model-candidate.mjs",
-        "state": "new",
-        "executable": false,
-        "sha256": "3cd1a362b51ad1652d025c4426bb6b9a488f54929d07886676ae47b34d01e92e"
-      },
-      {
-        "path": "scripts/verify-user-requirements-1-22.sh",
-        "state": "modified",
-        "executable": true,
-        "sha256": "c0409ec8460e76bbe506a488bd20574e68251ce93645b4a3051bc84f4534b322"
-      },
-      {
-        "path": "src/components/employee/PortalTopbar.vue",
         "state": "modified",
         "executable": false,
-        "sha256": "b620e1a89701d4acf996f8d4f2770fc075c906dd81e8a03e8caa01b4750aa62f"
+        "sha256": "c8353eece0103ab1a9e022a1e06f50144b26d5c131cfd429675cbcb79817c74c"
       },
       {
-        "path": "src/components/fbr/PortalSettings.vue",
+        "path": "src/components/fbr/FbrRegister.vue",
         "state": "modified",
         "executable": false,
-        "sha256": "13a5e21adc78b5dd937b6fd15e16f343d8c085156c2c9897daa7f064b277b42d"
-      },
-      {
-        "path": "src/components/zs/Sidebar.vue",
-        "state": "modified",
-        "executable": false,
-        "sha256": "c9d6d10dbba6452ebb73da2ed8c185dd42f13dc5db9fd913bc70a49ddb2285ea"
-      },
-      {
-        "path": "src/components/zs/Topbar.vue",
-        "state": "modified",
-        "executable": false,
-        "sha256": "247d17086ab4c04623ffa016eb6f4c1b375b999435b39448bf3bfb4abce5c733"
-      },
-      {
-        "path": "src/lib/employeeLanding.ts",
-        "state": "modified",
-        "executable": false,
-        "sha256": "c6c7fb470ad9062719b152fcde33b81685e209de5e29431ba01e3b5296c90552"
+        "sha256": "7a8e714fe5b7022c1f9bc98918aa60bd9e54f30fb8d30102178d0beb243f4d2b"
       },
       {
         "path": "src/lib/nav.ts",
         "state": "modified",
         "executable": false,
-        "sha256": "e2b4376aa5c4cc81db350ee7414e72642209e96c914019840c872215cb1bdc78"
+        "sha256": "5b26e86c7515e8583fc0bb7d818f0cbd64aaf0c37a0ed2c73d08119f719570d7"
+      },
+      {
+        "path": "src/pages/Billing.vue",
+        "state": "modified",
+        "executable": false,
+        "sha256": "bce37a59310591f968b5a7774919b6e3e08b2cacc93fafad404fd87a569534e4"
       },
       {
         "path": "src/pages/FbrInvoicing.vue",
         "state": "modified",
         "executable": false,
-        "sha256": "ca66af4d2283091a49f2a37d485694ab64d0bf6beef086c4ea06253f67dd1fd7"
+        "sha256": "b9a186e1e5d179768028af7f6d7e631ee2258ecbe3925f518bccf71ef48417d5"
       },
       {
         "path": "src/router/index.ts",
         "state": "modified",
         "executable": false,
-        "sha256": "e3819e0c82811455fae47e950a5f25c98c1521b6de21fcf1a3f78d5b14a51850"
+        "sha256": "8356af766e654ea6c77518f2fe399ab3149ef4002d3985eab61a07ff5a5f6546"
       },
       {
-        "path": "src/services/auth.repository.ts",
+        "path": "tests/fbr/stage15b.spec.ts",
         "state": "modified",
         "executable": false,
-        "sha256": "606179591504579913e3412e736d2f80040a8cd2df8312c78b9358537f29e7be"
-      },
-      {
-        "path": "src/stores/company.ts",
-        "state": "modified",
-        "executable": false,
-        "sha256": "d6273aacef105b6aec9c12b68df00fc0ca194524b535f44c0cb057183a72747a"
-      },
-      {
-        "path": "tests/e2e/employee-portal-contract.spec.ts",
-        "state": "modified",
-        "executable": false,
-        "sha256": "c252c0f391f05c43e2dc2d72dd350ea6391a66abb45a504c70853e0d95cffcf2"
-      },
-      {
-        "path": "tests/employee-portal/login-routing.spec.ts",
-        "state": "modified",
-        "executable": false,
-        "sha256": "8088d8f23294fff0815c3ae79c45e991e6fcf3df216e87173e69c2c839cbc4bd"
+        "sha256": "679dfea0ec40d41a5ac9edc81118b68c32206a194fe096799e173d8db436b54e"
       },
       {
         "path": "tests/navigation/unit.spec.ts",
         "state": "modified",
         "executable": false,
-        "sha256": "bc514834360ace0348fce5f8bee6f142a9f4f8dde7e5dd517eeee09ee82d208d"
+        "sha256": "9a2edce671e95fe0c5a2d7d64076db8057cd0b1a6801b4dff9300fb55cdf2244"
       }
     ]
   },
   "backend": {
-    "baseCommit": "e93e998ae6cfbcb675805e1006791106260100b4",
-    "trackedDiffSha256": "41deddcd1fb40e0c924a81e65c282fd7d37be3e350e99869cf4dc7a9b2798c96",
+    "baseCommit": "fca3ecbf72a27195d732b11ece5a2a03489dd13f",
+    "trackedDiffSha256": "73910ebeb9b6122c327d985e65c4d18077659086f45927ce2cf831c11fb5e21c",
     "inventory": [
       {
         "path": "app/Http/Controllers/Api/V1/AuthController.php",
         "state": "modified",
         "executable": false,
-        "sha256": "1e739fa636d2433910edafbcf4877f39246593a0c2893e5556d9be55300e6b87"
+        "sha256": "9edec8ffb91337c0f9ec6b7f4b586f264c8360ca870868d55ba5ffcdd45157a2"
       },
       {
-        "path": "app/Http/Controllers/Api/V1/Platform/CompanyController.php",
+        "path": "app/Http/Controllers/Api/V1/Platform/NavigationPreferenceController.php",
         "state": "modified",
         "executable": false,
-        "sha256": "95dfae6719375d4c38b97ac2537f623e0ce0413f04dbedfdb830c00c3dee33a3"
+        "sha256": "cdcf4cd3c0ce32c1778b26f8bf50167b01402107887af8db15518792fee72754"
       },
       {
-        "path": "app/Http/Controllers/Api/V1/Platform/RoleController.php",
+        "path": "app/Services/Platform/NavigationVisibilityService.php",
         "state": "modified",
         "executable": false,
-        "sha256": "81a60e560adb19972a70504bfccef0b3c8da5e9b5b358780719a3302c0133108"
+        "sha256": "2bce69ab31a9c3f4cba5003aae64cf6ea31a7b7c6b2bcfc33691d2f764b162c8"
       },
       {
-        "path": "app/Models/User.php",
+        "path": "tests/Feature/Stage16/NavigationVisibilityTest.php",
         "state": "modified",
         "executable": false,
-        "sha256": "219bc128dd68430123fde9db225d133a922cee16006838e9319ee58e5b71dd87"
-      },
-      {
-        "path": "app/Services/Platform/CompanyAdminRoleService.php",
-        "state": "new",
-        "executable": false,
-        "sha256": "113f25bd038966175693d623363ea8406ed2fc789bdeaa427319f47fdc900a34"
-      },
-      {
-        "path": "app/Services/Platform/PlatformAccessService.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "b2646fb50c12e58752a17a7de70e46aae0771e109fd7f5c6c3d6bc1b687ba894"
-      },
-      {
-        "path": "app/Services/Platform/PlatformAuthority.php",
-        "state": "new",
-        "executable": false,
-        "sha256": "98460c9a3dd97d00fce0a71f9bda6e9147de0e5a6daeaa3cdc24f077401d0863"
-      },
-      {
-        "path": "database/migrations/2026_10_14_000000_create_platform_user_permission_table.php",
-        "state": "new",
-        "executable": false,
-        "sha256": "2914a16d77f5894fce2ab726a64a02006c8c47f64b929c0ab1f0e3f1c45dabcd"
-      },
-      {
-        "path": "database/migrations/2026_10_14_000001_migrate_platform_authority_grants.php",
-        "state": "new",
-        "executable": false,
-        "sha256": "f67c2c25946da7e2a5f05e492e3206d5609d21c443fae04a08f952bc03948a89"
-      },
-      {
-        "path": "database/migrations/2026_10_14_000002_migrate_company_admin_system_roles.php",
-        "state": "new",
-        "executable": false,
-        "sha256": "6e8de608e468124fcac9ef8eb5fce6668fcb93d0aa1d615ae385b3220137ec63"
-      },
-      {
-        "path": "database/seeders/DatabaseSeeder.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "3307a4f5e735c7bf83391edffd040f23ea19136d88706ae97f57ea4d9d05cb29"
-      },
-      {
-        "path": "docs/qa/company-role-model-handoff.md",
-        "state": "new",
-        "executable": false,
-        "sha256": "17e4d9ca78577645b0dfb0fc5bc403f73edcdf573183adc95ad68482cae56159"
-      },
-      {
-        "path": "tests/Feature/CompanyAdminRoleModelTest.php",
-        "state": "new",
-        "executable": false,
-        "sha256": "88e4cf63892e9517ef53532a844bd20a03e142e750427e319a96c36cee987eef"
-      },
-      {
-        "path": "tests/Feature/LocalHsCodeCatalogueTest.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "067c0b5e93b60c7dd94a8b16ec3c51fe28ac0cea3b03a0dff2f0352f867ea372"
-      },
-      {
-        "path": "tests/Feature/MigrationIdentifierCompatibilityTest.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "30dc1e36a53c3cccb01196d363c4cd3173521ad2c0a994d6d3e7ec9581c50fbc"
-      },
-      {
-        "path": "tests/Feature/PlatformAuditSecuritySystemTest.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "5e02be0c4b56de5ba8a5bb4e1deb89945cbe4716a6cf6033299aebdaf4c9464c"
-      },
-      {
-        "path": "tests/Feature/PlatformCompanyAdministrationTest.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "ee25d8c7791e39e02f4dbe6e51ad672f487f998756f24f08c373a48ec5e2b206"
-      },
-      {
-        "path": "tests/Feature/PlatformProductionHardeningTest.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "870c381149d96700bb87f6adbf2eb8d72380c493c4dce652cb20dd3cbda64d22"
-      },
-      {
-        "path": "tests/Feature/PublicCompanyOnboardingTest.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "e5b802821ada6be270a4acf883fcc422c5fa25c2bb3a9577f8eaada1d71056c8"
-      },
-      {
-        "path": "tests/TestCase.php",
-        "state": "modified",
-        "executable": false,
-        "sha256": "2c088431388fa01c9dda39993f1f1c3aaecd475f35eca8da1583e90b01802978"
+        "sha256": "e0da2b78ad7586dc0112a01abad366a46c478f7a9cc562e57c29a57081817710"
       }
     ]
   }

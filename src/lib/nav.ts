@@ -255,6 +255,7 @@ export const presentationKeyForRoute: Record<string, string> = {
   "/fbr-invoicing": "fbr.invoicing",
   "/fbr-invoicing/new": "fbr.invoicing",
   "/fbr-invoicing/configuration": "fbr.configuration",
+  "/fbr-invoicing/portal-settings": "fbr.portal_settings",
   "/fbr-invoicing/migrations": "fbr.migrations",
   "/accounting/invoices": "accounting.invoices",
   "/accounting/fbr": "accounting.fbr_status",

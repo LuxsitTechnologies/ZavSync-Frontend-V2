@@ -46,6 +46,7 @@ const routes: RouteRecordRaw[] = [
   { path: "/hrm/leave", component: () => import("@/pages/HrmLeave.vue") },
 
   // Dedicated FBR Invoicing
+  { path: "/fbr-invoicing/settings", redirect: "/fbr-invoicing/portal-settings" },
   ...["/fbr-invoicing", "/fbr-invoicing/new", "/fbr-invoicing/configuration", "/fbr-invoicing/portal-settings", "/fbr-invoicing/migrations", "/fbr-invoicing/migrations/:run", "/fbr-invoicing/:id/edit", "/fbr-invoicing/:id/print", "/fbr-invoicing/:id/credit-notes/:credit/print", "/fbr-invoicing/:id"].map(path => ({ path, component: () => import("@/pages/FbrInvoicing.vue") })),
 
   // Accounting

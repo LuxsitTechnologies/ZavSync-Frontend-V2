@@ -11,8 +11,8 @@ const backend = '/Users/humzamazhar/Documents/ChatGPT/ZavSync-Backend-V2';
 const manifestRelative = 'docs/qa/user-requirements-1-22-role-model-candidate.lock.json';
 const manifestPath = join(frontend, manifestRelative);
 const bases = {
-  frontend: '5e69750067abeb3db6ea93ab3af543599052e159',
-  backend: 'e93e998ae6cfbcb675805e1006791106260100b4',
+  frontend: '9d704da3c0d90ae77cf4eb003d08ca20016d3d1e',
+  backend: 'fca3ecbf72a27195d732b11ece5a2a03489dd13f',
 };
 
 function git(root, ...args) {
@@ -63,7 +63,7 @@ function snapshot(root, base, exclude = null) {
   });
   return {
     baseCommit: base,
-    trackedDiffSha256: hash(git(root, 'diff', '--binary', '--no-ext-diff', 'HEAD')),
+    trackedDiffSha256: hash(git(root, 'diff', '--binary', '--no-ext-diff', 'HEAD', '--', '.', ...(exclude ? [`:(exclude)${exclude}`] : []))),
     inventory,
   };
 }
@@ -71,7 +71,7 @@ function snapshot(root, base, exclude = null) {
 function candidate() {
   return {
     schema: 1,
-    description: 'Uncommitted Requirements 1–22 role-model candidate; no final certified commit exists',
+    description: 'Uncommitted DEV acceptance gap candidate; certification and final commit are pending',
     frontend: snapshot(frontend, bases.frontend, manifestRelative),
     backend: snapshot(backend, bases.backend),
   };

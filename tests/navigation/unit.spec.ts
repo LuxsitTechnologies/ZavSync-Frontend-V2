@@ -51,6 +51,16 @@ test('Portal Settings is the normal FBR configuration destination with separate 
   expect(authorized).not.toContain('"to":"/fbr-invoicing/configuration"');
   expect(authorized).not.toContain('"to":"/fbr-invoicing/migrations"');
 });
+test('Portal Settings visibility is independent of the invoice register and never grants access', () => {
+  expect(presentationKeyForRoute['/fbr-invoicing/portal-settings']).toBe('fbr.portal_settings');
+  const portalOnly = JSON.stringify(navigationForModules(['invoicing'], false, ['portal.settings.view'], nav(['fbr.portal_settings'])));
+  expect(portalOnly).toContain('"to":"/fbr-invoicing/portal-settings"');
+  expect(portalOnly).not.toContain('"to":"/fbr-invoicing"');
+  const hidden = JSON.stringify(navigationForModules(['invoicing'], false, ['portal.settings.view'], nav(['fbr.invoicing'])));
+  expect(hidden).not.toContain('"to":"/fbr-invoicing/portal-settings"');
+  const denied = JSON.stringify(navigationForModules(['invoicing'], false, [], nav(['fbr.portal_settings'])));
+  expect(denied).not.toContain('"to":"/fbr-invoicing/portal-settings"');
+});
 test('company ownership exposes only backend-authorized billing and Portal Settings destinations', () => {
   const owner = JSON.stringify(navigationForModules(['invoicing'], false, [], undefined, true));
   const ordinary = JSON.stringify(navigationForModules(['invoicing'], false, [], undefined, false));
@@ -117,7 +127,7 @@ test('navigation unit: customer entries follow effective module visibility while
   expect(result).toContain('"to":"/fbr-invoicing/portal-settings"');
   expect(result).toContain('Dashboard');
   expect(presentationKeyForRoute['/hrm/leave']).toBe('hrm.leave');
-  expect(Object.values(presentationKeyForRoute)).toHaveLength(67);
+  expect(Object.values(presentationKeyForRoute)).toHaveLength(68);
 });
 test('withheld modules stay absent for a new managed company even when visibility suggests otherwise', () => {
   const effective = nav(['procurement.purchases', 'outreach.providers', 'fbr.invoicing']);
