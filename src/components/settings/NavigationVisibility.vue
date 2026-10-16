@@ -43,20 +43,27 @@ async function load() {
 async function change(keys: string[], value: boolean | null) {
   if (!canManage.value || saving.value || !data.value) return;
   const id = props.targetCompanyId, token = generation;
+  let saved = 0;
   saving.value = true; error.value = ""; notice.value = "";
   try {
     for (const key of keys) {
       if (!current(token, id)) return;
       const result = value === null ? await navigationRepository.reset(id, key) : await navigationRepository.set(id, key, value);
       accept(result, id, token);
+      saved++;
     }
     if (current(token, id)) notice.value = "Navigation preferences saved.";
   } catch (cause) {
     if (current(token, id)) {
       const message = cause instanceof Error ? cause.message : "Could not save navigation preferences.";
-      // A write can succeed before an error; reload the target instead of guessing.
+      // Parent actions are separate writes; refresh after a partial success.
       await load();
-      if (props.targetCompanyId === id) error.value = message;
+      if (current(generation, id)) {
+        const result = data.value ? "Current settings have been reloaded." : "Reload to check the current settings.";
+        error.value = saved > 0
+          ? `${saved} of ${keys.length} navigation preferences saved. The remaining changes were not completed. ${result} ${message}`
+          : `${message} ${result}`;
+      }
     }
   } finally { saving.value = false; }
 }
