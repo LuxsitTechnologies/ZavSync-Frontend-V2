@@ -329,3 +329,90 @@ test("company owner can open the Portal Settings compatibility route without a r
   expect(state.requests.filter(request => request.path === "/pakistan-fbr/portal-settings").map(request => request.company)).toEqual(["A"]);
   expect(state.unexpected).toEqual([]);
 });
+
+test("Portal Settings keeps a null prefix empty and company presentation values separate", async ({ page }) => {
+  const presentation = new Map([
+    ["A", { version: 1, number_prefix_display: null as string | null }],
+    ["B", { version: 1, number_prefix_display: null as string | null }],
+  ]);
+  const state = await setup(page, { permissions: ["portal.settings.view", "portal.settings.manage"], handler: async (route, path) => {
+    if (path !== "/pakistan-fbr/portal-settings") return false;
+    const companyId = route.request().headers()["x-company-id"] ?? "";
+    const saved = presentation.get(companyId);
+    if (!saved) return false;
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON();
+      expect(body.version).toBe(saved.version);
+      expect(body).toMatchObject({ footer: null, declaration: null, default_notes: null,
+        show_seller_email: true, show_seller_phone: true, show_seller_address: true });
+      expect(body).not.toHaveProperty("email");
+      expect(body).not.toHaveProperty("seller_email");
+      presentation.set(companyId, { version: saved.version + 1,
+        number_prefix_display: body.number_prefix_display === "" ? null : body.number_prefix_display });
+    }
+    const current = presentation.get(companyId)!;
+    await fulfill(route, { json: {
+      company_id: companyId,
+      presentation: { version: current.version, logo_document_id: null, footer: null, declaration: null, default_notes: null,
+        number_prefix_display: current.number_prefix_display, show_seller_email: true, show_seller_phone: true, show_seller_address: true },
+      fbr_configuration: { configured: false, credential_configured: false, environment: null, connection_state: null },
+    } });
+    return true;
+  } });
+  await page.goto("/fbr-invoicing/portal-settings");
+  const prefix = page.getByRole("textbox", { name: "Invoice Prefix / Presentation" });
+  await expect(prefix).toHaveValue("");
+  await expect(prefix).toHaveAttribute("id", "invoice-number-prefix-display");
+  await expect(prefix).toHaveAttribute("name", "invoice_number_prefix_display");
+  await expect(prefix).toHaveAttribute("type", "text");
+  await expect(prefix).toHaveAttribute("autocomplete", "off");
+  await expect(prefix).toHaveAttribute("autocapitalize", "off");
+  await expect(prefix).toHaveAttribute("spellcheck", "false");
+  await expect(page.getByRole("checkbox", { name: "Show seller email" })).toBeChecked();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Portal Settings saved.")).toBeVisible();
+  await page.reload();
+  await expect(prefix).toHaveValue("");
+  await prefix.fill("INV-A");
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Portal Settings saved.")).toBeVisible();
+  await page.reload();
+  await expect(prefix).toHaveValue("INV-A");
+  await page.getByLabel("Active company").selectOption("B");
+  await expect(prefix).toHaveValue("");
+  await prefix.fill("INV-B");
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Portal Settings saved.")).toBeVisible();
+  await page.getByLabel("Active company").selectOption("A");
+  await expect(prefix).toHaveValue("INV-A");
+  await prefix.fill("");
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Portal Settings saved.")).toBeVisible();
+  await page.reload();
+  await expect(prefix).toHaveValue("");
+  await page.getByLabel("Active company").selectOption("B");
+  await expect(prefix).toHaveValue("INV-B");
+  expect(state.requests.filter(request => request.path === "/pakistan-fbr/portal-settings" && request.method === "PUT")
+    .map(request => ({ company: request.company, prefix: request.body.number_prefix_display })))
+    .toEqual([{ company: "A", prefix: null }, { company: "A", prefix: "INV-A" },
+      { company: "B", prefix: "INV-B" }, { company: "A", prefix: "" }]);
+  expect(state.unexpected).toEqual([]);
+});
+
+test("view-only Portal Settings cannot mutate the invoice prefix", async ({ page }) => {
+  const state = await setup(page, { permissions: ["portal.settings.view"], handler: async (route, path) => {
+    if (path !== "/pakistan-fbr/portal-settings") return false;
+    await fulfill(route, { json: {
+      company_id: "A",
+      presentation: { version: 1, logo_document_id: null, footer: null, declaration: null, default_notes: null,
+        number_prefix_display: null, show_seller_email: true, show_seller_phone: true, show_seller_address: true },
+      fbr_configuration: { configured: false, credential_configured: false, environment: null, connection_state: null },
+    } });
+    return true;
+  } });
+  await page.goto("/fbr-invoicing/portal-settings");
+  await expect(page.getByRole("textbox", { name: "Invoice Prefix / Presentation" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save Settings" })).toHaveCount(0);
+  expect(state.requests.filter(request => request.path === "/pakistan-fbr/portal-settings").map(request => request.method)).toEqual(["GET"]);
+  expect(state.unexpected).toEqual([]);
+});
