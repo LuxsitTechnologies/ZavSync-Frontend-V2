@@ -69,7 +69,7 @@ onBeforeUnmount(() => { generation++; credential.value = ""; logo.value = null; 
         <label class="block">Invoice Footer <textarea v-model="form.footer" class="field mt-1 block w-full" maxlength="5000" :disabled="!canManage || busy"></textarea></label>
         <label class="block">Invoice Declaration <textarea v-model="form.declaration" class="field mt-1 block w-full" maxlength="5000" :disabled="!canManage || busy"></textarea></label>
         <label class="block">Default Document Notes <textarea v-model="form.default_notes" class="field mt-1 block w-full" maxlength="5000" :disabled="!canManage || busy"></textarea></label>
-        <label class="block">Invoice Prefix / Presentation <input v-model="form.number_prefix_display" class="field mt-1 block w-full" maxlength="20" :disabled="!canManage || busy" /></label>
+        <label class="block">Invoice Prefix / Presentation <input id="invoice-number-prefix-display" v-model="form.number_prefix_display" name="invoice_number_prefix_display" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" class="field mt-1 block w-full" maxlength="20" :disabled="!canManage || busy" /></label>
         <p class="text-sm font-medium">Seller / Contact Presentation</p>
         <label class="flex gap-2"><input v-model="form.show_seller_email" type="checkbox" :disabled="!canManage || busy" />Show seller email</label>
         <label class="flex gap-2"><input v-model="form.show_seller_phone" type="checkbox" :disabled="!canManage || busy" />Show seller phone</label>
