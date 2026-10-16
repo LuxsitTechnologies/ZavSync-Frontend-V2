@@ -17,6 +17,7 @@ export const platformRepository={
  updateRole:(companyId:string,id:number,input:{name:string;permission_ids:number[]})=>apiRequest<PlatformRole>(`/platform/roles/${id}`,{method:"PUT",companyId,body:input}),
  cloneRole:(companyId:string,id:number,name:string)=>apiRequest<PlatformRole>(`/platform/roles/${id}/clone`,{method:"POST",companyId,body:{name}}),
  archiveRole:(companyId:string,id:number)=>apiRequest<PlatformRole>(`/platform/roles/${id}/archive`,{method:"POST",companyId,body:{}}),
+ deleteRole:(companyId:string,id:number)=>apiRequest<{message:string}>(`/platform/roles/${id}`,{method:"DELETE",companyId}),
  settings:(companyId:string)=>apiRequest<CompanySettings>("/platform/settings",{companyId}),
  saveSettings:(companyId:string,input:Partial<CompanySettings>)=>apiRequest<CompanySettings>("/platform/settings",{method:"PUT",companyId,body:input}),
  uploadLogo:(companyId:string,file:File)=>{const body=new FormData();body.set('logo',file);return apiRequest<{settings:CompanySettings}>("/platform/settings/logo",{method:'POST',companyId,body})},
