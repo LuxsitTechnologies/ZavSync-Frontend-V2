@@ -14,6 +14,7 @@
     "test:fbr:unit": "playwright test --config playwright.fbr.config.ts --grep \"exact conversion|navigation separates|static Accounting|repository firewall\"",
     "test:navigation": "playwright test --config playwright.navigation.config.ts",
     "test:navigation:unit": "playwright test --config playwright.navigation.config.ts tests/navigation/unit.spec.ts",
+    "test:roles": "playwright test --config playwright.roles.config.ts",
     "test:identity": "playwright test --config playwright.identity.config.ts",
     "test:identity:unit": "playwright test --config playwright.identity.config.ts tests/identity/unit.spec.ts",
     "test:employee-portal": "playwright test --config playwright.employee-portal.config.ts",
