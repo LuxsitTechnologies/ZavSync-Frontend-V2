@@ -54,9 +54,31 @@ async function clone(role: PlatformRole) {
   await state.refresh();
 }
 async function archive(role: PlatformRole) {
-  await platformRepository.archiveRole(company.activeCompanyId, role.id);
-  showToast("Role archived");
-  await state.refresh();
+  const id = company.activeCompanyId, version = company.contextVersion;
+  if (!canManage.value || role.is_system || role.archived_at || role.company_id !== id) return;
+  const current = () => !company.switching && company.activeCompanyId === id && company.contextVersion === version;
+  pageError.value = "";
+  try {
+    await platformRepository.archiveRole(id, role.id);
+    if (!current()) return;
+    showToast("Role archived");
+    await state.refresh();
+  } catch (cause) {
+    if (!current()) return;
+    const error = cause instanceof ApiError ? cause : new ApiError("Role archiving could not be completed.");
+    if (error.status === 404) {
+      await state.refresh();
+      if (current()) pageError.value = state.error.value
+        ? "This role is no longer available. Company roles could not be reloaded; try again."
+        : "This role is no longer available. The company roles have been reloaded.";
+    } else if (error.status === 403) {
+      pageError.value = "Access denied. You cannot archive roles in this company.";
+    } else if (error.status === 409) {
+      pageError.value = error.message;
+    } else {
+      pageError.value = "Role archiving could not be completed. Check your connection and retry.";
+    }
+  }
 }
 
 const deleteTarget = ref<PlatformRole | null>(null);
@@ -69,7 +91,7 @@ function closeDelete() {
   deleteError.value = "";
 }
 function askDelete(role: PlatformRole) {
-  if (!canManage.value || role.is_system || !role.archived_at || role.company_id !== company.activeCompanyId) return;
+  if (!canManage.value || role.is_system || role.company_id !== company.activeCompanyId) return;
   deleteTarget.value = role;
   deleteCompanyId.value = company.activeCompanyId;
   deleteContextVersion.value = company.contextVersion;
@@ -84,9 +106,42 @@ watch(() => [company.switching, company.activeCompanyId, company.contextVersion]
   pageError.value = "";
   open.value = false;
 }, { flush: "sync" });
+async function confirmArchive() {
+  const role = deleteTarget.value, id = deleteCompanyId.value, version = deleteContextVersion.value;
+  if (!role || role.is_system || role.archived_at || deleteSaving.value || !canManage.value || company.activeCompanyId !== id || company.contextVersion !== version) return;
+  const token = ++deleteGeneration;
+  const current = () => token === deleteGeneration && !company.switching && company.activeCompanyId === id && company.contextVersion === version;
+  deleteSaving.value = true;
+  deleteError.value = "";
+  try {
+    await platformRepository.archiveRole(id, role.id);
+    if (!current()) return;
+    deleteTarget.value = null;
+    showToast("Role archived", "The archived role can now be reviewed for permanent deletion.", "success");
+    await state.refresh();
+  } catch (cause) {
+    if (!current()) return;
+    const error = cause instanceof ApiError ? cause : new ApiError("Role archiving could not be completed.");
+    if (error.status === 404) {
+      deleteTarget.value = null;
+      await state.refresh();
+      if (current()) pageError.value = state.error.value
+        ? "This role is no longer available. Company roles could not be reloaded; try again."
+        : "This role is no longer available. The company roles have been reloaded.";
+    } else if (error.status === 403) {
+      deleteError.value = "Access denied. You cannot archive roles in this company.";
+    } else if (error.status === 409) {
+      deleteError.value = error.message;
+    } else {
+      deleteError.value = "Role archiving could not be completed. Check your connection and retry, or reload the roles before trying again.";
+    }
+  } finally {
+    if (current()) deleteSaving.value = false;
+  }
+}
 async function confirmDelete() {
   const role = deleteTarget.value, id = deleteCompanyId.value, version = deleteContextVersion.value;
-  if (!role || deleteSaving.value || !canManage.value || company.activeCompanyId !== id || company.contextVersion !== version) return;
+  if (!role || role.is_system || !role.archived_at || deleteSaving.value || !canManage.value || company.activeCompanyId !== id || company.contextVersion !== version) return;
   const token = ++deleteGeneration;
   const current = () => token === deleteGeneration && !company.switching && company.activeCompanyId === id && company.contextVersion === version;
   deleteSaving.value = true;
@@ -137,14 +192,14 @@ async function confirmDelete() {
         <template #name="{ row }: { row: PlatformRole }"><span class="inline-flex items-center gap-2 font-medium text-content"><ShieldCheck class="size-3.5 text-content-muted" />{{ row.name }}<span v-if="row.is_system" class="zs-badge badge-warning">System</span><span v-if="row.archived_at" class="zs-badge badge-neutral">Archived</span></span></template>
         <template #users="{ row }">{{ row.memberships_count ?? 0 }}</template>
         <template #permissions="{ row }: { row: PlatformRole }"><div class="flex max-w-xl flex-wrap gap-1"><span v-for="permission in row.permissions.slice(0, 8)" :key="permission.id" class="num zs-badge badge-neutral">{{ permission.name }}</span><span v-if="row.permissions.length > 8" class="zs-badge badge-neutral">+{{ row.permissions.length - 8 }}</span></div></template>
-        <template #actions="{ row }: { row: PlatformRole }"><div v-if="canManage" class="flex justify-end gap-1"><ZButton v-if="!row.is_system" variant="ghost" @click="edit(row)">Edit</ZButton><ZButton variant="ghost" @click="clone(row)"><Copy class="size-3.5" />Clone</ZButton><ZButton v-if="!row.is_system && !row.archived_at" variant="ghost" @click="archive(row)">Archive</ZButton><ZButton v-if="!row.is_system && row.archived_at" variant="ghost" @click="askDelete(row)">Delete</ZButton></div></template>
+        <template #actions="{ row }: { row: PlatformRole }"><div v-if="canManage" class="flex justify-end gap-1"><ZButton v-if="!row.is_system" variant="ghost" @click="edit(row)">Edit</ZButton><ZButton variant="ghost" @click="clone(row)"><Copy class="size-3.5" />Clone</ZButton><ZButton v-if="!row.is_system && !row.archived_at" variant="ghost" @click="archive(row)">Archive</ZButton><ZButton v-if="!row.is_system" variant="ghost" @click="askDelete(row)">Delete</ZButton></div></template>
       </DataTable>
     </Panel>
     <SidePanel :open="open" :title="editing ? 'Edit role' : 'Create role'" description="You can only grant permissions held by your own role." @close="open = false">
       <form class="space-y-4" @submit.prevent="submit"><Field v-model="name" label="Role name" required /><div><p class="label-caps">Permissions</p><div class="mt-2 max-h-[28rem] space-y-2 overflow-y-auto rounded-md border border-line p-3"><label v-for="permission in permissions" :key="permission.id" class="flex items-start gap-2 text-xs text-content-secondary"><input v-model="selected" type="checkbox" :value="permission.id" class="mt-0.5 accent-[var(--primary)]" /><span><span class="font-medium text-content">{{ permission.name }}</span><span v-if="permission.description" class="block text-content-muted">{{ permission.description }}</span></span></label></div></div><ValidationMessage :message="save.error.value?.message" /><ZButton type="submit" :disabled="save.saving.value">{{ save.saving.value ? 'Saving…' : 'Save role' }}</ZButton></form>
     </SidePanel>
-    <SidePanel :open="!!deleteTarget" title="Delete archived role" @close="closeDelete">
-      <div v-if="deleteTarget" class="space-y-4"><p>Delete this archived role permanently?</p><p class="font-medium">{{ deleteTarget.name }}</p><p>This action cannot be undone. Roles with existing assignments, invitations or historical references cannot be deleted.</p><p v-if="deleteError" role="alert" class="text-danger">{{ deleteError }}</p><div class="flex justify-end gap-2"><ZButton variant="outline" :disabled="deleteSaving" @click="closeDelete">Cancel</ZButton><ZButton :disabled="deleteSaving" @click="confirmDelete">{{ deleteSaving ? 'Deleting…' : 'Delete role permanently' }}</ZButton></div></div>
+    <SidePanel :open="!!deleteTarget" :title="deleteTarget?.archived_at ? 'Delete archived role' : 'Archive before deleting'" @close="closeDelete">
+      <div v-if="deleteTarget" class="space-y-4"><template v-if="deleteTarget.archived_at"><p>Delete this archived role permanently?</p><p class="font-medium">{{ deleteTarget.name }}</p><p>This action cannot be undone. Roles with existing assignments, invitations or historical references cannot be deleted.</p></template><template v-else><p>This role must be archived before it can be permanently deleted.</p><p class="font-medium">{{ deleteTarget.name }}</p><p>Archiving does not delete this role. You can review it for permanent deletion afterward.</p></template><p v-if="deleteError" role="alert" class="text-danger">{{ deleteError }}</p><div class="flex justify-end gap-2"><ZButton variant="outline" :disabled="deleteSaving" @click="closeDelete">Cancel</ZButton><ZButton v-if="deleteTarget.archived_at" :disabled="deleteSaving" @click="confirmDelete">{{ deleteSaving ? 'Deleting…' : 'Delete role permanently' }}</ZButton><ZButton v-else-if="canManage" :disabled="deleteSaving" @click="confirmArchive">{{ deleteSaving ? 'Archiving…' : 'Archive Role' }}</ZButton></div></div>
     </SidePanel>
   </AppShell>
 </template>
