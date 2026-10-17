@@ -7,14 +7,16 @@ const role = (id: number, company_id: string, name: string, is_system = false, a
   memberships_count, permissions_count: 0, permissions: [],
 });
 
-async function setup(page: Page, options: { manage?: boolean; deleteStatus?: number; deleteCode?: string; lateDelete?: boolean } = {}) {
+async function setup(page: Page, options: { manage?: boolean; deleteStatus?: number; deleteCode?: string; lateDelete?: boolean; archiveStatus?: number; lateArchive?: boolean } = {}) {
   const roles: Record<string, PlatformRole[]> = {
-    A: [role(1, "A", "Admin", true, false, 2), role(2, "A", "Active custom", false, false, 1), role(3, "A", "Archived unused", false, true), role(4, "A", "Archived with history", false, true)],
+    A: [role(1, "A", "Admin", true, false, 2), role(2, "A", "Active custom", false, false, options.archiveStatus === 409 ? 1 : 0), role(3, "A", "Archived unused", false, true), role(4, "A", "Archived with history", false, true)],
     B: [role(10, "B", "Company B archived", false, true)],
   };
   const calls: Call[] = [];
   let releaseDelete = () => {};
   const deleteGate = new Promise<void>(resolve => { releaseDelete = resolve; });
+  let releaseArchive = () => {};
+  const archiveGate = new Promise<void>(resolve => { releaseArchive = resolve; });
   let releaseRead = () => {};
   const readGate = new Promise<void>(resolve => { releaseRead = resolve; });
   let delayNextARead = false;
@@ -35,6 +37,15 @@ async function setup(page: Page, options: { manage?: boolean; deleteStatus?: num
       if (companyId === "A" && delayNextARead) { delayNextARead = false; await readGate; }
       return respond({ roles: snapshot, permissions: [] });
     }
+    if (path.endsWith("/archive") && path.startsWith("/api/v1/platform/roles/") && method === "POST") {
+      calls.push({ method, company: companyId, path });
+      if (options.lateArchive) await archiveGate;
+      if (companyId !== "A" || path !== "/api/v1/platform/roles/2/archive") return respond({ message: "Unavailable" }, 404);
+      if (options.archiveStatus) return respond({ message: options.archiveStatus === 409 ? "Remove this role from every user before archiving it." : "Internal role detail must not leak" }, options.archiveStatus);
+      const active = roles.A.find(item => item.id === 2)!;
+      active.archived_at = "2026-10-17T00:00:00Z";
+      return respond(active);
+    }
     if (path.startsWith("/api/v1/platform/roles/") && method === "DELETE") {
       calls.push({ method, company: companyId, path });
       if (options.lateDelete) await deleteGate;
@@ -52,18 +63,65 @@ async function setup(page: Page, options: { manage?: boolean; deleteStatus?: num
   });
   await page.goto("/roles");
   await expect(row(page, "Archived unused")).toBeVisible();
-  return { calls, roles, releaseDelete, releaseRead, deferARead: () => { delayNextARead = true; } };
+  return { calls, roles, releaseDelete, releaseArchive, releaseRead, deferARead: () => { delayNextARead = true; } };
 }
 
 const row = (page: Page, name: string) => page.getByRole("row").filter({ hasText: name });
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Delete archived role" });
 
-test("only an archived custom role offers Delete; system Admin is protected", async ({ page }) => {
+test("active and archived custom roles offer Delete; system Admin is protected", async ({ page }) => {
   const { calls } = await setup(page);
   await expect(row(page, "Archived unused").getByRole("button", { name: "Delete", exact: true })).toBeVisible();
   await expect(row(page, "Archived with history").getByRole("button", { name: "Delete", exact: true })).toBeVisible();
-  await expect(row(page, "Active custom").getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+  await expect(row(page, "Active custom").getByRole("button", { name: "Delete", exact: true })).toBeVisible();
   for (const action of ["Delete", "Archive", "Edit"]) await expect(row(page, "Admin").getByRole("button", { name: action, exact: true })).toHaveCount(0);
+  expect(calls.filter(call => call.method === "DELETE")).toHaveLength(0);
+});
+
+test("active-role Delete explains archive-first; Cancel makes no mutation", async ({ page }) => {
+  const { calls } = await setup(page);
+  await row(page, "Active custom").getByRole("button", { name: "Delete", exact: true }).click();
+  const archiveDialog = page.getByRole("dialog", { name: "Archive before deleting" });
+  await expect(archiveDialog).toContainText("This role must be archived before it can be permanently deleted.");
+  await expect(archiveDialog.getByRole("button", { name: "Archive Role" })).toBeVisible();
+  await expect(archiveDialog.getByRole("button", { name: "Delete role permanently" })).toHaveCount(0);
+  await archiveDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(archiveDialog).toHaveCount(0);
+  expect(calls.filter(call => call.method !== "GET")).toHaveLength(0);
+});
+
+test("Archive Role uses Company A, reloads, and requires a separate delete confirmation", async ({ page }) => {
+  const { calls } = await setup(page);
+  await row(page, "Active custom").getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("dialog", { name: "Archive before deleting" }).getByRole("button", { name: "Archive Role" }).click();
+  await expect(page.getByRole("dialog", { name: "Archive before deleting" })).toHaveCount(0);
+  await expect(row(page, "Active custom")).toContainText("Archived");
+  await expect(row(page, "Active custom").getByRole("button", { name: "Archive", exact: true })).toHaveCount(0);
+  await expect(row(page, "Active custom").getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  expect(calls.filter(call => call.method === "POST")).toEqual([{ method: "POST", company: "A", path: "/api/v1/platform/roles/2/archive" }]);
+  expect(calls.filter(call => call.method === "DELETE")).toHaveLength(0);
+  expect(calls.filter(call => call.method === "GET" && call.company === "A")).toHaveLength(2);
+  await row(page, "Active custom").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(dialog(page)).toContainText("Delete this archived role permanently?");
+  expect(calls.filter(call => call.method === "DELETE")).toHaveLength(0);
+});
+
+test("backend archive conflict leaves active role intact and never sends DELETE", async ({ page }) => {
+  const { calls } = await setup(page, { archiveStatus: 409 });
+  await row(page, "Active custom").getByRole("button", { name: "Delete", exact: true }).click();
+  const archiveDialog = page.getByRole("dialog", { name: "Archive before deleting" });
+  await archiveDialog.getByRole("button", { name: "Archive Role" }).click();
+  await expect(archiveDialog.getByRole("alert")).toContainText("Remove this role from every user before archiving it.");
+  await expect(row(page, "Active custom")).not.toContainText("Archived");
+  expect(calls.filter(call => call.method === "DELETE")).toHaveLength(0);
+});
+
+test("standalone Archive also shows the backend's safe blocking reason", async ({ page }) => {
+  const { calls } = await setup(page, { archiveStatus: 409 });
+  await row(page, "Active custom").getByRole("button", { name: "Archive", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Remove this role from every user before archiving it.");
+  await expect(row(page, "Active custom")).not.toContainText("Archived");
+  expect(calls.filter(call => call.method === "POST")).toEqual([{ method: "POST", company: "A", path: "/api/v1/platform/roles/2/archive" }]);
   expect(calls.filter(call => call.method === "DELETE")).toHaveLength(0);
 });
 
@@ -130,8 +188,9 @@ test("zero current users never bypasses the backend's historical-reference block
 test("view-only user cannot delete even with archived roles", async ({ page }) => {
   const { calls } = await setup(page, { manage: false });
   await expect(row(page, "Archived unused").getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+  for (const action of ["Delete", "Archive", "Edit", "Clone"]) await expect(row(page, "Active custom").getByRole("button", { name: action, exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "New role" })).toHaveCount(0);
-  expect(calls.filter(call => call.method === "DELETE")).toHaveLength(0);
+  expect(calls.filter(call => call.method !== "GET")).toHaveLength(0);
 });
 
 test("company switch clears A confirmation; B cannot delete A role", async ({ page }) => {
@@ -156,6 +215,20 @@ test("late A deletion cannot replace B roles or issue a B deletion", async ({ pa
   await expect(row(page, "Archived unused")).toHaveCount(0);
   await expect(row(page, "Company B archived")).toBeVisible();
   expect(calls.filter(call => call.method === "DELETE")).toEqual([{ method: "DELETE", company: "A", path: "/api/v1/platform/roles/3" }]);
+});
+
+test("late A archive cannot repopulate Company B roles or issue a B mutation", async ({ page }) => {
+  const { calls, releaseArchive } = await setup(page, { lateArchive: true });
+  await row(page, "Active custom").getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("dialog", { name: "Archive before deleting" }).getByRole("button", { name: "Archive Role" }).click();
+  await expect.poll(() => calls.filter(call => call.method === "POST").length).toBe(1);
+  await page.getByLabel("Active company").selectOption("B");
+  await expect(row(page, "Company B archived")).toBeVisible();
+  releaseArchive();
+  await expect(row(page, "Active custom")).toHaveCount(0);
+  await expect(row(page, "Company B archived")).toBeVisible();
+  expect(calls.filter(call => call.method === "POST")).toEqual([{ method: "POST", company: "A", path: "/api/v1/platform/roles/2/archive" }]);
+  expect(calls.filter(call => call.method === "DELETE")).toHaveLength(0);
 });
 
 test("late A role list cannot overwrite B after switching back and forth", async ({ page }) => {
